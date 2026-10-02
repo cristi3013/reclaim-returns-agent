@@ -1,0 +1,40 @@
+{
+  "request": "GET /sap/opu/odata/sap/API_CUSTOMER_RETURN_SRV/A_CustomerReturn('60000151')?$expand=to_Item&$select=CustomerReturn,CustomerReturnType,SalesOrganization,SoldToParty,SDDocumentReason,PurchaseOrderByCustomer,HeaderBillingBlockReason,TotalNetAmount,TransactionCurrency,to_Item/CustomerReturnItem,to_Item/Material,to_Item/RequestedQuantity,to_Item/ReferenceSDDocument,to_Item/ReferenceSDDocumentItem",
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "response": {
+    "d": {
+      "__metadata": {
+        "id": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_CUSTOMER_RETURN_SRV/A_CustomerReturn('60000151')",
+        "uri": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_CUSTOMER_RETURN_SRV/A_CustomerReturn('60000151')",
+        "type": "API_CUSTOMER_RETURN_SRV.A_CustomerReturnType",
+        "etag": "W/\"datetimeoffset'2026-09-30T23%3A14%3A03.8766300Z'\""
+      },
+      "CustomerReturn": "60000151",
+      "CustomerReturnType": "YRE",
+      "SalesOrganization": "YSOD",
+      "SoldToParty": "10044",
+      "PurchaseOrderByCustomer": "RDY-260930-RET",
+      "TotalNetAmount": "270.00",
+      "TransactionCurrency": "EUR",
+      "SDDocumentReason": "101",
+      "HeaderBillingBlockReason": "08",
+      "to_Item": {
+        "results": [
+          {
+            "__metadata": {
+              "id": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_CUSTOMER_RETURN_SRV/A_CustomerReturnItem(CustomerReturn='60000151',CustomerReturnItem='10')",
+              "uri": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_CUSTOMER_RETURN_SRV/A_CustomerReturnItem(CustomerReturn='60000151',CustomerReturnItem='10')",
+              "type": "API_CUSTOMER_RETURN_SRV.A_CustomerReturnItemType"
+            },
+            "CustomerReturnItem": "10",
+            "Material": "54",
+            "RequestedQuantity": "1.000",
+            "ReferenceSDDocument": "90000454",
+            "ReferenceSDDocumentItem": "10"
+          }
+        ]
+      }
+    }
+  }
+}

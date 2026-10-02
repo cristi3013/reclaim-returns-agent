@@ -1,0 +1,45 @@
+{
+  "request": "GET /sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocument('90000353')?$expand=to_Item&$select=BillingDocument,BillingDocumentType,BillingDocumentDate,SalesOrganization,DistributionChannel,Division,SoldToParty,CompanyCode,TotalNetAmount,TaxAmount,TransactionCurrency,BillingDocumentIsCancelled,to_Item/BillingDocumentItem,to_Item/Material,to_Item/BillingQuantity,to_Item/BillingQuantityUnit,to_Item/NetAmount,to_Item/ReferenceSDDocument,to_Item/SalesDocument",
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "response": {
+    "d": {
+      "__metadata": {
+        "id": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocument('90000353')",
+        "uri": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocument('90000353')",
+        "type": "API_BILLING_DOCUMENT_SRV.A_BillingDocumentType",
+        "etag": "W/\"datetimeoffset'2026-09-29T10%3A06%3A03.0155740Z'\""
+      },
+      "BillingDocument": "90000353",
+      "BillingDocumentType": "YF2",
+      "SalesOrganization": "YSOD",
+      "DistributionChannel": "Y1",
+      "Division": "Y5",
+      "BillingDocumentDate": "/Date(1790640000000)/",
+      "BillingDocumentIsCancelled": false,
+      "TotalNetAmount": "1350.00",
+      "TransactionCurrency": "EUR",
+      "TaxAmount": "0.00",
+      "CompanyCode": "YDE1",
+      "SoldToParty": "10021",
+      "to_Item": {
+        "results": [
+          {
+            "__metadata": {
+              "id": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocumentItem(BillingDocument='90000353',BillingDocumentItem='10')",
+              "uri": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocumentItem(BillingDocument='90000353',BillingDocumentItem='10')",
+              "type": "API_BILLING_DOCUMENT_SRV.A_BillingDocumentItemType"
+            },
+            "BillingDocumentItem": "10",
+            "Material": "54",
+            "BillingQuantity": "5.000",
+            "BillingQuantityUnit": "KG",
+            "NetAmount": "1350.00",
+            "ReferenceSDDocument": "80608800",
+            "SalesDocument": "1610"
+          }
+        ]
+      }
+    }
+  }
+}

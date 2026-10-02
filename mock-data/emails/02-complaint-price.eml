@@ -1,0 +1,16 @@
+From: Accounts Payable, Cust DE 1 <ap@cust-de-1.example>
+To: returns@o2c-hackathon.example
+Subject: Price difference on invoice 90000354
+Date: Mon, 05 Oct 2026 07:40:00 +0000
+Message-ID: <02-complaint-price@mock.o2c-hackathon.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Hello,
+
+We were invoiced 3 240.00 EUR for 12 KG of material 54 on invoice 90000354.
+Our agreed price is 260 EUR per KG, so we expect 3 120.00 EUR. Please issue a=
+ credit note for the difference.
+
+Accounts Payable, Cust DE 1

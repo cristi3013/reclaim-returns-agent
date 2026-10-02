@@ -1,0 +1,27 @@
+{
+  "request": "GET /sap/opu/odata/sap/API_CREDIT_MEMO_REQUEST_SRV/A_CreditMemoRequest?$filter=HeaderBillingBlockReason eq '08' and SoldToParty eq '10021'&$select=CreditMemoRequest,CreditMemoRequestType,SoldToParty,SDDocumentReason,HeaderBillingBlockReason,ReferenceSDDocument,TotalNetAmount,TransactionCurrency&$top=5",
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "response": {
+    "d": {
+      "results": [
+        {
+          "__metadata": {
+            "id": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_CREDIT_MEMO_REQUEST_SRV/A_CreditMemoRequest('60000021')",
+            "uri": "https://<ds4-host>:<port>/sap/opu/odata/sap/API_CREDIT_MEMO_REQUEST_SRV/A_CreditMemoRequest('60000021')",
+            "type": "API_CREDIT_MEMO_REQUEST_SRV.A_CreditMemoRequestType",
+            "etag": "W/\"datetimeoffset'2019-05-29T08%3A55%3A50.8681180Z'\""
+          },
+          "CreditMemoRequest": "60000021",
+          "CreditMemoRequestType": "YCR",
+          "SoldToParty": "10021",
+          "TotalNetAmount": "50.00",
+          "TransactionCurrency": "EUR",
+          "SDDocumentReason": "101",
+          "HeaderBillingBlockReason": "08",
+          "ReferenceSDDocument": "79"
+        }
+      ]
+    }
+  }
+}

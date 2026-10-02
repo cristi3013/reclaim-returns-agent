@@ -1,0 +1,57 @@
+{
+ "about": "What a correct agent proposes for each mock complaint, using reference/returns-policy.md. Invoice data checked on SAP DS4 on 1 Oct 2026.",
+ "emails": {
+  "01-complaint-damaged.eml": {
+   "invoice": "90000353",
+   "customer": "10021",
+   "salesArea": "YSOD/Y1/Y5",
+   "rule": "R3 (leaked = ruined, cannot be returned) or R1 if the drums can be collected: the agent proposes both with its reasoning and a person confirms one",
+   "document": "credit memo request YCR (R3) or customer return YRE (R1)",
+   "orderReason": "104 or 102",
+   "quantity": "2 KG of material 54 (invoice item 10)",
+   "value": "540.00 EUR (2 × 270)",
+   "approver": "Credit manager",
+   "billingBlock": "08"
+  },
+  "02-complaint-price.eml": {
+   "invoice": "90000354",
+   "customer": "10021",
+   "rule": "R4",
+   "finding": "Agreed price on file (PR00, YSOD/Y1, material 54) is 270 EUR/KG, the invoice is 270 EUR/KG, so the claim of 260 is NOT supported by SAP data",
+   "document": "none, or a credit memo request only if a person confirms a special agreement",
+   "value": "120.00 EUR claimed",
+   "approver": "Credit manager"
+  },
+  "03-complaint-short-delivery.eml": {
+   "invoice": "90000355",
+   "rule": "R5",
+   "document": "credit memo request YCR",
+   "orderReason": "103",
+   "quantity": "2 KG of 54",
+   "value": "540.00 EUR",
+   "approver": "Credit manager",
+   "billingBlock": "08"
+  },
+  "04-complaint-over-quantity.eml": {
+   "invoice": "90000356",
+   "rule": "R7",
+   "finding": "Invoice 90000356 is for 8 KG; 10 KG cannot be returned",
+   "document": "none; ask the customer"
+  },
+  "05-complaint-no-invoice.eml": {
+   "rule": "R9",
+   "finding": "Invoice 90000357 (15 KG of 54, 4 050 EUR, 29 Sep 2026) is the likely match",
+   "document": "none until the customer confirms; then customer return YRE, reason 101 (R2)"
+  },
+  "06-complaint-duplicate.eml": {
+   "invoice": "90000353",
+   "rule": "R8",
+   "document": "none if a return or credit already exists for 90000353; reply with its number"
+  },
+  "07-replacement-request.eml": {
+   "invoice": "90000358",
+   "rule": "R6",
+   "document": "none; hand over to customer service for a replacement delivery"
+  }
+ }
+}
