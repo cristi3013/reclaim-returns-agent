@@ -1,0 +1,151 @@
+/* Reclaim design tokens.
+   Layout: left nav rail + top bar + content column max 1440px.
+   Deloitte base: black / white / cool grey, signature green as the only accent.
+   Status colours are deliberately different shades so "approved" never looks like "click here". */
+:root {
+  --font-sans: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eceef1;
+  --fg: #121417;
+  --muted: #5f6873;
+  --line: #d8dce2;
+
+  --accent: #86bc25;
+  --accent-fg: #0b1a00;
+  --accent-soft: #eef6df;
+  --green: #046a38;
+  --teal: #0097a9;
+  --blue: #00a3e0;
+
+  --ok: #046a38;
+  --ok-soft: #dff0e6;
+  --warn: #9a6f0a;
+  --warn-soft: #fbf1d6;
+  --bad: #c0392b;
+  --bad-soft: #f9e1dd;
+  --info: #007f8f;
+  --info-soft: #dcf2f5;
+
+  --radius: 6px;
+  --shadow: 0 1px 2px rgb(18 20 23 / 0.06), 0 1px 1px rgb(18 20 23 / 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b0d0f;
+    --surface: #15181c;
+    --surface-2: #1d2126;
+    --fg: #e8eaed;
+    --muted: #9aa3ad;
+    --line: #2a3036;
+    --accent: #9cd03a;
+    --accent-fg: #0b1a00;
+    --accent-soft: #1f2a12;
+    --green: #5fbf8a;
+    --teal: #3fb9c8;
+    --blue: #4fc0ee;
+    --ok: #5fbf8a;
+    --ok-soft: #14301f;
+    --warn: #e0b23c;
+    --warn-soft: #3a2e10;
+    --bad: #ea8373;
+    --bad-soft: #3d1c17;
+    --info: #3fb9c8;
+    --info-soft: #0f2e33;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b0d0f;
+  --surface: #15181c;
+  --surface-2: #1d2126;
+  --fg: #e8eaed;
+  --muted: #9aa3ad;
+  --line: #2a3036;
+  --accent: #9cd03a;
+  --accent-fg: #0b1a00;
+  --accent-soft: #1f2a12;
+  --green: #5fbf8a;
+  --teal: #3fb9c8;
+  --blue: #4fc0ee;
+  --ok: #5fbf8a;
+  --ok-soft: #14301f;
+  --warn: #e0b23c;
+  --warn-soft: #3a2e10;
+  --bad: #ea8373;
+  --bad-soft: #3d1c17;
+  --info: #3fb9c8;
+  --info-soft: #0f2e33;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-green: var(--green);
+  --color-teal: var(--teal);
+  --color-blue: var(--blue);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius-md: var(--radius);
+  --shadow-card: var(--shadow);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

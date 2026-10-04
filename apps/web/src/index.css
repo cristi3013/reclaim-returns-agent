@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+@import './theme/tokens.css';
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+  button,
+  select,
+  input,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@keyframes reclaim-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-pulse-dot {
+  animation: reclaim-pulse 1.2s ease-in-out infinite;
+}
