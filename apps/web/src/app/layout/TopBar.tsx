@@ -14,14 +14,14 @@ export function TopBar() {
   const { role, setRole } = useUi()
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-6">
-      <div className="flex items-baseline gap-2">
-        <span className="text-base font-semibold tracking-tight">Reclaim</span>
-        <span className="hidden text-xs text-muted xl:inline">Returns &amp; Credit Note agent · O2C Agent 8</span>
+      <div className="flex shrink-0 items-baseline gap-2 whitespace-nowrap">
+        <span className="text-sm font-semibold tracking-tight">Returns &amp; Credit Note agent</span>
+        <span className="text-xs text-muted">O2C Agent 8</span>
       </div>
       <AgentStatusBadge />
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex items-center gap-3 whitespace-nowrap">
         <ModeSwitch
-          label="SAP mode"
+          label="SAP"
           value={s?.sapMode ?? 'mock'}
           options={[
             { value: 'mock', label: 'Mock' },
@@ -30,7 +30,7 @@ export function TopBar() {
           onChange={(v) => upd.mutate({ sapMode: v as 'mock' | 'real' })}
         />
         <ModeSwitch
-          label="AI mode"
+          label="AI"
           value={s?.aiMode ?? 'assisted'}
           options={[
             { value: 'assisted', label: 'AI assisted' },
@@ -39,7 +39,7 @@ export function TopBar() {
           onChange={(v) => upd.mutate({ aiMode: v as 'assisted' | 'rules_only' })}
         />
         <ModeSwitch
-          label="Simulate SAP conflict"
+          label="SAP conflict"
           tone="warn"
           value={s?.simulateConflict ? 'on' : 'off'}
           options={[

@@ -6,7 +6,7 @@ export function AgentStatusBadge() {
   if (!data) return null
   return (
     <div
-      className="flex items-center gap-2 rounded-full border border-line bg-surface-2 px-3 py-1 text-xs"
+      className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-line bg-surface-2 px-3 py-1 text-xs"
       title="Status endpoint for the Control Tower: /api/status"
     >
       <span className="size-2 rounded-full bg-accent animate-pulse-dot" aria-hidden />

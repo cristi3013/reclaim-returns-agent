@@ -31,8 +31,10 @@ export function ApprovalsPage() {
         <div>
           <h1 className="text-xl font-semibold">Approvals</h1>
           <p className="text-sm text-muted">
-            Queue for {ROLE_LABELS[role]} · {waiting} waiting · thresholds:{' '}
-            {APPROVAL_THRESHOLDS.map((t) => `${t.upTo === Infinity ? 'above 5 000' : `up to ${t.upTo}`} → ${ROLE_LABELS[t.role]}`).join(' · ')} · no goods back → credit manager at least
+            Queue for {ROLE_LABELS[role]} · {waiting} waiting
+            <span className="ml-2 text-xs">
+              {APPROVAL_THRESHOLDS.map((t) => `${t.upTo === Infinity ? 'above 5 000' : `up to ${t.upTo.toLocaleString('en-GB').replace(',', ' ')}`}: ${ROLE_LABELS[t.role]}`).join(' · ')} · no goods back: credit manager at least
+            </span>
           </p>
         </div>
         <label className="ml-auto flex items-center gap-2 text-sm">

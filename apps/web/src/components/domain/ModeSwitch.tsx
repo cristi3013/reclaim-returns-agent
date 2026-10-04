@@ -14,7 +14,7 @@ export function ModeSwitch({
   tone?: 'neutral' | 'warn'
 }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex shrink-0 items-center gap-2 whitespace-nowrap text-xs">
       <span className="text-muted">{label}</span>
       <div role="radiogroup" aria-label={label} className="flex items-center rounded-md border border-line bg-surface p-0.5">
         {options.map((o) => {
