@@ -14,9 +14,7 @@ export function TopBar() {
   const { role, setRole } = useUi()
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 overflow-hidden border-b border-line bg-surface px-5">
-      <div className="flex shrink-0 items-baseline gap-2 whitespace-nowrap">
-        <span className="text-sm font-semibold tracking-tight">Returns &amp; Credit Note agent</span>
-      </div>
+      <span className="hidden shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight 2xl:inline">Returns &amp; Credit Note agent</span>
       <AgentStatusBadge />
       <div className="ml-auto flex items-center gap-3 whitespace-nowrap">
         <ModeSwitch
@@ -38,7 +36,7 @@ export function TopBar() {
           onChange={(v) => upd.mutate({ aiMode: v as 'assisted' | 'rules_only' })}
         />
         <ModeSwitch
-          label="SAP conflict"
+          label="Conflict"
           tone="warn"
           value={s?.simulateConflict ? 'on' : 'off'}
           options={[
@@ -53,7 +51,7 @@ export function TopBar() {
             aria-label="Role"
             value={role}
             onChange={(e) => setRole(e.target.value as Role)}
-            className="h-7 max-w-[11rem] rounded-md border border-line bg-surface px-2 text-xs"
+            className="h-7 max-w-[10rem] rounded-md border border-line bg-surface px-2 text-xs"
           >
             {ROLES.map((r) => (
               <option key={r} value={r}>

@@ -18,7 +18,7 @@ describe('TopBar', () => {
     expect(screen.getByText(/Returns & Credit Note agent/)).toBeInTheDocument()
     expect(await screen.findByLabelText('SAP')).toBeInTheDocument()
     expect(screen.getByLabelText('AI')).toBeInTheDocument()
-    expect(screen.getByLabelText('SAP conflict')).toBeInTheDocument()
+    expect(screen.getByLabelText('Conflict')).toBeInTheDocument()
     expect(screen.getByLabelText('Role')).toBeInTheDocument()
   })
 })
