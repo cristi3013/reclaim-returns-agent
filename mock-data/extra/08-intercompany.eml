@@ -1,0 +1,14 @@
+From: Logistics, Cust DE 1 <logistics@cust-de-1.example>
+To: returns@o2c-hackathon.example
+Subject: Damaged pallet - invoice 90000359
+Date: Mon, 05 Oct 2026 09:00:00 +0000
+Message-ID: <08-intercompany@mock.o2c-hackathon.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+Hello,
+
+On invoice 90000359 (10 KG of material 54, shipped from your Romanian plant) one pallet arrived with 3 KG of drums crushed. The drums are intact enough to be collected. Please take them back and credit us.
+
+Logistics, Cust DE 1

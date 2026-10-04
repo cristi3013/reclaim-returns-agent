@@ -1,0 +1,403 @@
+import {
+  buildSapPayload,
+  capQuantity,
+  primaryProposal,
+  toSummary,
+  type Case,
+  type CaseSummary,
+  type EvalResult,
+  type Settings,
+} from '@reclaim/shared'
+import {
+  CONFLICT_MESSAGE,
+  type ApiClient,
+  type ApiEvent,
+  type ApproveInput,
+  type ApproveResult,
+  type RejectInput,
+  type ReleaseResult,
+} from '../client'
+import { MockStore } from './store'
+import { ev, uid } from './events'
+import { runPipeline } from './pipeline'
+import { buildFixtureCases, FIXTURES } from './fixtures/cases'
+import { EXPECTED } from './fixtures/expected'
+import { HISTORY_TOTALS, HISTORY_WEEKS } from './fixtures/history'
+
+/**
+ * The backend, in the browser. Same contract as the real one, realistic delays,
+ * persisted in localStorage so a refresh during the demo keeps the state.
+ */
+export class MockApiClient implements ApiClient {
+  private store = new MockStore()
+  private listeners = new Set<(e: ApiEvent) => void>()
+  private running = new Set<string>()
+  private writing = new Set<string>()
+  private fast: boolean
+
+  constructor(opts: { fast?: boolean } = {}) {
+    this.fast = !!opts.fast
+    this.store.load()
+  }
+
+  private emit(e: ApiEvent) {
+    this.listeners.forEach((l) => l(e))
+  }
+
+  private delay(ms: number) {
+    return new Promise<void>((r) => setTimeout(r, this.fast ? 0 : ms))
+  }
+
+  private touch(id: string) {
+    const c = this.store.cases.get(id)
+    if (c) c.updatedAt = new Date().toISOString()
+    this.store.save()
+    this.emit({ type: 'case_changed', id })
+  }
+
+  private host() {
+    return {
+      delay: (ms: number) => this.delay(ms),
+      touch: (id: string) => this.touch(id),
+      cases: this.store.cases,
+      aiMode: this.store.settings.aiMode,
+      setLastRun: (iso: string) => {
+        this.store.lastRunAt = iso
+      },
+    }
+  }
+
+  private locate(proposalId: string) {
+    for (const c of this.store.cases.values()) {
+      const p = c.proposals.find((x) => x.id === proposalId)
+      if (p) return { c, p }
+    }
+    throw Object.assign(new Error('Proposal not found'), { status: 404 })
+  }
+
+  async listCases(): Promise<CaseSummary[]> {
+    return [...this.store.cases.values()]
+      .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
+      .map(toSummary)
+  }
+
+  async getCase(id: string): Promise<Case> {
+    const c = this.store.cases.get(id)
+    if (!c) throw Object.assign(new Error('Case not found'), { status: 404 })
+    return structuredClone(c)
+  }
+
+  async seedCases() {
+    for (const c of buildFixtureCases()) if (!this.store.cases.has(c.id)) this.store.cases.set(c.id, c)
+    this.store.save()
+    this.emit({ type: 'status_changed' })
+  }
+
+  async ingest(files: File[]): Promise<CaseSummary[]> {
+    const out: CaseSummary[] = []
+    for (const f of files) {
+      const text = await new Response(f).text()
+      const fx = FIXTURES.find((x) => x.emailFile === f.name)
+      const now = new Date().toISOString()
+      const id = fx && !this.store.cases.has(fx.id) ? fx.id : uid('case')
+      const c: Case = fx
+        ? { ...buildFixtureCases().find((x) => x.id === fx.id)!, id, createdAt: now, updatedAt: now }
+        : {
+            id,
+            emailFile: f.name,
+            receivedAt: now,
+            from: text.match(/^From:\s*(.+)$/m)?.[1] ?? 'unknown sender',
+            subject: text.match(/^Subject:\s*(.+)$/m)?.[1] ?? f.name,
+            bodyText: text.split(/\r?\n\r?\n/).slice(1).join('\n\n').trim(),
+            attachments: [],
+            status: 'received',
+            customer: '10021',
+            customerName: 'Cust DE 1',
+            invoiceNumber: null,
+            complaintType: 'unknown',
+            aiMode: this.store.settings.aiMode,
+            facts: null,
+            findings: null,
+            proposals: [],
+            approvals: [],
+            sapDocuments: [],
+            events: [],
+            anomalies: [],
+            createdAt: now,
+            updatedAt: now,
+          }
+      this.store.cases.set(id, c)
+      out.push(toSummary(c))
+    }
+    this.store.save()
+    this.emit({ type: 'status_changed' })
+    return out
+  }
+
+  async runCase(id: string) {
+    if (this.running.has(id)) return
+    this.running.add(id)
+    try {
+      await runPipeline(this.host(), id)
+    } finally {
+      this.running.delete(id)
+    }
+  }
+
+  async runAll() {
+    const ordered = [...this.store.cases.values()].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
+    for (const c of ordered) if (c.status === 'received') await this.runCase(c.id)
+  }
+
+  async chooseProposal(proposalId: string) {
+    const { c, p } = this.locate(proposalId)
+    c.proposals.forEach((x) => (x.chosen = x.id === proposalId))
+    ev(c, 'approval', `Option ${p.option} chosen (${p.decision.ruleId}) by a person`, { proposalId }, null, null)
+    this.touch(c.id)
+  }
+
+  async approve(proposalId: string, input: ApproveInput): Promise<ApproveResult> {
+    const { c, p } = this.locate(proposalId)
+    if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) {
+      return { ok: false, status: 409, message: 'This case is not awaiting approval.' }
+    }
+    this.writing.add(c.id)
+    try {
+      const inv = c.findings?.invoice ?? null
+      const invoiced = inv?.items[0]?.quantity ?? p.decision.quantity
+      const qty = input.editedQuantity != null ? capQuantity(input.editedQuantity, invoiced) : p.decision.quantity
+      const unitPrice = inv?.items[0]?.unitPrice ?? (p.decision.quantity ? p.decision.amount / p.decision.quantity : 0)
+      if (qty !== p.decision.quantity) {
+        p.decision = { ...p.decision, quantity: qty, amount: Math.round(qty * unitPrice * 100) / 100 }
+        p.sapPayload =
+          inv && p.decision.documentType !== 'NONE' ? buildSapPayload(p.decision, inv, `COMPLAINT-${inv.number}`) : null
+      }
+      c.proposals.forEach((x) => (x.chosen = x.id === proposalId))
+      c.approvals.push({
+        id: uid('appr'),
+        proposalId,
+        actor: input.actor,
+        role: input.role,
+        decision: 'approved',
+        editedQuantity: input.editedQuantity != null ? qty : null,
+        comment: input.comment ?? '',
+        decidedAt: new Date().toISOString(),
+      })
+      c.status = 'approved'
+      ev(
+        c,
+        'approval',
+        `Approved by ${input.actor} (${input.role})`,
+        { quantity: qty, amount: p.decision.amount, comment: input.comment ?? '' },
+        null,
+        null,
+      )
+      this.touch(c.id)
+
+      if (p.decision.documentType === 'NONE' || !p.sapPayload) {
+        await this.delay(300)
+        c.status = 'closed'
+        ev(c, 'status', 'Reply sent to the customer; no SAP document', { replyDraft: p.replyDraft }, null, null)
+        this.touch(c.id)
+        return { ok: true, document: null }
+      }
+
+      await this.delay(600)
+      const step = p.decision.documentType === 'YRE' ? '5.1.2' : '5.2.1'
+      if (this.store.settings.simulateConflict) {
+        c.status = 'sap_write_failed'
+        ev(
+          c,
+          'error',
+          'SAP refused the write: 412 Precondition Failed',
+          { status: 412, message: CONFLICT_MESSAGE, ifMatch: inv?.etag },
+          step,
+          610,
+        )
+        this.touch(c.id)
+        return { ok: false, status: 412, message: CONFLICT_MESSAGE }
+      }
+      const number = String(this.store.nextDoc++)
+      const type = p.decision.documentType as 'YRE' | 'YCR'
+      const doc = {
+        id: uid('sap'),
+        caseId: c.id,
+        type,
+        number,
+        payload: p.sapPayload,
+        response: {
+          status: 201,
+          [type === 'YRE' ? 'CustomerReturn' : 'CreditMemoRequest']: number,
+          HeaderBillingBlockReason: '08',
+        },
+        createdAt: new Date().toISOString(),
+        released: false,
+      }
+      c.sapDocuments.push(doc)
+      c.status = 'written_to_sap'
+      ev(
+        c,
+        'sap_write',
+        `${type} ${number} created with billing block 08`,
+        { payload: p.sapPayload, response: doc.response, ifMatch: inv?.etag },
+        step,
+        610,
+      )
+      this.touch(c.id)
+      return { ok: true, document: doc }
+    } finally {
+      this.writing.delete(c.id)
+    }
+  }
+
+  async reject(proposalId: string, input: RejectInput) {
+    const { c } = this.locate(proposalId)
+    c.approvals.push({
+      id: uid('appr'),
+      proposalId,
+      actor: input.actor,
+      role: input.role,
+      decision: 'rejected',
+      editedQuantity: null,
+      comment: input.comment,
+      decidedAt: new Date().toISOString(),
+    })
+    c.status = 'rejected'
+    ev(c, 'approval', `Rejected by ${input.actor}: ${input.comment}`, {}, null, null)
+    this.touch(c.id)
+  }
+
+  async release(id: string): Promise<ReleaseResult> {
+    for (const c of this.store.cases.values()) {
+      const d = c.sapDocuments.find((x) => x.id === id)
+      if (!d) continue
+      await this.delay(500)
+      const step = d.type === 'YRE' ? '5.1.3' : '5.2.1'
+      if (this.store.settings.simulateConflict) {
+        ev(c, 'error', 'SAP refused the release: 412 Precondition Failed', { status: 412, message: CONFLICT_MESSAGE }, step, 500)
+        this.touch(c.id)
+        return { ok: false, status: 412, message: CONFLICT_MESSAGE }
+      }
+      d.released = true
+      ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number}`, { HeaderBillingBlockReason: '' }, step, 500)
+      this.touch(c.id)
+      return { ok: true, document: d }
+    }
+    throw Object.assign(new Error('Document not found'), { status: 404 })
+  }
+
+  async getAnalytics() {
+    const cases = [...this.store.cases.values()]
+    const byStatus: Record<string, number> = {}
+    const byType: Record<string, number> = {}
+    for (const c of cases) {
+      byStatus[c.status] = (byStatus[c.status] ?? 0) + 1
+      byType[c.complaintType] = (byType[c.complaintType] ?? 0) + 1
+    }
+    const amountOf = (c: Case) => primaryProposal(c)?.decision.amount ?? 0
+    const approvedLive = cases
+      .filter((c) => ['written_to_sap', 'approved', 'closed'].includes(c.status))
+      .reduce((s, c) => s + amountOf(c), 0)
+    const rejectedLive = cases.filter((c) => c.status === 'rejected').reduce((s, c) => s + amountOf(c), 0)
+    const histCount = (w: (typeof HISTORY_WEEKS)[number]) =>
+      w.damaged + w.ruined + w.quality + w.price + w.short_delivery + w.other
+    return {
+      casesThisMonth: cases.length + HISTORY_WEEKS.slice(-4).reduce((s, w) => s + histCount(w), 0),
+      pendingApprovals: byStatus['awaiting_approval'] ?? 0,
+      approvedValue: approvedLive + HISTORY_WEEKS.reduce((s, w) => s + w.approvedValue, 0),
+      rejectedValue: rejectedLive + HISTORY_WEEKS.reduce((s, w) => s + w.rejectedValue, 0),
+      medianHoursToApproval: HISTORY_TOTALS.medianHoursToApproval,
+      acceptedUnchangedRatio: HISTORY_TOTALS.acceptedUnchanged,
+      duplicatesPrevented: HISTORY_TOTALS.duplicatesPrevented + (byStatus['duplicate'] ?? 0),
+      intercompanyFlagged:
+        HISTORY_TOTALS.intercompanyFlagged + cases.filter((c) => c.proposals.some((p) => p.decision.intercompany)).length,
+      byStatus,
+      byType,
+      weeks: HISTORY_WEEKS,
+      currency: 'EUR',
+    }
+  }
+
+  async runEval(): Promise<EvalResult[]> {
+    const results: EvalResult[] = []
+    for (const [id, e] of Object.entries(EXPECTED)) {
+      const c = this.store.cases.get(id)
+      if (!c) continue
+      if (!c.proposals.length) await this.runCase(id)
+      const k = this.store.cases.get(id)!
+      const p = primaryProposal(k)!
+      const rows: [string, string, string][] = [
+        ['rule', e.rule, p.decision.ruleId],
+        ['document', e.document, p.decision.documentType],
+        ['reason', e.reason, p.decision.reasonCode ?? ''],
+        ['quantity', String(e.quantity), String(p.decision.quantity)],
+        ['amount', e.amount.toFixed(2), p.decision.amount.toFixed(2)],
+        ['approver', e.approver, p.decision.approverRole ?? ''],
+      ]
+      const fields = rows.map(([name, expected, actual]) => ({ name, expected, actual, pass: expected === actual }))
+      if (e.optionA) {
+        const a = k.proposals.find((x) => x.option === 'A')
+        fields.push({
+          name: 'option A',
+          expected: `${e.optionA.rule}/${e.optionA.document}/${e.optionA.reason}`,
+          actual: a ? `${a.decision.ruleId}/${a.decision.documentType}/${a.decision.reasonCode}` : 'missing',
+          pass:
+            !!a &&
+            a.decision.ruleId === e.optionA.rule &&
+            a.decision.documentType === e.optionA.document &&
+            a.decision.reasonCode === e.optionA.reason,
+        })
+      }
+      results.push({ caseId: id, emailFile: k.emailFile ?? id, fields, pass: fields.every((f) => f.pass) })
+    }
+    this.store.evalResults = results
+    this.store.save()
+    this.emit({ type: 'status_changed' })
+    return results
+  }
+
+  async getLatestEval() {
+    return this.store.evalResults
+  }
+
+  async getStatus() {
+    const cases = [...this.store.cases.values()]
+    return {
+      name: 'Reclaim · Returns & Credit Note',
+      agentId: 'o2c-agent-8',
+      cases: cases.length,
+      pending: cases.filter((c) => c.status === 'awaiting_approval').length,
+      lastRunAt: this.store.lastRunAt,
+      sapMode: this.store.settings.sapMode,
+      aiMode: this.store.settings.aiMode,
+    }
+  }
+
+  async getSettings(): Promise<Settings> {
+    return { ...this.store.settings }
+  }
+
+  async updateSettings(patch: Partial<Settings>): Promise<Settings> {
+    this.store.settings = { ...this.store.settings, ...patch }
+    this.store.save()
+    this.emit({ type: 'status_changed' })
+    return { ...this.store.settings }
+  }
+
+  async reset() {
+    this.store.clear()
+    this.emit({ type: 'status_changed' })
+  }
+
+  subscribe(l: (e: ApiEvent) => void) {
+    this.listeners.add(l)
+    return () => {
+      this.listeners.delete(l)
+    }
+  }
+
+  /** Test hook: direct access to the store. */
+  _store() {
+    return this.store
+  }
+}

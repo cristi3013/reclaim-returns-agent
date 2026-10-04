@@ -1,0 +1,117 @@
+import {
+  API_ROUTES,
+  AgentStatusSchema,
+  AnalyticsSummarySchema,
+  CaseSchema,
+  CaseSummarySchema,
+  EvalResultSchema,
+  SettingsSchema,
+  type Settings,
+} from '@reclaim/shared'
+import { z } from 'zod'
+import type { ApiClient, ApiEvent, ApproveInput, ApproveResult, RejectInput, ReleaseResult } from '../client'
+
+type Routes = typeof API_ROUTES
+
+/** Thin fetch wrapper over the shared route table. Validates responses in development. */
+export class HttpApiClient implements ApiClient {
+  constructor(private base: string) {}
+
+  private url(path: string, params: Record<string, string> = {}) {
+    return this.base + path.replace(/:(\w+)/g, (_, k: string) => encodeURIComponent(params[k] ?? ''))
+  }
+
+  private async call<T>(
+    key: keyof Routes,
+    params: Record<string, string> = {},
+    body?: unknown,
+    schema?: z.ZodType<T>,
+  ): Promise<T> {
+    const r = API_ROUTES[key]
+    const isForm = body instanceof FormData
+    const res = await fetch(this.url(r.path, params), {
+      method: r.method,
+      headers: isForm || body === undefined ? {} : { 'content-type': 'application/json' },
+      body: isForm ? body : body === undefined ? undefined : JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw Object.assign(new Error(text || res.statusText), { status: res.status })
+    }
+    const data = res.status === 204 ? undefined : await res.json()
+    return schema && import.meta.env.DEV ? schema.parse(data) : (data as T)
+  }
+
+  listCases() {
+    return this.call('listCases', {}, undefined, z.array(CaseSummarySchema))
+  }
+  getCase(id: string) {
+    return this.call('getCase', { id }, undefined, CaseSchema)
+  }
+  async seedCases() {
+    await this.call('seedCases')
+  }
+  ingest(files: File[]) {
+    const fd = new FormData()
+    files.forEach((f) => fd.append('files', f))
+    return this.call('ingest', {}, fd, z.array(CaseSummarySchema))
+  }
+  async runCase(id: string) {
+    await this.call('runCase', { id })
+  }
+  async runAll() {
+    await this.call('runAll')
+  }
+  async chooseProposal(id: string) {
+    await this.call('chooseProposal', { id })
+  }
+  async approve(id: string, input: ApproveInput): Promise<ApproveResult> {
+    try {
+      return { ok: true, document: await this.call('approve', { id }, input) }
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return { ok: false, status: err.status ?? 500, message: err.message }
+    }
+  }
+  async reject(id: string, input: RejectInput) {
+    await this.call('reject', { id }, input)
+  }
+  async release(id: string): Promise<ReleaseResult> {
+    try {
+      return { ok: true, document: await this.call('release', { id }) }
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return { ok: false, status: err.status ?? 500, message: err.message }
+    }
+  }
+  getAnalytics() {
+    return this.call('analytics', {}, undefined, AnalyticsSummarySchema)
+  }
+  runEval() {
+    return this.call('runEval', {}, undefined, z.array(EvalResultSchema))
+  }
+  getLatestEval() {
+    return this.call('latestEval', {}, undefined, z.array(EvalResultSchema).nullable())
+  }
+  getStatus() {
+    return this.call('status', {}, undefined, AgentStatusSchema)
+  }
+  getSettings() {
+    return this.call('getSettings', {}, undefined, SettingsSchema)
+  }
+  updateSettings(patch: Partial<Settings>) {
+    return this.call('updateSettings', {}, patch, SettingsSchema)
+  }
+  async reset() {
+    await this.call('reset')
+  }
+  subscribe(listener: (e: ApiEvent) => void) {
+    if (typeof EventSource !== 'undefined') {
+      const es = new EventSource(this.base + API_ROUTES.events.path)
+      es.onmessage = (m) => listener(JSON.parse(m.data) as ApiEvent)
+      return () => es.close()
+    }
+    const t = setInterval(() => listener({ type: 'status_changed' }), 3000)
+    return () => clearInterval(t)
+  }
+}
