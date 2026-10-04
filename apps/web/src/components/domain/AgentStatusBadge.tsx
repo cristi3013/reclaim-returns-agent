@@ -13,7 +13,7 @@ export function AgentStatusBadge() {
       <span className="font-mono font-medium">{data.agentId}</span>
       <span className="text-muted tnum">
         {data.cases} cases · {data.pending} pending
-        {data.lastRunAt ? ` · ran ${formatRelative(data.lastRunAt)}` : ''}
+        <span className="hidden 2xl:inline">{data.lastRunAt ? ` · ran ${formatRelative(data.lastRunAt)}` : ''}</span>
       </span>
     </div>
   )

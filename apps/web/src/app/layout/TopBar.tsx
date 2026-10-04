@@ -13,10 +13,9 @@ export function TopBar() {
   const reset = useReset()
   const { role, setRole } = useUi()
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-6">
+    <header className="flex h-14 shrink-0 items-center gap-3 overflow-hidden border-b border-line bg-surface px-5">
       <div className="flex shrink-0 items-baseline gap-2 whitespace-nowrap">
         <span className="text-sm font-semibold tracking-tight">Returns &amp; Credit Note agent</span>
-        <span className="text-xs text-muted">O2C Agent 8</span>
       </div>
       <AgentStatusBadge />
       <div className="ml-auto flex items-center gap-3 whitespace-nowrap">
@@ -33,7 +32,7 @@ export function TopBar() {
           label="AI"
           value={s?.aiMode ?? 'assisted'}
           options={[
-            { value: 'assisted', label: 'AI assisted' },
+            { value: 'assisted', label: 'Assisted' },
             { value: 'rules_only', label: 'Rules only' },
           ]}
           onChange={(v) => upd.mutate({ aiMode: v as 'assisted' | 'rules_only' })}
@@ -43,8 +42,8 @@ export function TopBar() {
           tone="warn"
           value={s?.simulateConflict ? 'on' : 'off'}
           options={[
-            { value: 'off', label: 'SAP ok' },
-            { value: 'on', label: 'Conflict' },
+            { value: 'off', label: 'OK' },
+            { value: 'on', label: '412' },
           ]}
           onChange={(v) => upd.mutate({ simulateConflict: v === 'on' })}
         />
@@ -54,7 +53,7 @@ export function TopBar() {
             aria-label="Role"
             value={role}
             onChange={(e) => setRole(e.target.value as Role)}
-            className="rounded-md border border-line bg-surface px-2 py-1 text-xs"
+            className="h-7 max-w-[11rem] rounded-md border border-line bg-surface px-2 text-xs"
           >
             {ROLES.map((r) => (
               <option key={r} value={r}>
