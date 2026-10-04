@@ -9,11 +9,10 @@ export function ApiProvider({ client, children }: { client: ApiClient; children:
   useEffect(
     () =>
       client.subscribe((e) => {
-        if (e.type === 'case_changed') {
-          qc.invalidateQueries({ queryKey: ['cases'] })
-          qc.invalidateQueries({ queryKey: ['case', e.id] })
-          qc.invalidateQueries({ queryKey: ['analytics'] })
-        }
+        qc.invalidateQueries({ queryKey: ['cases'] })
+        qc.invalidateQueries({ queryKey: ['analytics'] })
+        if (e.type === 'case_changed') qc.invalidateQueries({ queryKey: ['case', e.id] })
+        else qc.invalidateQueries({ queryKey: ['case'] })
         qc.invalidateQueries({ queryKey: ['status'] })
         qc.invalidateQueries({ queryKey: ['settings'] })
       }),

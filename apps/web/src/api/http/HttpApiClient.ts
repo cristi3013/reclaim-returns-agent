@@ -5,6 +5,7 @@ import {
   CaseSchema,
   CaseSummarySchema,
   EvalResultSchema,
+  SapDocumentSchema,
   SettingsSchema,
   type Settings,
 } from '@reclaim/shared'
@@ -36,9 +37,17 @@ export class HttpApiClient implements ApiClient {
     })
     if (!res.ok) {
       const text = await res.text()
-      throw Object.assign(new Error(text || res.statusText), { status: res.status })
+      let message = text || res.statusText
+      try {
+        const j = JSON.parse(text) as { message?: string; error?: { message?: string } }
+        message = j.message ?? j.error?.message ?? message
+      } catch {
+        /* plain text body */
+      }
+      throw Object.assign(new Error(message), { status: res.status })
     }
-    const data = res.status === 204 ? undefined : await res.json()
+    const raw = res.status === 204 ? '' : await res.text()
+    const data = raw ? JSON.parse(raw) : undefined
     return schema && import.meta.env.DEV ? schema.parse(data) : (data as T)
   }
 
@@ -67,7 +76,7 @@ export class HttpApiClient implements ApiClient {
   }
   async approve(id: string, input: ApproveInput): Promise<ApproveResult> {
     try {
-      return { ok: true, document: await this.call('approve', { id }, input) }
+      return { ok: true, document: await this.call('approve', { id }, input, SapDocumentSchema.nullable()) }
     } catch (e) {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 500, message: err.message }
@@ -78,7 +87,7 @@ export class HttpApiClient implements ApiClient {
   }
   async release(id: string): Promise<ReleaseResult> {
     try {
-      return { ok: true, document: await this.call('release', { id }) }
+      return { ok: true, document: await this.call('release', { id }, undefined, SapDocumentSchema) }
     } catch (e) {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 500, message: err.message }
@@ -91,7 +100,7 @@ export class HttpApiClient implements ApiClient {
     return this.call('runEval', {}, undefined, z.array(EvalResultSchema))
   }
   getLatestEval() {
-    return this.call('latestEval', {}, undefined, z.array(EvalResultSchema).nullable())
+    return this.call('latestEval', {}, undefined, z.array(EvalResultSchema).nullish()).then((v) => v ?? null)
   }
   getStatus() {
     return this.call('status', {}, undefined, AgentStatusSchema)
@@ -108,7 +117,13 @@ export class HttpApiClient implements ApiClient {
   subscribe(listener: (e: ApiEvent) => void) {
     if (typeof EventSource !== 'undefined') {
       const es = new EventSource(this.base + API_ROUTES.events.path)
-      es.onmessage = (m) => listener(JSON.parse(m.data) as ApiEvent)
+      es.onmessage = (m) => {
+        try {
+          listener(JSON.parse(m.data) as ApiEvent)
+        } catch {
+          /* heartbeat or comment */
+        }
+      }
       return () => es.close()
     }
     const t = setInterval(() => listener({ type: 'status_changed' }), 3000)

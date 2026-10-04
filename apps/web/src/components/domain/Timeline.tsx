@@ -59,6 +59,7 @@ export function Timeline({ events }: { events: CaseEvent[] }) {
               <button
                 type="button"
                 onClick={() => setOpen(open === e.id ? null : e.id)}
+                aria-expanded={open === e.id}
                 className="text-xs text-muted underline hover:text-fg"
               >
                 {open === e.id ? 'Hide detail' : 'Detail'}

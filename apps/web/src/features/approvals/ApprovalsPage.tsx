@@ -70,7 +70,7 @@ export function ApprovalsPage() {
               </li>
             ))}
           </ul>
-          {c && p ? <ApprovalPanel key={c.id + c.status} c={c} p={p} role={role} actor={ROLE_LABELS[role]} /> : <div />}
+          {c && p ? <ApprovalPanel key={c.id} c={c} p={p} role={role} actor={ROLE_LABELS[role]} /> : <div />}
         </div>
       )}
     </div>

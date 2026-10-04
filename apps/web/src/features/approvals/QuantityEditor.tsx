@@ -26,6 +26,8 @@ export function QuantityEditor({
         <span>Quantity</span>
         <input
           aria-label="Quantity"
+          aria-invalid={!valid}
+          aria-describedby={valid ? undefined : 'qty-error'}
           type="number"
           min={0}
           max={max}
@@ -43,7 +45,7 @@ export function QuantityEditor({
         </span>
       </label>
       {!valid && (
-        <div className="mt-1 text-xs text-bad">
+        <div id="qty-error" className="mt-1 text-xs text-bad">
           Quantity cannot exceed {max} {unit} and must be above 0.
         </div>
       )}

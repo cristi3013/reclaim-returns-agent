@@ -5,6 +5,7 @@ import {
   type AiMode,
   type Case,
   type CaseStatus,
+  type EventKind,
   type Facts,
   type Findings,
   type Proposal,
@@ -99,12 +100,16 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
   const c = h.cases.get(id)
   if (!c) throw Object.assign(new Error('Case not found'), { status: 404 })
   if (c.status === 'investigating') return
+  if (c.sapDocuments.length) {
+    throw Object.assign(new Error('This case already has a SAP document. Re-running it could create a second one.'), { status: 409 })
+  }
 
   const fx = FIXTURES.find((f) => f.id === id || f.emailFile === c.emailFile)
   c.status = 'investigating'
   c.aiMode = h.aiMode
   c.proposals = []
-  c.events = c.events.filter((e) => e.kind === 'intake')
+  const KEEP: EventKind[] = ['intake', 'approval', 'sap_write', 'sap_release', 'error']
+  c.events = c.events.filter((e) => KEEP.includes(e.kind))
   c.facts = null
   c.findings = null
   c.anomalies = []
@@ -137,7 +142,7 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
     assisted
       ? `Facts extracted from the email${c.attachments.length ? ' and the photo' : ''}`
       : 'Facts extracted by pattern rules',
-    { facts, model: assisted ? 'claude (structured output)' : 'regex' },
+    { facts, source: assisted ? 'claude (structured output)' : fx ? 'pattern rules, demo facts for the fixture email' : 'pattern rules' },
     '5.1.1',
     assisted ? 1340 : 3,
   )

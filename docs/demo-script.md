@@ -1,6 +1,6 @@
 # Reclaim · stage demo script (target 8 minutes)
 
-Before going on stage: `npm run dev`, open http://localhost:5173, click **Reset demo**, set theme to the one that reads best on the projector, role **Credit manager**, SAP mode **Mock** (switch to DS4 only if the gateway is reachable), AI mode **AI assisted**, SAP conflict **SAP ok**.
+Before going on stage: `npm run dev`, open http://localhost:5173, click **Reset demo**, set theme to the one that reads best on the projector, role **Credit manager**, SAP mode **Mock** (switch to DS4 only if the gateway is reachable), AI mode **AI assisted**, SAP conflict **OK**.
 
 | # | Time | Screen | What to do | What to say |
 |---|---|---|---|---|
@@ -9,11 +9,11 @@ Before going on stage: `npm run dev`, open http://localhost:5173, click **Reset 
 | 3 | 1:40 | Case 01 | Open the leaking-drums case. Show the photo, the document flow (order → delivery → invoice), the version stamp. Scroll to the two options. | "The policy says leaked goods are a judgement call: take them back (R1) or credit only (R3). The agent proposes both, recommends credit-only because the material is lost and there is a photo, and a person decides. Below each option: the exact SAP payload, built by code." |
 | 4 | 2:40 | Case 01 | **Choose option B**. | "The choice is logged with the L4 step id so the Control Tower can follow it." |
 | 5 | 3:00 | Approvals | Open the queue. Point at the briefing (what happened, what we propose, risk). Edit quantity to 99: it refuses. Back to 2. **Approve and create YCR**. Show the document number and billing block 08. **Release billing block**. | "The credit manager sees only cases in their threshold. The quantity can never exceed the invoice. On approve, the backend sends the payload unchanged with the record's version stamp. The credit is created blocked, and only the release lets billing credit the customer." |
-| 6 | 4:20 | Inbox → Case 06 | Open the follow-up email. | "Same customer asks again. The agent finds the credit that already exists for this invoice and creates nothing. Rule R8, duplicate prevented." |
-| 7 | 4:50 | Top bar → Approvals | Set **SAP conflict** to Conflict. Approve case 08 (intercompany). Show the red 412 panel. Set it back. | "If someone changed the record in SAP since we read it, SAP refuses with 412 and nothing is written. We show that, we never retry blindly. And this case is flagged intercompany: sold by the German company, shipped from the Romanian plant, finance gets the flag." |
+| 6 | 4:20 | Inbox → Case 06 | Open the follow-up email and click **Run again** (it ran before the credit existed). | "Same customer asks again. The agent now finds the credit that already exists for this invoice and creates nothing. Rule R8, duplicate prevented." |
+| 7 | 4:50 | Top bar → Approvals | Set **Conflict** to 412. Approve case 08 (intercompany). Show the red 412 panel. Set it back to OK. | "If someone changed the record in SAP since we read it, SAP refuses with 412 and nothing is written. We show that, we never retry blindly. And this case is flagged intercompany: sold by the German company, shipped from the Romanian plant, finance gets the flag." |
 | 8 | 5:50 | Evaluation | **Run evaluation**. | "The organizers gave us expected results. We score the decision object field by field: 8 of 8. This same test runs against the real backend." |
 | 9 | 6:30 | Analytics | Scroll KPIs, charts, value calculator. Change complaints per month to the client's number. | "What the desk is doing, and what the agent is worth: hours, FTE, cash released, errors avoided. Every number is an assumption they can change." |
-| 10 | 7:30 | Top bar → Case 03 | Switch AI mode to **Rules only**, run case 03 again. Show the timeline without model calls. | "With the model switched off the decision is identical. The policy is code. The model only explains." |
+| 10 | 7:30 | Top bar → Case 04 | Switch AI mode to **Rules only**, open case 04 (over quantity) and **Run again**. Show the timeline without model calls. Cases that already have a SAP document cannot be re-run. | "With the model switched off the decision is identical. The policy is code. The model only explains." |
 | 11 | 8:00 | Slide | Architecture slide. | "React and Node on BTP Cloud Foundry, a CAP gateway to DS4 through the Cloud Connector, Supabase for the application data, Claude for reading and explaining." |
 
 Fallbacks: if the real gateway fails, switch SAP mode back to Mock and continue. If the browser is refreshed, the state is kept; **Reset demo** starts clean.

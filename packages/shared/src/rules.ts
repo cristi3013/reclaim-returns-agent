@@ -54,14 +54,15 @@ export function decide(facts: Facts, findings: Findings, ctx: DecideContext): De
     if (!cand) {
       return one(
         base('NONE', null, 0, 0, {
-          notes: 'No invoice named and no candidate invoice found for this customer and material.',
+          approverRole: 'customer_service_lead',
+        notes: 'No invoice named and no candidate invoice found for this customer and material.',
         }),
       )
     }
     const ci = cand.items[0]!
     const qty = capQuantity(facts.claimedQuantity ?? ci.quantity, ci.quantity)
     return one(
-      base('R9', cand, qty, qty * ci.unitPrice, {
+      base('R9', cand, qty, Math.round(qty * ci.unitPrice * 100) / 100, {
         requiresCustomerConfirmation: true,
         notes: `Likely match: invoice ${cand.number} (${ci.quantity} ${ci.unit} of ${ci.material}, ${cand.date}). Ask the customer to confirm before creating anything.`,
       }),
@@ -69,7 +70,12 @@ export function decide(facts: Facts, findings: Findings, ctx: DecideContext): De
   }
 
   if (!inv) {
-    return one(base('NONE', null, 0, 0, { notes: `Invoice ${facts.invoiceNumber} was not found in SAP.` }))
+    return one(
+      base('NONE', null, 0, 0, {
+        approverRole: 'customer_service_lead',
+        notes: `Invoice ${facts.invoiceNumber} was not found in SAP.`,
+      }),
+    )
   }
 
   const item = inv.items[0]!
@@ -90,23 +96,23 @@ export function decide(facts: Facts, findings: Findings, ctx: DecideContext): De
 
   const claimed = facts.claimedQuantity ?? item.quantity
 
-  // R6: replacement wanted, not money.
-  if (facts.wantsReplacement) {
-    const q = capQuantity(claimed, item.quantity)
-    return one(
-      base('R6', inv, q, q * item.unitPrice, {
-        intercompany,
-        notes: 'Customer asks for a replacement delivery. Handed over to customer service; no credit.',
-      }),
-    )
-  }
-
-  // R7: more than invoiced.
+  // R7: more than invoiced. Checked before anything else that could create work.
   if (claimed > item.quantity) {
     return one(
       base('R7', inv, 0, 0, {
         intercompany,
         notes: `Claimed ${claimed} ${item.unit} but invoice ${inv.number} is for ${item.quantity} ${item.unit}.`,
+      }),
+    )
+  }
+
+  // R6: replacement wanted, not money.
+  if (facts.wantsReplacement) {
+    const q = capQuantity(claimed, item.quantity)
+    return one(
+      base('R6', inv, q, Math.round(q * item.unitPrice * 100) / 100, {
+        intercompany,
+        notes: 'Customer asks for a replacement delivery. Handed over to customer service; no credit.',
       }),
     )
   }

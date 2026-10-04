@@ -23,10 +23,10 @@ export class MockStore {
         nextDoc: number
         cases: unknown[]
       }
-      this.settings = d.settings
       this.lastRunAt = d.lastRunAt
       this.evalResults = d.evalResults
-      this.nextDoc = d.nextDoc
+      this.nextDoc = Number.isFinite(d.nextDoc) && d.nextDoc > 0 ? d.nextDoc : 60000171
+      this.settings = { ...defaultSettings(), ...(d.settings ?? {}) }
       for (const c of d.cases) {
         const parsed = CaseSchema.parse(c)
         // A case caught mid-run is not stuck forever: it goes back to received and can be re-run.

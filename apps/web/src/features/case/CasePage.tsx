@@ -22,6 +22,7 @@ export function CasePage() {
   if (q.error || !c) return <ErrorState error={q.error ?? 'Case not found'} onRetry={() => q.refetch()} />
   const two = c.proposals.length > 1
   const running = c.status === 'investigating' || c.status === 'proposed' || run.isPending
+  const locked = c.sapDocuments.length > 0
   const canChoose = two && c.status === 'awaiting_approval' && !c.proposals.some((p) => p.chosen)
   return (
     <div>
@@ -47,7 +48,11 @@ export function CasePage() {
               <Link to="/approvals">Open in approvals</Link>
             </Button>
           )}
-          <Button onClick={() => run.mutate(id)} disabled={running}>
+          <Button
+            onClick={() => run.mutate(id, { onError: (e) => toast.error(e instanceof Error ? e.message : 'Run failed') })}
+            disabled={running || locked}
+            title={locked ? 'This case already has a SAP document; it cannot be re-run.' : undefined}
+          >
             <Play className="size-4" /> {running ? 'Running…' : c.proposals.length ? 'Run again' : 'Run agent'}
           </Button>
         </div>

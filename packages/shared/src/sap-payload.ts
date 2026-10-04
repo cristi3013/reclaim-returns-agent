@@ -30,7 +30,7 @@ export function buildSapPayload(
     PurchaseOrderByCustomer: complaintRef,
   }
   if (d.documentType === 'YRE') {
-    return { CustomerReturnType: 'YRE', ...common, to_Item: items }
+    return { CustomerReturnType: 'YRE', ...common, HeaderBillingBlockReason: BILLING_BLOCK, to_Item: items }
   }
   return {
     CreditMemoRequestType: 'YCR',

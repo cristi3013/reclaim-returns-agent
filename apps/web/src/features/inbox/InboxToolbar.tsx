@@ -71,7 +71,12 @@ export function InboxToolbar({
         <Button
           size="sm"
           disabled={runAll.isPending || !hasCases}
-          onClick={() => runAll.mutate(undefined, { onSuccess: () => toast.success('All cases processed') })}
+          onClick={() =>
+            runAll.mutate(undefined, {
+              onSuccess: () => toast.success('All cases processed'),
+              onError: (e) => toast.error(e instanceof Error ? e.message : 'Run failed'),
+            })
+          }
         >
           <Play className="size-4" /> {runAll.isPending ? 'Running…' : 'Run all'}
         </Button>

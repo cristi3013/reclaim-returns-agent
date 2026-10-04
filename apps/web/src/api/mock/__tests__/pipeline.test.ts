@@ -82,7 +82,7 @@ describe('mock pipeline', () => {
   it('edited quantity is capped and amount recomputed', async () => {
     const c = await mk()
     await c.runCase('case-03')
-    const r = await c.approve(primaryProposal(await c.getCase('case-03'))!.id, { ...cm, editedQuantity: 99 })
+    const r = await c.approve(primaryProposal(await c.getCase('case-03'))!.id, { actor: 'FD', role: 'finance_director', editedQuantity: 99 })
     expect(r.ok && r.document?.payload).toMatchObject({ to_Item: [{ RequestedQuantity: '20' }] })
     const k = await c.getCase('case-03')
     expect(k.approvals[0]!.editedQuantity).toBe(20)
@@ -153,5 +153,67 @@ describe('mock pipeline', () => {
     const res = await c.runEval()
     expect(res).toHaveLength(8)
     expect(res.every((r) => r.pass)).toBe(true)
+  })
+})
+
+describe('review fixes', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('a case with a SAP document cannot be re-run, and keeps its audit trail', async () => {
+    const c = await mk()
+    await c.runCase('case-03')
+    await c.approve(primaryProposal(await c.getCase('case-03'))!.id, cm)
+    await expect(c.runCase('case-03')).rejects.toMatchObject({ status: 409 })
+    const k = await c.getCase('case-03')
+    expect(k.status).toBe('written_to_sap')
+    expect(k.sapDocuments).toHaveLength(1)
+    expect(k.events.some((e) => e.kind === 'sap_write')).toBe(true)
+  })
+
+  it('editing the quantity up re-routes the approver and refuses a lower role', async () => {
+    const c = await mk()
+    await c.runCase('case-03')
+    const id = primaryProposal(await c.getCase('case-03'))!.id
+    const r = await c.approve(id, { ...cm, editedQuantity: 20 })
+    expect(r).toMatchObject({ ok: false, status: 403 })
+    const k = await c.getCase('case-03')
+    expect(k.status).toBe('awaiting_approval')
+    expect(primaryProposal(k)!.decision.approverRole).toBe('finance_director')
+    expect(primaryProposal(k)!.decision.amount).toBe(5400)
+    const r2 = await c.approve(id, { actor: 'FD', role: 'finance_director' })
+    expect(r2.ok).toBe(true)
+  })
+
+  it('YRE payload carries billing block 08', async () => {
+    const c = await mk()
+    await c.runCase('case-08')
+    expect(primaryProposal(await c.getCase('case-08'))!.sapPayload).toMatchObject({ CustomerReturnType: 'YRE', HeaderBillingBlockReason: '08' })
+  })
+
+  it('refuses to write a demo invoice when SAP mode is real', async () => {
+    const c = await mk()
+    await c.updateSettings({ sapMode: 'real' })
+    await c.runCase('case-03')
+    const r = await c.approve(primaryProposal(await c.getCase('case-03'))!.id, cm)
+    expect(r).toMatchObject({ ok: false, status: 400 })
+    expect((await c.getCase('case-03')).status).toBe('awaiting_approval')
+  })
+
+  it('runEval does not crash while a case is mid-run', async () => {
+    const c = await mk()
+    const running = c.runCase('case-01')
+    const res = await c.runEval()
+    expect(res.find((r) => r.caseId === 'case-01')!.pass).toBe(false)
+    await running
+  })
+
+  it('reject and choose are refused once a case is no longer awaiting approval', async () => {
+    const c = await mk()
+    await c.runCase('case-03')
+    const id = primaryProposal(await c.getCase('case-03'))!.id
+    await c.approve(id, cm)
+    await expect(c.reject(id, { ...cm, comment: 'late' })).rejects.toMatchObject({ status: 409 })
+    await expect(c.chooseProposal(id)).rejects.toMatchObject({ status: 409 })
+    expect((await c.getCase('case-03')).status).toBe('written_to_sap')
   })
 })

@@ -1,8 +1,11 @@
 import {
+  approverFor,
   buildSapPayload,
   capQuantity,
+  DEMO_INVOICES,
   primaryProposal,
   toSummary,
+  type Role,
   type Case,
   type CaseSummary,
   type EvalResult,
@@ -23,6 +26,8 @@ import { runPipeline } from './pipeline'
 import { buildFixtureCases, FIXTURES } from './fixtures/cases'
 import { EXPECTED } from './fixtures/expected'
 import { HISTORY_TOTALS, HISTORY_WEEKS } from './fixtures/history'
+
+const ROLE_RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
 /**
  * The backend, in the browser. Same contract as the real one, realistic delays,
@@ -151,6 +156,7 @@ export class MockApiClient implements ApiClient {
 
   async chooseProposal(proposalId: string) {
     const { c, p } = this.locate(proposalId)
+    if (c.status !== 'awaiting_approval') throw Object.assign(new Error('This case is not awaiting approval.'), { status: 409 })
     c.proposals.forEach((x) => (x.chosen = x.id === proposalId))
     ev(c, 'approval', `Option ${p.option} chosen (${p.decision.ruleId}) by a person`, { proposalId }, null, null)
     this.touch(c.id)
@@ -166,11 +172,21 @@ export class MockApiClient implements ApiClient {
       const inv = c.findings?.invoice ?? null
       const invoiced = inv?.items[0]?.quantity ?? p.decision.quantity
       const qty = input.editedQuantity != null ? capQuantity(input.editedQuantity, invoiced) : p.decision.quantity
-      const unitPrice = inv?.items[0]?.unitPrice ?? (p.decision.quantity ? p.decision.amount / p.decision.quantity : 0)
+      // For a difference credit (R4) the unit price is the difference, not the invoice price.
+      const unitPrice = p.decision.quantity ? p.decision.amount / p.decision.quantity : (inv?.items[0]?.unitPrice ?? 0)
       if (qty !== p.decision.quantity) {
-        p.decision = { ...p.decision, quantity: qty, amount: Math.round(qty * unitPrice * 100) / 100 }
+        const amount = Math.round(qty * unitPrice * 100) / 100
+        p.decision = { ...p.decision, quantity: qty, amount, approverRole: approverFor(amount, p.decision.ruleId) }
         p.sapPayload =
           inv && p.decision.documentType !== 'NONE' ? buildSapPayload(p.decision, inv, `COMPLAINT-${inv.number}`) : null
+        ev(c, 'approval', `Quantity changed to ${qty} ${p.decision.unit ?? ''} by ${input.actor}; approver is now ${p.decision.approverRole}`, { quantity: qty, amount }, null, null)
+        this.touch(c.id)
+      }
+      if (p.decision.approverRole && ROLE_RANK[input.role] < ROLE_RANK[p.decision.approverRole]) {
+        return { ok: false, status: 403, message: `This credit needs the ${p.decision.approverRole.replace(/_/g, ' ')}. Your role cannot approve it.` }
+      }
+      if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
+        return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4. Switch SAP mode to Mock.` }
       }
       c.proposals.forEach((x) => (x.chosen = x.id === proposalId))
       c.approvals.push({
@@ -252,6 +268,7 @@ export class MockApiClient implements ApiClient {
 
   async reject(proposalId: string, input: RejectInput) {
     const { c } = this.locate(proposalId)
+    if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) throw Object.assign(new Error('This case is not awaiting approval.'), { status: 409 })
     c.approvals.push({
       id: uid('appr'),
       proposalId,
@@ -273,6 +290,9 @@ export class MockApiClient implements ApiClient {
       if (!d) continue
       await this.delay(500)
       const step = d.type === 'YRE' ? '5.1.3' : '5.2.1'
+      if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
+        return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4.` }
+      }
       if (this.store.settings.simulateConflict) {
         ev(c, 'error', 'SAP refused the release: 412 Precondition Failed', { status: 412, message: CONFLICT_MESSAGE }, step, 500)
         this.touch(c.id)
@@ -325,7 +345,11 @@ export class MockApiClient implements ApiClient {
       if (!c) continue
       if (!c.proposals.length) await this.runCase(id)
       const k = this.store.cases.get(id)!
-      const p = primaryProposal(k)!
+      const p = primaryProposal(k)
+      if (!p) {
+        results.push({ caseId: id, emailFile: k.emailFile ?? id, fields: [{ name: 'rule', expected: e.rule, actual: 'still running', pass: false }], pass: false })
+        continue
+      }
       const rows: [string, string, string][] = [
         ['rule', e.rule, p.decision.ruleId],
         ['document', e.document, p.decision.documentType],

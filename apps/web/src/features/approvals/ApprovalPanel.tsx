@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
-import { useApprove, useReject, useRelease, type ApproveResult } from '@/api'
+import { approverFor, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
+import { useApprove, useReject, useRelease, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
 import { PayloadView } from '@/components/domain/PayloadView'
 import { RuleBadge } from '@/components/domain/RuleBadge'
@@ -16,16 +16,24 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
   const approve = useApprove()
   const reject = useReject()
   const release = useRelease()
+  const { data: settings } = useSettings()
   const [edit, setEdit] = useState<{ quantity: number; valid: boolean } | null>(null)
   const [comment, setComment] = useState('')
   const [result, setResult] = useState<ApproveResult | null>(null)
+  const [rel, setRel] = useState<ReleaseResult | null>(null)
   const d = p.decision
   const max = c.findings?.invoice?.items[0]?.quantity ?? d.quantity
-  const unitPrice = c.findings?.invoice?.items[0]?.unitPrice ?? 0
-  const allowed = !d.approverRole || RANK[role] >= RANK[d.approverRole]
-  const canApprove = c.status === 'awaiting_approval' && allowed && !approve.isPending && (!edit || edit.valid)
+  // For a difference credit (R4) the unit price is the difference, not the invoice price.
+  const unitPrice = d.quantity > 0 ? d.amount / d.quantity : (c.findings?.invoice?.items[0]?.unitPrice ?? 0)
+  const effectiveAmount = edit && edit.valid ? Math.round(edit.quantity * unitPrice * 100) / 100 : d.amount
+  const effectiveApprover = d.documentType === 'NONE' ? d.approverRole : approverFor(effectiveAmount, d.ruleId)
+  const allowed = !effectiveApprover || RANK[role] >= RANK[effectiveApprover]
+  const demoBlocked = settings?.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')
+  const canApprove = c.status === 'awaiting_approval' && allowed && !demoBlocked && !approve.isPending && (!edit || edit.valid)
   const doc = c.sapDocuments[c.sapDocuments.length - 1]
   const lastApproval = c.approvals[c.approvals.length - 1]
+  const lastError = [...c.events].reverse().find((e) => e.kind === 'error')
+  const failure = result && !result.ok ? result : c.status === 'sap_write_failed' && lastError ? { status: Number(lastError.detail.status ?? 0), message: String(lastError.detail.message ?? lastError.title) } : null
 
   const onApprove = () =>
     approve.mutate(
@@ -85,7 +93,10 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
         <dt className="text-muted">Amount</dt>
         <dd className="font-mono tnum">{d.amount > 0 ? formatMoney(d.amount, d.currency) : '–'}</dd>
         <dt className="text-muted">Required approver</dt>
-        <dd>{d.approverRole ? ROLE_LABELS[d.approverRole] : '–'}</dd>
+        <dd>
+          {effectiveApprover ? ROLE_LABELS[effectiveApprover] : '–'}
+          {effectiveApprover !== d.approverRole && <span className="ml-1 text-xs text-warn">(changed by the edited quantity)</span>}
+        </dd>
         <dt className="text-muted">You are</dt>
         <dd className={allowed ? '' : 'text-warn'}>
           {ROLE_LABELS[role]}
@@ -141,22 +152,28 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
         </div>
       )}
 
-      {result && !result.ok && (
-        <div role="alert" className="mt-4 rounded-md border border-bad bg-bad-soft p-3 text-sm text-bad">
-          <div className="font-semibold">SAP refused the write · HTTP {result.status}</div>
-          <div>{result.message}</div>
-          <div className="mt-2">
-            <Button size="sm" variant="outline" onClick={() => setResult(null)}>
-              Dismiss
-            </Button>
-          </div>
+      {demoBlocked && c.status === 'awaiting_approval' && (
+        <div role="alert" className="mt-4 rounded-md border border-warn bg-warn-soft p-3 text-sm text-warn">
+          Invoice {c.invoiceNumber} is hackathon demo data and must never be written to the real DS4. Switch SAP mode to Mock, or use one of the team's own invoices.
         </div>
       )}
 
-      {c.status === 'sap_write_failed' && !result && (
+      {failure && (
         <div role="alert" className="mt-4 rounded-md border border-bad bg-bad-soft p-3 text-sm text-bad">
-          <div className="font-semibold">The last write to SAP was refused</div>
-          <div>Nothing was written. Re-run the case to read the record again, then approve.</div>
+          <div className="font-semibold">
+            {failure.status === 412 ? 'SAP refused the write · HTTP 412 Precondition Failed' : `Write refused · HTTP ${failure.status || '—'}`}
+          </div>
+          <div>{failure.message}</div>
+          {c.status === 'sap_write_failed' && (
+            <div className="mt-1 text-xs">Nothing was written. Re-run the case to read the record again, then approve.</div>
+          )}
+          {result && !result.ok && c.status !== 'sap_write_failed' && (
+            <div className="mt-2">
+              <Button size="sm" variant="outline" onClick={() => setResult(null)}>
+                Dismiss
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -175,15 +192,25 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
             <Button
               size="sm"
               className="mt-2"
-              disabled={release.isPending}
+              disabled={release.isPending || demoBlocked}
               onClick={() =>
                 release.mutate(doc.id, {
-                  onSuccess: (r) => (r.ok ? toast.success('Billing block removed') : toast.error(`${r.status}: ${r.message}`)),
+                  onSuccess: (r) => {
+                    setRel(r)
+                    if (r.ok) toast.success('Billing block removed')
+                  },
                 })
               }
             >
               {release.isPending ? 'Releasing…' : 'Release billing block'}
             </Button>
+          )}
+          {rel && !rel.ok && (
+            <div role="alert" className="mt-3 rounded-md border border-bad bg-bad-soft p-3 text-sm text-bad">
+              <div className="font-semibold">SAP refused the release · HTTP {rel.status}</div>
+              <div>{rel.message}</div>
+              <div className="mt-1 text-xs">The billing block stays. Nothing was changed.</div>
+            </div>
           )}
         </div>
       )}

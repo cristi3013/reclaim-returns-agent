@@ -30,6 +30,11 @@ export function EvaluationPage() {
           </Button>
         </div>
       </div>
+      {run.error && (
+        <div role="alert" className="mb-3 rounded-md border border-bad bg-bad-soft p-3 text-sm text-bad">
+          {run.error instanceof Error ? run.error.message : String(run.error)}
+        </div>
+      )}
       {!res ? (
         <EmptyState
           title="No evaluation yet"
