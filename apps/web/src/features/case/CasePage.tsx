@@ -26,7 +26,7 @@ export function CasePage() {
   const canChoose = two && c.status === 'awaiting_approval' && !c.proposals.some((p) => p.chosen)
   return (
     <div>
-      <div className="mb-4 flex items-start gap-4">
+      <div className="mb-4 flex flex-wrap items-start gap-4">
         <div className="min-w-0">
           <div className="text-xs text-muted">
             <Link to="/" className="underline hover:text-fg">
@@ -58,7 +58,7 @@ export function CasePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <ComplaintPanel c={c} />
         <SapFindingsPanel c={c} />
       </div>
@@ -72,7 +72,7 @@ export function CasePage() {
             {running ? 'The agent is reading the complaint and looking up SAP…' : 'No proposal yet. Run the agent.'}
           </div>
         ) : (
-          <div className={two ? 'grid grid-cols-2 gap-4' : ''}>
+          <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
             {c.proposals.map((p) => (
               <ProposalCard
                 key={p.id}

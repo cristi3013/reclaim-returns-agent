@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 
+// TanStack Router scrolls on navigation; jsdom does not implement it.
+window.scrollTo = () => {}
+
 // Node 25 exposes an experimental localStorage global that shadows jsdom's. Use a plain in-memory one.
 class MemoryStorage implements Storage {
   private m = new Map<string, string>()

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { APPROVAL_THRESHOLDS, ROLE_LABELS, primaryProposal, type CaseSummary, type Role } from '@reclaim/shared'
 import { useCase, useCases } from '@/api'
 import { useUi } from '@/store/ui'
+import { useIsMobile } from '@/lib/useIsMobile'
+import { Button } from '@/components/ui/button'
 import { ApprovalPanel } from './ApprovalPanel'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { RuleBadge } from '@/components/domain/RuleBadge'
@@ -16,6 +19,9 @@ export function ApprovalsPage() {
   const q = useCases()
   const [sel, setSel] = useState<string | null>(null)
   const [all, setAll] = useState(false)
+  // On a phone the queue and the case are two steps: tap a row to open the case, go back for the queue.
+  const mobile = useIsMobile()
+  const [opened, setOpened] = useState(false)
   const mine = (r: CaseSummary) => all || !r.approverRole || RANK[role] >= RANK[r.approverRole]
   const rows = (q.data ?? [])
     .filter((r) => QUEUE_STATUSES.includes(r.status) && mine(r))
@@ -29,14 +35,25 @@ export function ApprovalsPage() {
   const c = detail.data
   const p = c ? primaryProposal(c) : undefined
   const waiting = rows.filter((r) => r.status === 'awaiting_approval').length
+  const panel = c && p ? <ApprovalPanel key={c.id} c={c} p={p} role={role} actor={ROLE_LABELS[role]} /> : <div />
+  if (mobile && opened) {
+    return (
+      <div>
+        <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={() => setOpened(false)}>
+          <ChevronLeft className="size-4" /> Back to queue
+        </Button>
+        {panel}
+      </div>
+    )
+  }
   return (
     <div>
-      <div className="mb-4 flex items-end gap-4">
+      <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2">
         <div>
           <h1 className="text-xl font-semibold">Approvals</h1>
           <p className="text-sm text-muted">
             Queue for {ROLE_LABELS[role]} · {waiting} waiting
-            <span className="ml-2 text-xs">
+            <span className="ml-2 hidden text-xs md:inline">
               {APPROVAL_THRESHOLDS.map((t) => `${t.upTo === Infinity ? 'above 5 000' : `up to ${t.upTo.toLocaleString('en-GB').replace(',', ' ')}`}: ${ROLE_LABELS[t.role]}`).join(' · ')} · no goods back: credit manager at least
             </span>
           </p>
@@ -48,13 +65,16 @@ export function ApprovalsPage() {
       {rows.length === 0 ? (
         <EmptyState title="Nothing to approve" description="Run cases from the inbox. Proposals that need your role will appear here." />
       ) : (
-        <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <ul className="space-y-2">
             {rows.map((r) => (
               <li key={r.id}>
                 <button
                   type="button"
-                  onClick={() => setSel(r.id)}
+                  onClick={() => {
+                    setSel(r.id)
+                    setOpened(true)
+                  }}
                   aria-current={selected === r.id ? 'true' : undefined}
                   className={`w-full rounded-lg border p-3 text-left ${
                     selected === r.id ? 'border-accent bg-accent-soft/50' : 'border-line bg-surface hover:bg-surface-2'
@@ -74,7 +94,7 @@ export function ApprovalsPage() {
               </li>
             ))}
           </ul>
-          {c && p ? <ApprovalPanel key={c.id} c={c} p={p} role={role} actor={ROLE_LABELS[role]} /> : <div />}
+          {!mobile && panel}
         </div>
       )}
     </div>

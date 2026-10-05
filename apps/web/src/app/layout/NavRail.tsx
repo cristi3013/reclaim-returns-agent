@@ -1,14 +1,8 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { Inbox, ClipboardCheck, BarChart3, FlaskConical, PanelLeft } from 'lucide-react'
+import { PanelLeft } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { cn } from '@/lib/utils'
-
-const items = [
-  { to: '/', label: 'Inbox', icon: Inbox },
-  { to: '/approvals', label: 'Approvals', icon: ClipboardCheck },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/evaluation', label: 'Evaluation', icon: FlaskConical },
-] as const
+import { NAV_ITEMS, isActive } from './nav'
 
 export function NavRail() {
   const { navCollapsed, toggleNav } = useUi()
@@ -17,7 +11,7 @@ export function NavRail() {
     <nav
       aria-label="Primary"
       className={cn(
-        'flex shrink-0 flex-col border-r border-line bg-surface py-4 transition-[width] duration-200',
+        'hidden shrink-0 flex-col border-r border-line bg-surface py-4 transition-[width] duration-200 md:flex',
         navCollapsed ? 'w-16' : 'w-56',
       )}
     >
@@ -25,8 +19,8 @@ export function NavRail() {
         <span className="inline-block size-6 rounded-sm bg-accent" aria-hidden />
         {!navCollapsed && <span className="font-semibold tracking-tight">Reclaim</span>}
       </div>
-      {items.map(({ to, label, icon: Icon }) => {
-        const active = to === '/' ? path === '/' || path.startsWith('/cases') : path.startsWith(to)
+      {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+        const active = isActive(to, path)
         return (
           <Link
             key={to}

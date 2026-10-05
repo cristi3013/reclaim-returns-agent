@@ -125,8 +125,8 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
               rows={2}
             />
           </label>
-          <div className="flex gap-2">
-            <Button onClick={onApprove} disabled={!canApprove}>
+          <div className="flex gap-2 max-md:sticky max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:-mx-4 max-md:border-t max-md:border-line max-md:bg-surface max-md:px-4 max-md:py-3">
+            <Button className="flex-1 md:flex-none" onClick={onApprove} disabled={!canApprove}>
               {approve.isPending
                 ? d.documentType === 'NONE'
                   ? 'Sending…'
