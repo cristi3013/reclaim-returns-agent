@@ -11,7 +11,7 @@ import {
   type Settings,
 } from '@reclaim/shared'
 import { z } from 'zod'
-import type { ApiClient, ApiEvent, ApproveInput, ApproveResult, RejectInput, ReleaseInput, ReleaseResult, SendReplyInput, SendReplyResult } from '../client'
+import type { ApiClient, ApiEvent, ApproveInput, ChangeStatusInput, ApproveResult, RejectInput, ReleaseInput, ReleaseResult, SendReplyInput, SendReplyResult } from '../client'
 
 type Routes = typeof API_ROUTES
 
@@ -94,6 +94,9 @@ export class HttpApiClient implements ApiClient {
   }
   async reject(id: string, input: RejectInput) {
     await this.call('reject', { id }, input)
+  }
+  async changeStatus(id: string, input: ChangeStatusInput) {
+    await this.call('changeStatus', { id }, input)
   }
   async release(id: string, input: ReleaseInput): Promise<ReleaseResult> {
     try {

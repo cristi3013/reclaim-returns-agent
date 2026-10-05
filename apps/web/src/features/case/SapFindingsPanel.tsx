@@ -1,4 +1,5 @@
 import type { Case } from '@reclaim/shared'
+import { FileQuestion, SearchX } from 'lucide-react'
 import { DocFlow } from '@/components/domain/DocFlow'
 import { formatDate, formatMoney, formatQty } from '@/lib/format'
 
@@ -25,7 +26,7 @@ export function SapFindingsPanel({ c }: { c: Case }) {
           {f.candidateInvoices.length} candidate{f.candidateInvoices.length > 1 ? 's' : ''}. The customer must confirm before anything is created.
         </p>
       )}
-      {!inv && <p className="mt-2 text-sm text-bad">Invoice not found in SAP.</p>}
+      {!inv && <NothingInSap invoiceNumber={c.facts?.invoiceNumber ?? null} />}
       {inv && it && (
         <>
           <div className="mt-3">
@@ -85,8 +86,40 @@ export function SapFindingsPanel({ c }: { c: Case }) {
         </>
       )}
       <div className="mt-3 text-xs text-muted">
-        {f.lookups.length} SAP lookups via the gateway · {f.lookups.reduce((s, l) => s + l.durationMs, 0)} ms · read only
+        {f.lookups.length === 0
+          ? 'No SAP lookups were needed.'
+          : `${f.lookups.length} SAP lookup${f.lookups.length > 1 ? 's' : ''} via the gateway · ${f.lookups.reduce((s, l) => s + l.durationMs, 0)} ms · read only`}
       </div>
     </section>
+  )
+}
+
+/** No invoice to show: say why in plain words and what the person can do about it. */
+function NothingInSap({ invoiceNumber }: { invoiceNumber: string | null }) {
+  const Icon = invoiceNumber ? SearchX : FileQuestion
+  return (
+    <div className="mt-3 flex gap-3 rounded-md border border-dashed border-line bg-surface-2 p-4">
+      <Icon className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
+      <div className="text-sm">
+        <div className="font-medium">
+          {invoiceNumber ? (
+            <>
+              Invoice <span className="font-mono">{invoiceNumber}</span> isn't in SAP
+            </>
+          ) : (
+            'No invoice to look up'
+          )}
+        </div>
+        <p className="mt-0.5 text-muted">
+          {invoiceNumber
+            ? 'The number may be mistyped, or belong to another system. Nothing can be credited against it.'
+            : "The email doesn't mention an invoice number, and there was no customer and material to search with."}
+        </p>
+        <p className="mt-2 text-muted">
+          <span className="font-medium text-fg">Next:</span> decide above, then ask the customer for the correct
+          invoice number in your reply.
+        </p>
+      </div>
+    </div>
   )
 }

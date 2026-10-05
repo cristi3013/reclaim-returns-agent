@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApi } from './context'
-import type { ApproveInput, RejectInput, ReleaseInput, SendReplyInput } from './client'
+import type { ApproveInput, ChangeStatusInput, RejectInput, ReleaseInput, SendReplyInput } from './client'
 import type { Settings } from '@reclaim/shared'
 
 export const useCases = () => {
@@ -99,6 +99,15 @@ export const useReject = () => {
   const inv = useInvalidate()
   return useMutation({
     mutationFn: (v: { proposalId: string; input: RejectInput }) => api.reject(v.proposalId, v.input),
+    onSettled: () => inv('cases', 'status', 'analytics'),
+  })
+}
+
+export const useChangeStatus = () => {
+  const api = useApi()
+  const inv = useInvalidate()
+  return useMutation({
+    mutationFn: (v: { caseId: string; input: ChangeStatusInput }) => api.changeStatus(v.caseId, v.input),
     onSettled: () => inv('cases', 'status', 'analytics'),
   })
 }

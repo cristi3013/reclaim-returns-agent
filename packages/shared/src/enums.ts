@@ -9,7 +9,6 @@ export const CASE_STATUSES = [
   'needs_customer_input',
   'handed_over',
   'duplicate',
-  'rejected',
   'sap_write_failed',
 ] as const
 export type CaseStatus = (typeof CASE_STATUSES)[number]
@@ -74,17 +73,16 @@ export const ROLE_LABELS: Record<Role, string> = {
 }
 
 export const STATUS_LABELS: Record<CaseStatus, string> = {
-  received: 'Received',
+  received: 'Open',
   investigating: 'Investigating',
   proposed: 'Proposed',
   awaiting_approval: 'Awaiting approval',
   approved: 'Approved',
-  written_to_sap: 'Written to SAP',
+  written_to_sap: 'Processed',
   closed: 'Closed',
-  needs_customer_input: 'Needs customer input',
+  needs_customer_input: 'Pending',
   handed_over: 'Handed over',
   duplicate: 'Duplicate',
-  rejected: 'Rejected',
   sap_write_failed: 'SAP write failed',
 }
 

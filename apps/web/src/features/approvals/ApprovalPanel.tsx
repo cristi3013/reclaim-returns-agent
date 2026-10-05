@@ -1,19 +1,87 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { approverFor, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
+import { approverFor, caseOutcome, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
 import { useApprove, useConfirmGoodsReceipt, useReject, useRelease, useReturnStatus, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
 import { ReplyPanel } from '@/features/case/ReplyPanel'
 import { PayloadView } from '@/components/domain/PayloadView'
+import { StatusMenu } from '@/components/domain/StatusMenu'
 import { RuleBadge } from '@/components/domain/RuleBadge'
 import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
 import { Button } from '@/components/ui/button'
-import { formatMoney, formatQty } from '@/lib/format'
+import { formatMoney, formatQty, formatRelative } from '@/lib/format'
+import { Archive, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react'
 
 const RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
+/** The case as an approver sees it: what happened, what we propose, then the decision. */
 export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; role: Role; actor: string }) {
+  const d = p.decision
+  return (
+    <aside className="rounded-lg border border-line bg-surface p-4 shadow-card">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <OutcomeBanner c={c} />
+        </div>
+        <StatusMenu c={c} role={role} actor={actor} />
+      </div>
+      <div className="mt-3 text-xs text-muted">
+        <Link to="/cases/$id" params={{ id: c.id }} className="font-mono underline hover:text-fg">
+          {c.id}
+        </Link>{' '}
+        · {c.customerName} · invoice <span className="font-mono">{c.invoiceNumber ?? 'none'}</span>
+      </div>
+      <h2 className="mt-1 text-lg font-semibold">{c.subject}</h2>
+
+      <div className="mt-3 space-y-1.5 rounded-md border border-line border-l-4 border-l-muted/50 bg-surface-2 p-3 text-sm leading-relaxed">
+        <div>
+          <span className="font-semibold">What happened.</span> {p.briefing.whatHappened}
+        </div>
+        <div>
+          <span className="font-semibold">What we propose.</span> {p.briefing.whatWePropose}
+        </div>
+        <div>
+          <span className="font-semibold">Risk.</span> {p.briefing.risk}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <RuleBadge ruleId={d.ruleId} />
+        <DocTypeBadge type={d.documentType} />
+        {d.reasonCode && (
+          <span className="text-xs text-muted">
+            reason {d.reasonCode} · {REASON_CODES[d.reasonCode]}
+          </span>
+        )}
+        {d.intercompany && <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Intercompany: flag for finance</span>}
+      </div>
+
+      <ApprovalActions c={c} p={p} role={role} actor={actor} showPayload showOutcome={false} />
+    </aside>
+  )
+}
+
+/**
+ * The decision on a proposal: authority, quantity, comment, approve or reject, the SAP result, release and the
+ * reply. Used by the approvals queue and by the case page, so a case can be decided wherever it is opened.
+ */
+export function ApprovalActions({
+  c,
+  p,
+  role,
+  actor,
+  showPayload = false,
+  showOutcome = true,
+}: {
+  c: Case
+  p: Proposal
+  role: Role
+  actor: string
+  showPayload?: boolean
+  /** The closed/rejected boxes; off where an OutcomeBanner already says it at the top. */
+  showOutcome?: boolean
+}) {
   const approve = useApprove()
   const reject = useReject()
   const release = useRelease()
@@ -62,43 +130,17 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
     )
 
   return (
-    <aside className="rounded-lg border border-line bg-surface p-4 shadow-card">
-      <div className="text-xs text-muted">
-        <Link to="/cases/$id" params={{ id: c.id }} className="font-mono underline hover:text-fg">
-          {c.id}
-        </Link>{' '}
-        · {c.customerName} · invoice <span className="font-mono">{c.invoiceNumber ?? 'none'}</span>
-      </div>
-      <h2 className="mt-1 text-lg font-semibold">{c.subject}</h2>
-
-      <div className="mt-3 rounded-md border-l-2 border-accent bg-accent-soft/50 p-3 text-sm">
-        <div>
-          <span className="font-semibold">What happened.</span> {p.briefing.whatHappened}
-        </div>
-        <div>
-          <span className="font-semibold">What we propose.</span> {p.briefing.whatWePropose}
-        </div>
-        <div>
-          <span className="font-semibold">Risk.</span> {p.briefing.risk}
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <RuleBadge ruleId={d.ruleId} />
-        <DocTypeBadge type={d.documentType} />
-        {d.reasonCode && (
-          <span className="text-xs text-muted">
-            reason {d.reasonCode} · {REASON_CODES[d.reasonCode]}
-          </span>
-        )}
-        {d.intercompany && <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Intercompany: flag for finance</span>}
-      </div>
-
+    <>
       <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
-        <dt className="text-muted">Quantity</dt>
-        <dd className="tnum">{d.quantity > 0 ? formatQty(d.quantity, d.unit) : '–'}</dd>
-        <dt className="text-muted">Amount</dt>
-        <dd className="font-mono tnum">{d.amount > 0 ? formatMoney(d.amount, d.currency) : '–'}</dd>
+        {/* No document and no money: quantity and amount would only be two dashes. */}
+        {(d.documentType !== 'NONE' || d.amount > 0) && (
+          <>
+            <dt className="text-muted">Quantity</dt>
+            <dd className="tnum">{d.quantity > 0 ? formatQty(d.quantity, d.unit) : '–'}</dd>
+            <dt className="text-muted">Amount</dt>
+            <dd className="font-mono tnum">{d.amount > 0 ? formatMoney(d.amount, d.currency) : '–'}</dd>
+          </>
+        )}
         <dt className="text-muted">Required approver</dt>
         <dd>
           {effectiveApprover ? ROLE_LABELS[effectiveApprover] : '–'}
@@ -111,7 +153,7 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
         </dd>
       </dl>
 
-      {p.sapPayload && (
+      {showPayload && p.sapPayload && (
         <div className="mt-3">
           <PayloadView payload={p.sapPayload} />
         </div>
@@ -123,11 +165,17 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
             <QuantityEditor value={d.quantity} max={max} unit={d.unit} unitPrice={unitPrice} currency={d.currency} onChange={setEdit} />
           )}
           <label className="block text-sm">
-            <span>Comment{d.documentType === 'NONE' ? '' : ' (required to reject)'}</span>
+            <span className="font-medium">Comment</span>{' '}
+            <span className="text-xs text-muted">optional to approve, needed to reject</span>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              className="mt-1 w-full rounded-md border border-line bg-surface p-2"
+              placeholder={
+                d.documentType === 'NONE'
+                  ? 'e.g. Invoice not in SAP, asked the customer for the number'
+                  : 'e.g. Photo does not show the damage'
+              }
+              className="mt-1 w-full rounded-md border border-line bg-surface p-2 placeholder:text-muted/70"
               rows={2}
             />
           </label>
@@ -135,7 +183,7 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
             <Button className="flex-1 md:flex-none" onClick={onApprove} disabled={!canApprove}>
               {approve.isPending
                 ? d.documentType === 'NONE'
-                  ? 'Sending…'
+                  ? 'Approving…'
                   : 'Writing to SAP…'
                 : d.documentType === 'NONE'
                   ? 'Approve reply'
@@ -143,17 +191,22 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
             </Button>
             <Button
               variant="outline"
+              className="flex-1 border-bad/40 text-bad hover:bg-bad-soft md:flex-none"
+              title={comment.trim() ? undefined : 'Add a comment to reject'}
               disabled={!comment.trim() || reject.isPending || !allowed}
               onClick={() =>
                 reject.mutate({ proposalId: p.id, input: { actor, role, comment } }, { onSuccess: () => toast('Proposal rejected') })
               }
             >
-              Reject
+              {reject.isPending ? 'Rejecting…' : 'Reject'}
             </Button>
+            {!comment.trim() && allowed && (
+              <span className="self-center text-xs text-muted max-md:hidden">Add a comment to reject</span>
+            )}
           </div>
           <p className="text-xs text-muted">
             {d.documentType === 'NONE'
-              ? 'Approving sends the drafted reply. Nothing is created in SAP.'
+              ? 'Approving closes the case without a SAP document. Either way, you then reply to the customer.'
               : 'Approving sends exactly the payload above to SAP, with the record’s version stamp. If the record changed since it was read, SAP refuses with 412 and nothing is written.'}
           </p>
         </div>
@@ -260,15 +313,79 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
         </div>
       )}
 
-      {c.status === 'closed' && (
-        <div className="mt-4 rounded-md border border-ok bg-ok-soft p-3 text-sm text-ok">Approved. No SAP document.</div>
+      {showOutcome && c.status === 'closed' && caseOutcome(c) === 'approved' && (
+        <div className="mt-4 rounded-md border border-ok bg-ok-soft p-3 text-sm text-ok">
+          <div className="font-semibold">Approved. No SAP document.</div>
+          {lastApproval && (
+            <div>
+              By {lastApproval.actor}
+              {lastApproval.comment ? `: ${lastApproval.comment}` : ''}
+            </div>
+          )}
+        </div>
       )}
-      {c.status === 'rejected' && lastApproval && (
-        <div className="mt-4 rounded-md border border-line bg-surface-2 p-3 text-sm text-muted">
-          Rejected by {lastApproval.actor}: {lastApproval.comment}
+      {showOutcome && caseOutcome(c) === 'rejected' && lastApproval && (
+        <div className="mt-4 rounded-md border border-bad bg-bad-soft p-3 text-sm text-bad">
+          <div className="font-semibold">Rejected. No SAP document.</div>
+          <div>
+            By {lastApproval.actor}: {lastApproval.comment}
+          </div>
         </div>
       )}
       <ReplyPanel c={c} role={role} actor={actor} />
-    </aside>
+    </>
+  )
+}
+
+const OUTCOME = {
+  waiting: { box: 'border-warn/40 bg-warn-soft text-warn', Icon: Clock },
+  good: { box: 'border-ok/40 bg-ok-soft text-ok', Icon: CheckCircle2 },
+  bad: { box: 'border-bad/40 bg-bad-soft text-bad', Icon: XCircle },
+  failed: { box: 'border-bad/40 bg-bad-soft text-bad', Icon: AlertTriangle },
+  neutral: { box: 'border-line bg-surface-2 text-fg', Icon: Archive },
+}
+
+/** The result of the case in one line, first thing on the panel: approved, rejected or still waiting. */
+function OutcomeBanner({ c }: { c: Case }) {
+  const outcome = caseOutcome(c)
+  const byHand = outcome === 'closed' ? [...c.events].reverse().find((e) => e.kind === 'status' && e.detail.to === 'closed') : undefined
+  const last = byHand
+    ? { actor: String(byHand.detail.actor ?? 'a person'), decidedAt: byHand.at, comment: String(byHand.detail.comment ?? '') }
+    : c.approvals[c.approvals.length - 1]
+  const doc = c.sapDocuments[c.sapDocuments.length - 1]
+  const by = last ? `${last.actor} · ${formatRelative(last.decidedAt)}` : null
+  const o =
+    c.status === 'awaiting_approval'
+      ? { tone: OUTCOME.waiting, label: 'Awaiting decision', detail: null }
+      : outcome === 'rejected'
+        ? { tone: OUTCOME.bad, label: 'Rejected · closed', detail: by }
+        : outcome === 'closed'
+          ? { tone: OUTCOME.neutral, label: 'Closed by hand · no SAP document', detail: by }
+        : c.status === 'sap_write_failed'
+          ? { tone: OUTCOME.failed, label: 'Approved, but the SAP write failed', detail: by }
+          : c.status === 'written_to_sap' && doc
+            ? {
+                tone: OUTCOME.good,
+                label: `Approved · ${doc.type} ${doc.number} in SAP${doc.released ? ', released' : ''}`,
+                detail: by,
+              }
+            : outcome === 'approved'
+              ? { tone: OUTCOME.good, label: c.status === 'closed' ? 'Approved · no SAP document' : 'Approved', detail: by }
+              : null
+  if (!o) return null
+  const { Icon } = o.tone
+  return (
+    <div role="status" className={`flex items-start gap-2.5 rounded-md border px-3 py-2 ${o.tone.box}`}>
+      <Icon className="mt-0.5 size-5 shrink-0" aria-hidden />
+      <div className="min-w-0">
+        <div className="font-semibold">{o.label}</div>
+        {o.detail && (
+          <div className="text-xs opacity-90">
+            By {o.detail}
+            {last?.comment ? <span className="text-fg/80"> · “{last.comment}”</span> : null}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

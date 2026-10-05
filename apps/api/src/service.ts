@@ -4,15 +4,21 @@ import {
   buildSapPayload,
   capQuantity,
   DEMO_INVOICES,
+  caseOutcome,
   computeAnalytics,
+  currentReply,
   EXPECTED,
   FIXTURES,
   primaryProposal,
   RULES,
+  MANUAL_STATUSES,
+  STATUS_LABELS,
+  statusChangeBlocked,
   toSummary,
   type AgentStatus,
   type Analytics,
   type Case,
+  type CaseStatus,
   type CaseSummary,
   type EvalResult,
   type ReturnStatus,
@@ -42,6 +48,12 @@ export interface RejectInput {
   role: Role
   comment: string
 }
+export interface ChangeStatusInput {
+  actor: string
+  role: Role
+  to: CaseStatus
+  comment: string
+}
 export interface ReleaseInput {
   actor: string
   role: Role
@@ -57,7 +69,7 @@ export interface SendReplyInput {
   text?: string
 }
 /** Statuses where a person has decided and the customer can be told. */
-const REPLY_STATUSES = ['written_to_sap', 'closed', 'needs_customer_input', 'handed_over', 'duplicate', 'rejected'] as const
+const REPLY_STATUSES = ['written_to_sap', 'closed', 'needs_customer_input', 'handed_over', 'duplicate'] as const
 export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; message: string }
 
 export interface ServiceDeps {
@@ -442,13 +454,14 @@ export class Service {
     if (!(REPLY_STATUSES as readonly string[]).includes(c.status)) {
       return { ok: false, status: 409, message: 'A person has not decided this case yet. Approve it first, then send the reply.' }
     }
-    if (c.events.some((e) => e.kind === 'status' && e.detail.replySent === true)) {
+    if (currentReply(c.events)) {
       return { ok: false, status: 409, message: 'The reply to this complaint has already been sent.' }
     }
     if (this.sending.has(c.id)) return { ok: false, status: 409, message: 'The reply is being sent.' }
     const p = primaryProposal(c)
-    let text = (input.text ?? (c.status === 'rejected' ? '' : p?.replyDraft) ?? '').trim()
-    if (!text) return { ok: false, status: 400, message: c.status === 'rejected' ? 'Write the reply that explains the rejection.' : 'The reply is empty.' }
+    const rejected = caseOutcome(c) === 'rejected'
+    let text = (input.text ?? (rejected ? '' : p?.replyDraft) ?? '').trim()
+    if (!text) return { ok: false, status: 400, message: rejected ? 'Write the reply that explains the rejection.' : 'The reply is empty.' }
     const doc = c.sapDocuments[c.sapDocuments.length - 1]
     if (doc && !text.includes(doc.number)) {
       text += `\n\nReference: ${doc.type === 'YRE' ? 'return order' : 'credit memo request'} ${doc.number}${c.invoiceNumber ? ` for invoice ${c.invoiceNumber}` : ''}.`
@@ -472,6 +485,21 @@ export class Service {
     }
   }
 
+  /** Reopen a decided case, or close one that waits on nobody. Never touches SAP; the old decision stays in the trail. */
+  changeStatus(caseId: string, input: ChangeStatusInput): Outcome<null> {
+    const c = this.store.get(caseId)
+    if (this.writing.has(c.id) || this.running.has(c.id)) return { ok: false, status: 409, message: 'The case is busy. Try again in a moment.' }
+    const blocked = statusChangeBlocked(c, input.to, input.role)
+    if (blocked) return { ok: false, ...blocked }
+    if (!input.comment.trim()) return { ok: false, status: 400, message: 'Say why the status changes.' }
+    const from = c.status
+    c.status = input.to
+    const label = MANUAL_STATUSES.find((m) => m.to === input.to)?.label ?? STATUS_LABELS[input.to]
+    ev(c, 'status', `Set to ${label} by ${input.actor}: ${input.comment.trim()}`, { from, to: input.to, reopened: input.to !== 'closed', actor: input.actor, role: input.role, comment: input.comment.trim() }, null, null)
+    this.touch(c.id)
+    return { ok: true, value: null }
+  }
+
   /** Rejecting a claim is a money decision too: same role as approving it, and a reason the customer and the audit trail can read. */
   reject(proposalId: string, input: RejectInput) {
     const { c, p } = this.store.locateProposal(proposalId)
@@ -480,7 +508,7 @@ export class Service {
     if (ROLE_RANK[input.role] < ROLE_RANK[required]) throw Object.assign(new Error(`Rejecting this claim needs the ${required.replace(/_/g, ' ')}. Your role cannot decide it.`), { status: 403 })
     if (input.comment.trim().length < 3) throw Object.assign(new Error('A reason is required to reject: it goes to the customer and into the audit trail.'), { status: 400 })
     c.approvals.push({ id: uid('appr'), proposalId, actor: input.actor, role: input.role, decision: 'rejected', editedQuantity: null, comment: input.comment, decidedAt: new Date().toISOString() })
-    c.status = 'rejected'
+    c.status = 'closed'
     ev(c, 'approval', `Rejected by ${input.actor}: ${input.comment}`, {}, null, null)
     this.touch(c.id)
   }

@@ -252,5 +252,5 @@ it('rejecting needs the approver role and a reason', async () => {
   await expect(c.reject(p.id, { ...cm, comment: ' ' })).rejects.toMatchObject({ status: 400 })
   expect((await c.getCase('case-03')).status).toBe('awaiting_approval')
   await c.reject(p.id, { ...cm, comment: 'Delivery note signed for 20 KG' })
-  expect((await c.getCase('case-03')).status).toBe('rejected')
+  expect((await c.getCase('case-03')).status).toBe('closed')
 })

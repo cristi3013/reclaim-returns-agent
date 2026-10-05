@@ -4,9 +4,9 @@ import type { Ai } from './ai/types'
 import type { Store } from './store'
 import { ev, uid } from './events'
 
-const TERMINAL_OR_IDLE: CaseStatus[] = ['received', 'rejected', 'closed', 'duplicate', 'needs_customer_input', 'handed_over']
+const TERMINAL_OR_IDLE: CaseStatus[] = ['received', 'closed', 'duplicate', 'needs_customer_input', 'handed_over']
 /** A case may be (re)run only from these. Never from approved/written/closed, and never while being written. */
-const RUNNABLE: CaseStatus[] = ['received', 'awaiting_approval', 'needs_customer_input', 'handed_over', 'duplicate', 'rejected', 'sap_write_failed']
+const RUNNABLE: CaseStatus[] = ['received', 'awaiting_approval', 'needs_customer_input', 'handed_over', 'duplicate', 'sap_write_failed']
 const KEEP_ON_RERUN = ['intake', 'approval', 'sap_write', 'sap_release', 'error'] as const
 
 export interface PipelineDeps {

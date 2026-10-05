@@ -1,6 +1,14 @@
-import type { Decision, Facts, Findings, InvoiceSnapshot } from './schemas'
+import {
+  primaryProposal,
+  type Case,
+  type CaseEvent,
+  type Decision,
+  type Facts,
+  type Findings,
+  type InvoiceSnapshot,
+} from './schemas'
 import { approverFor, capQuantity, RULES } from './policy'
-import type { RuleId } from './enums'
+import type { CaseStatus, Role, RuleId } from './enums'
 
 export interface DecideContext {
   /** Id of another case in our own system that is already handling this invoice, if any. */
@@ -182,4 +190,63 @@ export function decide(facts: Facts, findings: Findings, ctx: DecideContext): De
       notes: 'No rule in the policy matches this complaint. A person must decide; consider extending the policy.',
     }),
   )
+}
+
+/**
+ * The statuses a person may set by hand, outside approve and reject, as in a ticketing system: Open (our turn; back to
+ * the start, to run again), Pending (the customer's turn: waiting for their answer) and Closed (done, nothing written).
+ * A new decision on a closed case starts from Open: run the agent again and it goes back to the approvals queue.
+ * Never out of "Processed" (written_to_sap): the SAP document stays whatever we do here, and a reopened case could be
+ * written a second time. Never while the agent is working on it.
+ */
+export const MANUAL_STATUSES: { to: CaseStatus; label: string; hint: string }[] = [
+  { to: 'received', label: 'Open', hint: 'Our turn. Run the agent again for a new proposal.' },
+  { to: 'needs_customer_input', label: 'Pending', hint: 'Waiting for the customer to answer.' },
+  { to: 'closed', label: 'Closed', hint: 'Done. Nothing is written to SAP.' },
+]
+const LOCKED: CaseStatus[] = ['written_to_sap', 'investigating', 'approved']
+
+const RANK: Record<Role, number> = {
+  returns_desk: -1,
+  customer_service_lead: 0,
+  credit_manager: 1,
+  finance_director: 2,
+}
+
+/**
+ * Why this person cannot move the case to `to`, or null when they can. Taking a case out of the approvals queue needs
+ * the role that could decide it: closing it declines the credit without a rejection.
+ */
+export function statusChangeBlocked(
+  c: Case,
+  to: CaseStatus,
+  role: Role,
+): { status: number; message: string } | null {
+  if (c.sapDocuments.length || c.status === 'written_to_sap') {
+    return {
+      status: 409,
+      message: 'This case has a SAP document. Its status cannot be changed by hand.',
+    }
+  }
+  if (LOCKED.includes(c.status))
+    return { status: 409, message: 'The case is being worked on. Try again in a moment.' }
+  if (!MANUAL_STATUSES.some((m) => m.to === to))
+    return { status: 400, message: `"${to.replace(/_/g, ' ')}" cannot be set by hand.` }
+  if (c.status === to) return { status: 409, message: 'The case already has this status.' }
+  if (RANK[role] < 0)
+    return { status: 403, message: 'The returns desk cannot change the status of a case.' }
+  const needed = primaryProposal(c)?.decision.approverRole
+  if (c.status === 'awaiting_approval' && needed && RANK[role] < RANK[needed]) {
+    return { status: 403, message: `This needs the ${needed.replace(/_/g, ' ')}.` }
+  }
+  return null
+}
+
+/** The reply sent for the current decision: one sent before the case was last reopened does not count. */
+export function currentReply(events: CaseEvent[]): CaseEvent | undefined {
+  let reopened = -1
+  events.forEach((e, i) => {
+    if (e.kind === 'status' && e.detail.reopened === true) reopened = i
+  })
+  return events.slice(reopened + 1).find((e) => e.kind === 'status' && e.detail.replySent === true)
 }

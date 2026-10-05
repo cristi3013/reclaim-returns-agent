@@ -110,6 +110,23 @@ describe('RealGateway', () => {
     expect(w).toMatchObject({ ok: false, status: 503 })
   })
 
+  it('an invoice SAP cannot have is "not found", so the rules still propose; an outage still fails', async () => {
+    calls.length = 0
+    let status = 400
+    vi.stubGlobal('fetch', async (url: string) => {
+      calls.push({ url, method: 'GET', body: undefined })
+      return new Response('{"error":{"message":"getInvoice failed: Malformed URI literal syntax"}}', { status })
+    })
+    expect(await gw().getInvoice('900003539999')).toBeNull()
+    expect(calls).toHaveLength(0)
+    expect(await gw().getInvoice('INV-77')).toBeNull()
+    expect(calls).toHaveLength(0)
+    expect(await gw().getInvoice('90000399')).toBeNull()
+    expect(calls).toHaveLength(1)
+    status = 500
+    await expect(gw().getInvoice('90000399')).rejects.toMatchObject({ status: 500 })
+  })
+
   it('logRequest and setApprovalStatus carry the rule, the claim, the approver, and read the record ID', async () => {
     stub((url) => (url.endsWith('logRequest') ? { ID: 'abc', approvalStatus: 'PENDING' } : { ID: 'abc', approvalStatus: 'APPROVED' }))
     const log = await gw().logRequest({ invoiceNumber: '90001234', proposedAction: 'CREDIT', rule: 'R5', reason: 'Short delivery', claimedQuantity: 2, claimedAmount: 540, creditValue: 540 })

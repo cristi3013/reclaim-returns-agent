@@ -176,6 +176,11 @@ export const AttachmentSchema = z.object({
   url: z.string(),
 })
 
+/** "rejected" was a status until 5 Oct 2026; such cases are closed, and the rejection is in their approvals. */
+const CaseStatusSchema = z.preprocess((v) => (v === 'rejected' ? 'closed' : v), z.enum(CASE_STATUSES))
+export const OUTCOMES = ['approved', 'rejected', 'closed'] as const
+export type Outcome = (typeof OUTCOMES)[number]
+
 export const CaseSchema = z.object({
   id: z.string(),
   emailFile: z.string().nullable(),
@@ -184,7 +189,7 @@ export const CaseSchema = z.object({
   subject: z.string(),
   bodyText: z.string(),
   attachments: z.array(AttachmentSchema),
-  status: z.enum(CASE_STATUSES),
+  status: CaseStatusSchema,
   customer: z.string().nullable(),
   customerName: z.string().nullable(),
   invoiceNumber: z.string().nullable(),
@@ -210,7 +215,8 @@ export const CaseSummarySchema = z.object({
   customerName: z.string().nullable(),
   invoiceNumber: z.string().nullable(),
   complaintType: z.enum(COMPLAINT_TYPES),
-  status: z.enum(CASE_STATUSES),
+  status: CaseStatusSchema,
+  outcome: z.enum(OUTCOMES).nullable().default(null),
   ruleId: z.enum(RULE_IDS).nullable(),
   documentType: z.enum(DOCUMENT_TYPES).nullable(),
   amount: z.number().nullable(),
@@ -284,6 +290,22 @@ export type AgentStatus = z.infer<typeof AgentStatusSchema>
 export type MailboxStatus = z.infer<typeof MailboxStatusSchema>
 export type Settings = z.infer<typeof SettingsSchema>
 
+/**
+ * How a finished case ended. Not a status: the status says where the case is, the outcome what was decided. Read from
+ * the approval records; a case closed by hand after its last decision is "closed".
+ */
+export function caseOutcome(c: Pick<Case, 'status' | 'approvals' | 'events'>): Outcome | null {
+  if (!['approved', 'written_to_sap', 'sap_write_failed', 'closed'].includes(c.status)) return null
+  const a = c.approvals[c.approvals.length - 1]
+  if (c.status === 'closed') {
+    // Event order, not timestamps: a decision and a manual close can share the same millisecond.
+    const last = (ok: (e: CaseEvent) => boolean) => c.events.map(ok).lastIndexOf(true)
+    const byHand = last((e) => e.kind === 'status' && e.detail.to === 'closed')
+    if (byHand >= 0 && byHand > last((e) => e.kind === 'approval')) return 'closed'
+  }
+  return a?.decision ?? null
+}
+
 /** The proposal that currently represents the case: chosen, else recommended, else the first. */
 export function primaryProposal(c: Pick<Case, 'proposals'>): Proposal | undefined {
   return c.proposals.find((x) => x.chosen) ?? c.proposals.find((x) => x.recommended) ?? c.proposals[0]
@@ -313,6 +335,7 @@ export function toSummary(c: Case): CaseSummary {
     invoiceNumber: c.invoiceNumber,
     complaintType: c.complaintType,
     status: c.status,
+    outcome: caseOutcome(c),
     ruleId: p?.decision.ruleId ?? null,
     documentType: p?.decision.documentType ?? null,
     amount: p ? p.decision.amount : null,
