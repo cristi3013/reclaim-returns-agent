@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { primaryProposal, type Case, type CaseSummary, type SapDocument } from '@reclaim/shared'
 import { buildApp } from '../src/app'
-import { mailerFromEnv, type Mailer, type OutboundEmail } from '../src/intake/mailer'
+import { mailerFromEnv, parseAddress, type Mailer, type OutboundEmail } from '../src/intake/mailer'
 
 const cm = { actor: 'Demo', role: 'credit_manager' as const }
 let ctx: ReturnType<typeof buildApp>
@@ -111,14 +111,86 @@ describe('send the reply to the customer', () => {
 })
 
 describe('mailer config', () => {
-  it('reuses the mailbox credentials for SMTP, prefers Resend when keyed, off when disabled', () => {
+  it('reuses the mailbox credentials for SMTP, prefers SendGrid when keyed, off when disabled', () => {
     expect(mailerFromEnv({})).toBeNull()
     expect(mailerFromEnv({ EMAIL_USER: 'a@gmail.com', EMAIL_PASSWORD: 'abcd efgh' })?.from).toBe(
       'a@gmail.com',
     )
-    expect(mailerFromEnv({ RESEND_API_KEY: 'k', REPLY_FROM: 'r@x.com' })?.from).toBe('r@x.com')
+    expect(mailerFromEnv({ SENDGRID_API_KEY: 'k', REPLY_FROM: 'r@x.com' })?.from).toBe('r@x.com')
+    const blanks = {
+      SMTP_HOST: '',
+      SMTP_PORT: '',
+      SMTP_USER: '',
+      SMTP_PASSWORD: '',
+      SENDGRID_API_KEY: '',
+    }
+    expect(mailerFromEnv({ ...blanks, IMAP_USER: 'a@gmail.com', IMAP_PASSWORD: 'p' })?.from).toBe(
+      'a@gmail.com',
+    )
     expect(
       mailerFromEnv({ IMAP_USER: 'a@gmail.com', IMAP_PASSWORD: 'p', REPLY_ENABLED: 'false' }),
     ).toBeNull()
+  })
+})
+
+describe('SendGrid', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('posts the reply from the verified sender, to the customer, in their thread', async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init: RequestInit) =>
+        new Response(null, { status: 202, headers: { 'x-message-id': 'sg-1' } }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const m = mailerFromEnv({
+      SENDGRID_API_KEY: 'SG.k',
+      REPLY_FROM: 'o2chackathon@gmail.com',
+      IMAP_USER: 'x@gmail.com',
+      IMAP_PASSWORD: 'p',
+    })!
+    expect(m.from).toBe('o2chackathon@gmail.com')
+    const r = await m.send({
+      to: 'Gabriel <g@deloittece.com>',
+      subject: 'Re: x',
+      text: 'hello',
+      inReplyTo: '<m1@test>',
+    })
+    expect(r.messageId).toBe('sg-1')
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://api.sendgrid.com/v3/mail/send')
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer SG.k')
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      personalizations: [{ to: [{ email: 'g@deloittece.com', name: 'Gabriel' }] }],
+      from: { email: 'o2chackathon@gmail.com' },
+      subject: 'Re: x',
+      content: [{ type: 'text/plain', value: 'hello' }],
+      headers: { 'In-Reply-To': '<m1@test>', References: '<m1@test>' },
+    })
+  })
+
+  it('reports SendGrid errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      async () =>
+        new Response(
+          JSON.stringify({
+            errors: [{ message: 'The from address does not match a verified Sender Identity.' }],
+          }),
+          { status: 403 },
+        ),
+    )
+    const m = mailerFromEnv({ SENDGRID_API_KEY: 'SG.k', REPLY_FROM: 'a@b.com' })!
+    await expect(m.send({ to: 'c@d.com', subject: 's', text: 't' })).rejects.toThrow(
+      'SendGrid 403: The from address does not match a verified Sender Identity.',
+    )
+  })
+
+  it('parseAddress', () => {
+    expect(parseAddress('"Quality, Cust DE 1" <q@x.com>')).toEqual({
+      email: 'q@x.com',
+      name: 'Quality, Cust DE 1',
+    })
+    expect(parseAddress('q@x.com')).toEqual({ email: 'q@x.com' })
+    expect(parseAddress('<q@x.com>')).toEqual({ email: 'q@x.com' })
   })
 })

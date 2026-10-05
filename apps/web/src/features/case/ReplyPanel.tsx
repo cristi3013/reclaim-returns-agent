@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Copy, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { primaryProposal, type Case, type Role } from '@reclaim/shared'
 import { useSendReply, type SendReplyResult } from '@/api'
 import { Button } from '@/components/ui/button'
@@ -14,10 +14,20 @@ const REPLY_STATUSES = [
   'duplicate',
 ]
 
-/** The reply to the customer: edit, then send it by email in their thread, or copy it. */
+/** Placeholder suggestion until the generated reply is wired in. */
+const DUMMY_SUGGESTION = `Dear customer,
+
+Thank you for contacting us about your order. We have reviewed your complaint and processed it according to our returns policy.
+
+If you have any further questions, simply reply to this email.
+
+Kind regards,
+Customer Service`
+
+/** The reply to the customer: a suggested answer to edit, then send by email in their thread. */
 export function ReplyPanel({ c, role, actor }: { c: Case; role: Role; actor: string }) {
   const p = primaryProposal(c)
-  const [text, setText] = useState(p?.replyDraft ?? '')
+  const [text, setText] = useState(DUMMY_SUGGESTION)
   const [result, setResult] = useState<SendReplyResult | null>(null)
   const send = useSendReply()
   if (!p || !REPLY_STATUSES.includes(c.status)) return null
@@ -26,7 +36,6 @@ export function ReplyPanel({ c, role, actor }: { c: Case; role: Role; actor: str
   const byEmail =
     c.events.some((e) => e.kind === 'intake' && e.detail.channel === 'mailbox') &&
     c.from.includes('@')
-  const doc = c.sapDocuments[c.sapDocuments.length - 1]
 
   if (sent) {
     return (
@@ -37,55 +46,33 @@ export function ReplyPanel({ c, role, actor }: { c: Case; role: Role; actor: str
     )
   }
 
-  const copy = async () => {
-    await navigator.clipboard.writeText(text)
-    toast.success('Reply copied')
-  }
-
   return (
-    <div className="mt-4 rounded-lg border border-line bg-surface p-4 shadow-card">
-      <div className="mb-2 flex flex-wrap items-baseline gap-2">
-        <h3 className="font-semibold">Reply to the customer</h3>
-        <span className="text-xs text-muted">
-          {byEmail
-            ? `to ${c.from}, in the thread "${c.subject}"`
-            : 'this complaint did not arrive by email: copy the reply'}
-        </span>
-      </div>
+    <div className="mt-4">
       <textarea
         aria-label="Reply to the customer"
         className="min-h-40 w-full rounded-md border border-line bg-surface-2 p-3 text-sm leading-relaxed"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
-      {doc && !text.includes(doc.number) && (
-        <p className="mt-1 text-xs text-muted">
-          The reference {doc.type} {doc.number} is added at the end when the reply is sent.
-        </p>
-      )}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {byEmail && (
-          <Button
-            disabled={send.isPending || !text.trim()}
-            onClick={() =>
-              send.mutate(
-                { caseId: c.id, input: { actor, role, text } },
-                {
-                  onSuccess: (r) => {
-                    setResult(r)
-                    if (r.ok) toast.success(`Reply sent to ${r.to}`)
-                  },
+      {byEmail && (
+        <Button
+          className="mt-2"
+          disabled={send.isPending || !text.trim()}
+          onClick={() =>
+            send.mutate(
+              { caseId: c.id, input: { actor, role, text } },
+              {
+                onSuccess: (r) => {
+                  setResult(r)
+                  if (r.ok) toast.success(`Reply sent to ${r.to}`)
                 },
-              )
-            }
-          >
-            <Send className="size-4" /> {send.isPending ? 'Sending…' : 'Send reply'}
-          </Button>
-        )}
-        <Button variant="outline" onClick={() => void copy()}>
-          <Copy className="size-4" /> Copy reply
+              },
+            )
+          }
+        >
+          <Send className="size-4" /> {send.isPending ? 'Sending…' : 'Send reply'}
         </Button>
-      </div>
+      )}
       {result && !result.ok && (
         <div
           role="alert"

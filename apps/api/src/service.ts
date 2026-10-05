@@ -69,7 +69,7 @@ export interface ServiceDeps {
   hasRealGateway: boolean
   /** Mailbox listener status for the UI, when one is configured. */
   mailboxStatus?: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } | null
-  /** Sends the customer reply (SMTP or Resend). Without one, the UI offers copy to clipboard. */
+  /** Sends the customer reply (SendGrid or SMTP). Without one, the UI offers copy to clipboard. */
   mailer?: Mailer | null
   /** Optional write-through persistence (Supabase). Never blocks a request. */
   persistence?: {
@@ -380,7 +380,7 @@ export class Service {
   async sendReply(caseId: string, input: SendReplyInput): Promise<Outcome<{ to: string; messageId: string }>> {
     const c = this.store.get(caseId)
     const mailer = this.deps.mailer
-    if (!mailer) return { ok: false, status: 503, message: 'No outgoing email is configured (SMTP_* or IMAP_* credentials, or RESEND_API_KEY). Copy the reply instead.' }
+    if (!mailer) return { ok: false, status: 503, message: 'No outgoing email is configured (SENDGRID_API_KEY, or SMTP_*/IMAP_* credentials). Copy the reply instead.' }
     const intake = c.events.find((e) => e.kind === 'intake')
     if (intake?.detail.channel !== 'mailbox' || !c.from.includes('@')) {
       return { ok: false, status: 400, message: 'This complaint did not arrive by email, so there is no address to reply to. Copy the reply instead.' }
