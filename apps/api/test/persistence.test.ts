@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildFixtureCases } from '@reclaim/shared'
 import { planSync } from '../src/persistence'
+import { caseIdForMessage } from '../src/service'
 
 /** Two backends share one Supabase: each must pick up the other's cases without clobbering its own work. */
 describe('planSync', () => {
@@ -26,5 +27,13 @@ describe('planSync', () => {
 
   it('tolerates sub-second timestamp rounding between the database and the local copy', () => {
     expect(planSync(local, [{ id: a!.id, updated_at: '2026-10-05T15:00:00.400+00:00' }], () => false).toFetch).toEqual([])
+  })
+})
+
+describe('caseIdForMessage', () => {
+  it('gives every instance the same case id for the same email, and different ids for different emails', () => {
+    expect(caseIdForMessage('<abc@mail.gmail.com>')).toBe(caseIdForMessage(' <abc@mail.gmail.com> '))
+    expect(caseIdForMessage('<abc@mail.gmail.com>')).not.toBe(caseIdForMessage('<abd@mail.gmail.com>'))
+    expect(caseIdForMessage('<abc@mail.gmail.com>')).toMatch(/^case-m[0-9a-f]{10}$/)
   })
 })

@@ -117,7 +117,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     const out = []
     for await (const part of req.files()) {
       const mail = await parseEml(await part.toBuffer(), UPLOADS_DIR, publicBase, part.filename)
-      const s = service.ingestInbound(mail)
+      const s = await service.ingestInbound(mail)
       if (s) out.push(s)
     }
     return out
@@ -132,10 +132,10 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     let s
     if (ct.includes('application/json')) {
       const b = InboundBody.parse(req.body)
-      s = service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, sourceFile: null })
+      s = await service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, sourceFile: null })
     } else {
       const mail = await parseEml(req.body as Buffer, UPLOADS_DIR, publicBase, null)
-      s = service.ingestInbound(mail)
+      s = await service.ingestInbound(mail)
     }
     if (!s) return reply.status(200).send({ duplicate: true })
     if (process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
@@ -206,7 +206,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     ? new MailboxListener(
         mailboxCfg,
         async (mail) => {
-          const s = service.ingestInbound(mail)
+          const s = await service.ingestInbound(mail)
           // The run takes seconds with the model; it must not block the mailbox fetch or the next email.
           if (s && process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
         },

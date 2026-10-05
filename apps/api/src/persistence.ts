@@ -73,6 +73,18 @@ export class SupabasePersistence {
     this.queue.set(c.id, next)
   }
 
+  /**
+   * Insert a brand-new case, and only if no instance has inserted it yet (same id = same email). False means
+   * another instance took it; the sync loop brings its copy over. A database error never blocks intake.
+   */
+  async insertCase(c: Case): Promise<boolean> {
+    const { error } = await this.db.from('cases').insert({ id: c.id, status: c.status, invoice: c.invoiceNumber, customer: c.customer, received_at: c.receivedAt, updated_at: c.updatedAt, data: c })
+    if (!error) return true
+    if (error.code === '23505') return false
+    this.log(`Supabase insert of ${c.id} failed: ${error.message}`)
+    return true
+  }
+
   saveSettings(settings: Settings, lastRunAt: string | null) {
     void this.db
       .from('settings')

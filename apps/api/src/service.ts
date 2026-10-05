@@ -26,6 +26,7 @@ import { Store } from './store'
 import { EventHub, ev, uid } from './events'
 import { runPipeline } from './pipeline'
 import type { InboundEmail } from './intake/mailbox'
+import { createHash } from 'node:crypto'
 
 const ROLE_RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
@@ -66,6 +67,7 @@ export interface ServiceDeps {
     saveSettings: (s: Settings, lastRunAt: string | null) => void
     saveEval: (r: EvalResult[]) => void
     deleteAll: () => Promise<void>
+    insertCase?: (c: Case) => Promise<boolean>
     refresh?: (store: Store, busy: (id: string) => boolean) => Promise<{ changed: string[]; removed: string[] }>
   }
 }
@@ -123,14 +125,18 @@ export class Service {
   }
 
   /** Creates a case from an email that arrived by mailbox or webhook. Duplicate message ids are ignored. */
-  ingestInbound(mail: InboundEmail): CaseSummary | null {
+  async ingestInbound(mail: InboundEmail): Promise<CaseSummary | null> {
     if (mail.messageId) {
       const dup = this.store.list().find((c) => c.events.some((e) => e.kind === 'intake' && e.detail.messageId === mail.messageId))
       if (dup) return null
     }
     const fx = mail.sourceFile ? FIXTURES.find((x) => x.emailFile === mail.sourceFile) : undefined
     const now = new Date().toISOString()
-    const id = fx && !this.store.cases.has(fx.id) ? fx.id : uid('case')
+    // An email from the mailbox gets an id derived from its Message-ID, so every instance listening on the same
+    // mailbox lands on the same case and the database decides who ingests it.
+    const fromMailbox = !!mail.messageId && !mail.sourceFile
+    const id = fx && !this.store.cases.has(fx.id) ? fx.id : fromMailbox ? caseIdForMessage(mail.messageId!) : uid('case')
+    if (this.store.cases.has(id)) return null
     const base = fx ? buildFixtureCases().find((x) => x.id === fx.id)! : null
     const c: Case = base
       ? { ...base, id, createdAt: now, updatedAt: now }
@@ -159,8 +165,12 @@ export class Service {
           updatedAt: now,
         }
     ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: c.attachments.length, messageId: mail.messageId, channel: mail.sourceFile ? 'file' : 'mailbox' }, '5.1.1')
+    if (fromMailbox && this.deps.persistence?.insertCase) {
+      if (!(await this.deps.persistence.insertCase(c))) return null
+    } else {
+      this.deps.persistence?.saveCase(c)
+    }
     this.store.cases.set(id, c)
-    this.deps.persistence?.saveCase(c)
     this.deps.hub.emit({ type: 'status_changed' })
     this.deps.hub.emit({ type: 'case_changed', id })
     return toSummary(c)
@@ -517,6 +527,11 @@ export class Service {
     void this.deps.persistence?.deleteAll()
     this.deps.hub.emit({ type: 'status_changed' })
   }
+}
+
+/** Stable case id for an email: the same Message-ID gives the same id on every instance. */
+export function caseIdForMessage(messageId: string): string {
+  return `case-m${createHash('sha1').update(messageId.trim()).digest('hex').slice(0, 10)}`
 }
 
 function header(text: string, name: string): string | undefined {
