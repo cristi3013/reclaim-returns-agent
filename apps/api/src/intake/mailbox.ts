@@ -10,9 +10,6 @@ export interface InboundEmail {
   text: string
   attachments: { name: string; mimeType: string; url: string }[]
   messageId: string | null
-  /** Reply headers: which earlier emails this one answers. They put a reply on its case. */
-  inReplyTo?: string | null
-  references?: string[]
   sourceFile: string | null
 }
 
@@ -80,8 +77,6 @@ export async function toInbound(mail: ParsedMail, uploadsDir: string, publicBase
     text: (mail.text ?? '').trim() || stripHtml(mail.html || ''),
     attachments,
     messageId: mail.messageId ?? null,
-    inReplyTo: mail.inReplyTo ?? null,
-    references: typeof mail.references === 'string' ? [mail.references] : (mail.references ?? []),
     sourceFile,
   }
 }

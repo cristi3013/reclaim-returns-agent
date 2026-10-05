@@ -1,4 +1,4 @@
-import { buildSapPayload, decide, keptOnRerun, preferItem, rankCandidates, type CaseStatus, type Findings, type Proposal } from '@reclaim/shared'
+import { buildSapPayload, decide, preferItem, rankCandidates, type CaseStatus, type Findings, type Proposal } from '@reclaim/shared'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import type { Store } from './store'
@@ -7,6 +7,7 @@ import { ev, uid } from './events'
 const TERMINAL_OR_IDLE: CaseStatus[] = ['received', 'closed', 'duplicate', 'needs_customer_input', 'handed_over']
 /** A case may be (re)run only from these. Never from approved/written/closed, and never while being written. */
 const RUNNABLE: CaseStatus[] = ['received', 'awaiting_approval', 'needs_customer_input', 'handed_over', 'duplicate', 'sap_write_failed']
+const KEEP_ON_RERUN = ['intake', 'approval', 'sap_write', 'sap_release', 'error'] as const
 
 export interface PipelineDeps {
   store: Store
@@ -39,7 +40,7 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   c.status = 'investigating'
   c.aiMode = store.settings.aiMode
   c.proposals = []
-  c.events = c.events.filter(keptOnRerun)
+  c.events = c.events.filter((e) => (KEEP_ON_RERUN as readonly string[]).includes(e.kind))
   c.facts = null
   c.findings = null
   c.anomalies = []

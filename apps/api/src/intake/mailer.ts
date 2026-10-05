@@ -6,8 +6,6 @@ export interface OutboundEmail {
   text: string
   /** Message-ID of the complaint, so the reply lands in the customer's thread. */
   inReplyTo?: string | null
-  /** Every earlier Message-ID of the thread, oldest first. */
-  references?: string[]
 }
 
 export interface Mailer {
@@ -55,7 +53,7 @@ export function mailerFromEnv(raw = process.env): Mailer | null {
         to: m.to,
         subject: m.subject,
         text: m.text,
-        ...(m.inReplyTo ? { inReplyTo: m.inReplyTo, references: m.references?.length ? m.references : [m.inReplyTo] } : {}),
+        ...(m.inReplyTo ? { inReplyTo: m.inReplyTo, references: [m.inReplyTo] } : {}),
       })
       return { messageId: info.messageId }
     },
@@ -87,7 +85,7 @@ export class SendGridMailer implements Mailer {
         subject: m.subject,
         content: [{ type: 'text/plain', value: m.text }],
         ...(m.inReplyTo
-          ? { headers: { 'In-Reply-To': m.inReplyTo, References: (m.references?.length ? m.references : [m.inReplyTo]).join(' ') } }
+          ? { headers: { 'In-Reply-To': m.inReplyTo, References: m.inReplyTo } }
           : {}),
       }),
       signal: AbortSignal.timeout(20000),
