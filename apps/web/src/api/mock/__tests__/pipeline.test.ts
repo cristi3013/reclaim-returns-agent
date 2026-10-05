@@ -190,15 +190,6 @@ describe('review fixes', () => {
     expect(primaryProposal(await c.getCase('case-08'))!.sapPayload).toMatchObject({ CustomerReturnType: 'YRE', HeaderBillingBlockReason: '08' })
   })
 
-  it('refuses to write a demo invoice when SAP mode is real', async () => {
-    const c = await mk()
-    await c.updateSettings({ sapMode: 'real' })
-    await c.runCase('case-03')
-    const r = await c.approve(primaryProposal(await c.getCase('case-03'))!.id, cm)
-    expect(r).toMatchObject({ ok: false, status: 400 })
-    expect((await c.getCase('case-03')).status).toBe('awaiting_approval')
-  })
-
   it('runEval does not crash while a case is mid-run', async () => {
     const c = await mk()
     const running = c.runCase('case-01')

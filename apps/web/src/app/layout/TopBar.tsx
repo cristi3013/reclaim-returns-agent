@@ -24,7 +24,9 @@ export function TopBar() {
             { value: 'mock', label: 'Mock' },
             { value: 'real', label: 'DS4' },
           ]}
-          onChange={(v) => upd.mutate({ sapMode: v as 'mock' | 'real' })}
+          onChange={(v) =>
+            upd.mutate({ sapMode: v as 'mock' | 'real' }, { onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not switch SAP mode', { duration: 8000 }) })
+          }
         />
         <ModeSwitch
           label="AI"
@@ -33,7 +35,7 @@ export function TopBar() {
             { value: 'assisted', label: 'Assisted' },
             { value: 'rules_only', label: 'Rules only' },
           ]}
-          onChange={(v) => upd.mutate({ aiMode: v as 'assisted' | 'rules_only' })}
+          onChange={(v) => upd.mutate({ aiMode: v as 'assisted' | 'rules_only' }, { onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not switch AI mode') })}
         />
         <ModeSwitch
           label="Conflict"

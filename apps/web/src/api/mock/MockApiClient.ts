@@ -419,6 +419,12 @@ export class MockApiClient implements ApiClient {
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<Settings> {
+    if (patch.sapMode === 'real') {
+      throw Object.assign(
+        new Error('This is the in-browser mock: it has no SAP connection. Run the backend (apps/api) with GATEWAY_URL and start the frontend with VITE_API_MODE=http to use DS4.'),
+        { status: 400 },
+      )
+    }
     this.store.settings = { ...this.store.settings, ...patch }
     this.store.save()
     this.emit({ type: 'status_changed' })
