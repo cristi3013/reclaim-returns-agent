@@ -1,16 +1,6 @@
 import type { Answer, Case, Decision, Facts, Findings, ModelUsage, Narrative, RootCauseNarration } from '@reclaim/shared'
 
-/** Attachment types the model can read: photos, and PDFs such as a signed delivery note. Others are kept, not read. */
-export const MODEL_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
-export const MODEL_READABLE_TYPES: readonly string[] = [...MODEL_IMAGE_TYPES, 'application/pdf']
-/** Larger files are skipped rather than sent: the model's request limit is about 32 MB. */
-export const MODEL_MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
-
-const EXTENSION_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' }
-/** The media type from a file name or URL, or null when the extension is unknown. */
-export function mimeFromName(name: string): string | null {
-  return EXTENSION_TYPES[name.split(/[?#]/)[0]!.split('.').pop()?.toLowerCase() ?? ''] ?? null
-}
+export { MODEL_IMAGE_TYPES, MODEL_MAX_ATTACHMENT_BYTES, MODEL_READABLE_TYPES, mimeFromName } from '@reclaim/shared'
 
 /**
  * The two places the model is used. Everything about money stays outside this interface:

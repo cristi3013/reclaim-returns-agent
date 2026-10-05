@@ -1,6 +1,7 @@
 import { COMPLAINT_LABELS, conversation, type Case } from '@reclaim/shared'
 import { formatDateTime } from '@/lib/format'
-import { Attachments, MessageBubble } from '@/components/domain/MessageBubble'
+import { MessageBubble } from '@/components/domain/MessageBubble'
+import { Attachments } from '@/components/domain/Attachments'
 
 export function ComplaintPanel({ c }: { c: Case }) {
   const f = c.facts
@@ -14,6 +15,7 @@ export function ComplaintPanel({ c }: { c: Case }) {
       {thread ? (
         <>
           <div className="mt-1 text-sm font-medium">{c.subject}</div>
+          <Attachments list={c.attachments} compact />
           <ol className="mt-3 space-y-3" aria-label="Emails in this case">
             {messages.map((m) => (
               <MessageBubble key={m.id} m={m} />

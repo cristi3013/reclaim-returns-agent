@@ -48,6 +48,7 @@ import {
   type SendReplyResult,
 } from '../client'
 import { MockStore } from './store'
+import { splitEml } from './eml'
 import { ev, uid } from './events'
 import { runPipeline } from './pipeline'
 
@@ -129,14 +130,14 @@ export class MockApiClient implements ApiClient {
       const text = await readText(f)
       const fx = FIXTURES.find((x) => x.emailFile === f.name)
       const now = new Date().toISOString()
-      const [head = '', ...rest] = text.split(/\r?\n\r?\n/)
+      const { head, body, attachments } = splitEml(text)
       const header = (name: string) => new RegExp(`^${name}:\\s*(.+)$`, 'mi').exec(head)?.[1]?.trim() ?? null
       const mail = {
         from: header('From') ?? 'unknown sender',
         subject: header('Subject') ?? f.name,
-        text: rest.join('\n\n').trim(),
+        text: body,
         receivedAt: now,
-        attachments: [],
+        attachments,
         messageId: header('Message-ID'),
         inReplyTo: header('In-Reply-To'),
         references: header('References')?.split(/\s+/) ?? [],
@@ -161,7 +162,7 @@ export class MockApiClient implements ApiClient {
             from: mail.from,
             subject: mail.subject,
             bodyText: mail.text,
-            attachments: [],
+            attachments,
             status: 'received',
             customer: '10021',
             customerName: 'Cust DE 1',
@@ -178,7 +179,7 @@ export class MockApiClient implements ApiClient {
             createdAt: now,
             updatedAt: now,
           }
-      if (!fx) ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: 0, messageId: mail.messageId, channel: 'file' }, '5.1.1')
+      if (!fx) ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: c.attachments.length, messageId: mail.messageId, channel: 'file' }, '5.1.1')
       this.store.cases.set(id, c)
       out.push(toSummary(c))
     }
