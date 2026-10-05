@@ -44,8 +44,8 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
   return (
     <div>
       <PageHeader
-        title="Complaints"
-        description="Every customer complaint, what the agent found in SAP and what it proposes. Nothing reaches SAP without a person's approval."
+        title="Inbox"
+        description="Every complaint email as it arrives, what the agent found in SAP and what it proposes. Complaints about the same invoice are grouped under Cases. Nothing reaches SAP without a person's approval."
         extra={
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
             {pending > 0 && (

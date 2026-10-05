@@ -1,10 +1,12 @@
 import {
+  addCustomerReply,
   approverFor,
   buildFixtureCases,
   buildSapPayload,
   computeAnalytics,
   EXPECTED,
   FIXTURES,
+  findThreadCase,
   capQuantity,
   DEMO_INVOICES,
   primaryProposal,
@@ -110,9 +112,31 @@ export class MockApiClient implements ApiClient {
   async ingest(files: File[]): Promise<CaseSummary[]> {
     const out: CaseSummary[] = []
     for (const f of files) {
-      const text = await new Response(f).text()
+      const text = await readText(f)
       const fx = FIXTURES.find((x) => x.emailFile === f.name)
       const now = new Date().toISOString()
+      const [head = '', ...rest] = text.split(/\r?\n\r?\n/)
+      const header = (name: string) => new RegExp(`^${name}:\\s*(.+)$`, 'mi').exec(head)?.[1]?.trim() ?? null
+      const mail = {
+        from: header('From') ?? 'unknown sender',
+        subject: header('Subject') ?? f.name,
+        text: rest.join('\n\n').trim(),
+        receivedAt: now,
+        attachments: [],
+        messageId: header('Message-ID'),
+        inReplyTo: header('In-Reply-To'),
+        references: header('References')?.split(/\s+/) ?? [],
+        sourceFile: f.name,
+      }
+      // An answer to an earlier email joins that case's conversation instead of opening a new one.
+      const thread = fx ? undefined : findThreadCase([...this.store.cases.values()], mail)
+      if (thread) {
+        addCustomerReply(thread, mail, ev)
+        thread.updatedAt = now
+        this.emit({ type: 'case_changed', id: thread.id })
+        out.push(toSummary(thread))
+        continue
+      }
       const id = fx && !this.store.cases.has(fx.id) ? fx.id : uid('case')
       const c: Case = fx
         ? { ...buildFixtureCases().find((x) => x.id === fx.id)!, id, createdAt: now, updatedAt: now }
@@ -120,9 +144,9 @@ export class MockApiClient implements ApiClient {
             id,
             emailFile: f.name,
             receivedAt: now,
-            from: text.match(/^From:\s*(.+)$/m)?.[1] ?? 'unknown sender',
-            subject: text.match(/^Subject:\s*(.+)$/m)?.[1] ?? f.name,
-            bodyText: text.split(/\r?\n\r?\n/).slice(1).join('\n\n').trim(),
+            from: mail.from,
+            subject: mail.subject,
+            bodyText: mail.text,
             attachments: [],
             status: 'received',
             customer: '10021',
@@ -140,6 +164,7 @@ export class MockApiClient implements ApiClient {
             createdAt: now,
             updatedAt: now,
           }
+      if (!fx) ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: 0, messageId: mail.messageId, channel: 'file' }, '5.1.1')
       this.store.cases.set(id, c)
       out.push(toSummary(c))
     }
@@ -474,4 +499,14 @@ export class MockApiClient implements ApiClient {
   _store() {
     return this.store
   }
+}
+
+/** FileReader rather than Blob.text(): the same in browsers and in jsdom, where Blob.text() is missing. */
+function readText(f: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result ?? ''))
+    r.onerror = () => reject(r.error)
+    r.readAsText(f)
+  })
 }
