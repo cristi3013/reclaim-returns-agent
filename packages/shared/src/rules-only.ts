@@ -4,7 +4,12 @@ import type { Case, Facts } from './schemas'
 export function regexFacts(c: Case): Facts {
   const text = `${c.subject}\n${c.bodyText}`
   const inv = text.match(/\b(9000\d{4})\b/)?.[1] ?? null
-  const qty = c.bodyText.match(/(\d+(?:[.,]\d+)?)\s*KG/i)
+  // The quantity the customer complains about: prefer a "N KG" that sits next to a complaint word
+  // ("2 KG are lost", "return 10 KG", "3 KG crushed"), else the last quantity mentioned.
+  const all = [...c.bodyText.matchAll(/(\d+(?:[.,]\d+)?)\s*KG/gi)]
+  const near = (m: RegExpMatchArray) => c.bodyText.slice(Math.max(0, (m.index ?? 0) - 10), (m.index ?? 0) + m[0].length + 16).toLowerCase()
+  const qty =
+    all.find((m) => /missing|lost|damag|crush|leak|contaminat|return|credit|discolou?r/.test(near(m))) ?? all[all.length - 1] ?? null
   const t = c.bodyText.toLowerCase()
   const wantsReplacement = /replace/i.test(c.bodyText) && /do not want a credit/i.test(c.bodyText)
   const type: Facts['complaintType'] = /^re:/i.test(c.subject)

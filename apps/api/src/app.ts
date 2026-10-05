@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
+import fastifyStatic from '@fastify/static'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,10 +16,23 @@ import { RulesOnlyAi } from './ai/rules-only'
 import { ClaudeAi, detectProvider } from './ai/claude'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
+import { SupabasePersistence } from './persistence'
+import { MailboxPoller, mailboxConfigFromEnv, parseEml } from './intake/mailbox'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 /** Attachments referenced by the demo cases live in the web app's public folder. */
 const ATTACHMENT_ROOT = path.resolve(here, '../../web/public')
+/** Attachments from real emails are saved here and served at /uploads/<file>. */
+const UPLOADS_DIR = path.resolve(here, '../uploads')
+
+const InboundBody = z.object({
+  from: z.string().default('unknown sender'),
+  subject: z.string(),
+  text: z.string(),
+  receivedAt: z.string().optional(),
+  messageId: z.string().optional(),
+  attachments: z.array(z.object({ name: z.string(), mimeType: z.string(), url: z.string() })).default([]),
+})
 
 const ApproveBody = z.object({ actor: z.string(), role: z.enum(['customer_service_lead', 'credit_manager', 'finance_director', 'returns_desk']), editedQuantity: z.number().optional(), comment: z.string().optional() })
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
@@ -32,11 +46,18 @@ export interface AppOptions {
   ai?: (settings: Settings) => Ai
   gatewayUrl?: string
   mockDelayMs?: number
+  /** Public base URL of this API, used in attachment links. Default http://localhost:PORT. */
+  publicBase?: string
+  /** Disable Supabase and the mailbox poller (tests). */
+  noSideCars?: boolean
 }
 
 /** Builds the Fastify app. `server.ts` listens; tests use `app.inject`. */
-export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service: Service; store: Store } {
+export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service: Service; store: Store; ready: () => Promise<void>; stop: () => void } {
   const store = new Store(opts.initialSettings)
+  const publicBase = opts.publicBase ?? process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 3000}`
+  const log = (msg: string) => (process.env.NODE_ENV === 'test' ? undefined : console.error(msg))
+  const persistence = opts.noSideCars ? null : SupabasePersistence.fromEnv(log)
   const hub = new EventHub()
   const mock = new MockGateway({ simulateConflict: () => store.settings.simulateConflict, delayMs: opts.mockDelayMs })
   const real = opts.gatewayUrl ? new RealGateway(opts.gatewayUrl) : null
@@ -58,9 +79,11 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     ai,
     hasRealGateway: !!real || !!opts.gateway,
     onReset: () => mock.reset(),
+    persistence: persistence ?? undefined,
     readAttachment: async (url) => {
       try {
-        const file = path.join(ATTACHMENT_ROOT, url.replace(/^\//, ''))
+        const rel = url.startsWith(publicBase) ? url.slice(publicBase.length) : url
+        const file = rel.startsWith('/uploads/') ? path.join(UPLOADS_DIR, rel.slice('/uploads/'.length)) : path.join(ATTACHMENT_ROOT, rel.replace(/^\//, ''))
         const base64 = (await readFile(file)).toString('base64')
         const mimeType = url.endsWith('.png') ? 'image/png' : url.endsWith('.jpg') || url.endsWith('.jpeg') ? 'image/jpeg' : 'application/octet-stream'
         return { mimeType, base64 }
@@ -73,6 +96,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' })
   app.register(cors, { origin: true })
   app.register(multipart, { limits: { files: 20, fileSize: 5 * 1024 * 1024 } })
+  app.register(fastifyStatic, { root: UPLOADS_DIR, prefix: '/uploads/', decorateReply: false })
 
   app.setErrorHandler((err: unknown, _req, reply) => {
     const e = err as { status?: number; statusCode?: number; message?: string }
@@ -88,9 +112,32 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     reply.status(204)
   })
   app.post('/api/cases/ingest', async (req) => {
-    const files: { name: string; text: string }[] = []
-    for await (const part of req.files()) files.push({ name: part.filename, text: (await part.toBuffer()).toString('utf8') })
-    return service.ingest(files)
+    const out = []
+    for await (const part of req.files()) {
+      const mail = await parseEml(await part.toBuffer(), UPLOADS_DIR, publicBase, part.filename)
+      const s = service.ingestInbound(mail)
+      if (s) out.push(s)
+    }
+    return out
+  })
+  /**
+   * Inbound complaint by webhook: JSON {from, subject, text, receivedAt?, messageId?, attachments?} or a raw
+   * email with content-type message/rfc822 or text/plain. Use it from Postman, or from an email-to-webhook service.
+   */
+  app.addContentTypeParser(['message/rfc822', 'text/plain'], { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
+  app.post('/api/inbound', async (req, reply) => {
+    const ct = req.headers['content-type'] ?? ''
+    let s
+    if (ct.includes('application/json')) {
+      const b = InboundBody.parse(req.body)
+      s = service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, sourceFile: null })
+    } else {
+      const mail = await parseEml(req.body as Buffer, UPLOADS_DIR, publicBase, null)
+      s = service.ingestInbound(mail)
+    }
+    if (!s) return reply.status(200).send({ duplicate: true })
+    if (process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
+    return reply.status(201).send(s)
   })
   app.post<{ Params: { id: string } }>('/api/cases/:id/run', async (req, reply) => {
     await service.runCase(req.params.id)
@@ -149,7 +196,30 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     })
   })
 
-  app.get('/health', async () => ({ ok: true, agent: 'o2c-agent-8' }))
+  app.get('/health', async () => ({ ok: true, agent: 'o2c-agent-8', persistence: !!persistence, mailbox: !!mailboxConfigFromEnv() && !opts.noSideCars }))
 
-  return { app, service, store }
+  const mailboxCfg = opts.noSideCars ? null : mailboxConfigFromEnv()
+  const poller = mailboxCfg
+    ? new MailboxPoller(
+        mailboxCfg,
+        async (mail) => {
+          const s = service.ingestInbound(mail)
+          if (s && process.env.INBOUND_AUTORUN !== 'false') await service.runCase(s.id).catch(() => undefined)
+        },
+        UPLOADS_DIR,
+        publicBase,
+        log,
+      )
+    : null
+
+  const ready = async () => {
+    if (persistence) {
+      const n = await persistence.load(store)
+      log(`Supabase: loaded ${n} cases`)
+    }
+    poller?.start()
+  }
+  const stop = () => poller?.stop()
+
+  return { app, service, store, ready, stop }
 }

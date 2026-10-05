@@ -53,3 +53,16 @@ describe('rankCandidates', () => {
     expect(rankCandidates(list, facts({ invoiceNumber: null, claimedQuantity: 15 }), '2026-10-05T08:10:00Z', 1).map((i) => i.number)).toEqual(['1'])
   })
 })
+
+import { regexFacts } from '../rules-only'
+import { buildFixtureCases } from '../fixtures/cases'
+describe('regexFacts picks the complained quantity', () => {
+  const byId = Object.fromEntries(buildFixtureCases().map((c) => [c.id, c]))
+  it.each([
+    ['case-01', 2], ['case-03', 2], ['case-04', 10], ['case-05', 15], ['case-07', 5], ['case-08', 3],
+  ])('%s → %d KG', (id, qty) => { expect(regexFacts(byId[id]!).claimedQuantity).toBe(qty) })
+  it('short delivery sentence: 20 invoiced, 18 arrived, 2 missing → 2', () => {
+    const c = { ...byId['case-03']!, bodyText: 'Invoice 90000355 charges 20 KG of material 54 but only 18 KG arrived. Please credit the 2 KG missing.' }
+    expect(regexFacts(c).claimedQuantity).toBe(2)
+  })
+})

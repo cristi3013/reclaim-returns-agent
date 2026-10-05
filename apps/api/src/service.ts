@@ -24,6 +24,7 @@ import type { Ai } from './ai/types'
 import { Store } from './store'
 import { EventHub, ev, uid } from './events'
 import { runPipeline } from './pipeline'
+import type { InboundEmail } from './intake/mailbox'
 
 const ROLE_RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
@@ -56,6 +57,13 @@ export interface ServiceDeps {
   onReset?: () => void
   /** Whether a real gateway is configured. Without one, SAP mode cannot be switched to real. */
   hasRealGateway: boolean
+  /** Optional write-through persistence (Supabase). Never blocks a request. */
+  persistence?: {
+    saveCase: (c: Case) => void
+    saveSettings: (s: Settings, lastRunAt: string | null) => void
+    saveEval: (r: EvalResult[]) => void
+    deleteAll: () => Promise<void>
+  }
 }
 
 /**
@@ -73,7 +81,10 @@ export class Service {
 
   private touch(id: string) {
     const c = this.store.cases.get(id)
-    if (c) c.updatedAt = new Date().toISOString()
+    if (c) {
+      c.updatedAt = new Date().toISOString()
+      this.deps.persistence?.saveCase(c)
+    }
     this.deps.hub.emit({ type: 'case_changed', id })
   }
 
@@ -86,8 +97,56 @@ export class Service {
   }
 
   seed() {
-    for (const c of buildFixtureCases()) if (!this.store.cases.has(c.id)) this.store.cases.set(c.id, c)
+    for (const c of buildFixtureCases()) {
+      if (this.store.cases.has(c.id)) continue
+      this.store.cases.set(c.id, c)
+      this.deps.persistence?.saveCase(c)
+    }
     this.deps.hub.emit({ type: 'status_changed' })
+  }
+
+  /** Creates a case from an email that arrived by mailbox or webhook. Duplicate message ids are ignored. */
+  ingestInbound(mail: InboundEmail): CaseSummary | null {
+    if (mail.messageId) {
+      const dup = this.store.list().find((c) => c.events.some((e) => e.kind === 'intake' && e.detail.messageId === mail.messageId))
+      if (dup) return null
+    }
+    const fx = mail.sourceFile ? FIXTURES.find((x) => x.emailFile === mail.sourceFile) : undefined
+    const now = new Date().toISOString()
+    const id = fx && !this.store.cases.has(fx.id) ? fx.id : uid('case')
+    const base = fx ? buildFixtureCases().find((x) => x.id === fx.id)! : null
+    const c: Case = base
+      ? { ...base, id, createdAt: now, updatedAt: now }
+      : {
+          id,
+          emailFile: mail.sourceFile,
+          receivedAt: mail.receivedAt,
+          from: mail.from,
+          subject: mail.subject,
+          bodyText: mail.text,
+          attachments: mail.attachments,
+          status: 'received',
+          customer: '10021',
+          customerName: 'Cust DE 1',
+          invoiceNumber: null,
+          complaintType: 'unknown',
+          aiMode: this.store.settings.aiMode,
+          facts: null,
+          findings: null,
+          proposals: [],
+          approvals: [],
+          sapDocuments: [],
+          events: [],
+          anomalies: [],
+          createdAt: now,
+          updatedAt: now,
+        }
+    ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: c.attachments.length, messageId: mail.messageId, channel: mail.sourceFile ? 'file' : 'mailbox' }, '5.1.1')
+    this.store.cases.set(id, c)
+    this.deps.persistence?.saveCase(c)
+    this.deps.hub.emit({ type: 'status_changed' })
+    this.deps.hub.emit({ type: 'case_changed', id })
+    return toSummary(c)
   }
 
   /** Create cases from raw .eml text. Known demo emails map to their fixture; anything else is a fresh case. */
@@ -332,6 +391,7 @@ export class Service {
       results.push({ caseId: id, emailFile: k.emailFile ?? id, fields, pass: fields.every((f) => f.pass) })
     }
     this.store.evalResults = results
+    this.deps.persistence?.saveEval(results)
     this.deps.hub.emit({ type: 'status_changed' })
     return results
   }
@@ -386,6 +446,7 @@ export class Service {
       return { ok: false, status: 400, message: 'No SAP gateway is configured (GATEWAY_URL). The system stays in mock mode.' }
     }
     this.store.settings = { ...this.store.settings, ...patch }
+    this.deps.persistence?.saveSettings(this.store.settings, this.store.lastRunAt)
     this.deps.hub.emit({ type: 'status_changed' })
     return { ok: true, value: { ...this.store.settings } }
   }
@@ -393,6 +454,7 @@ export class Service {
   reset() {
     this.store.reset()
     this.deps.onReset?.()
+    void this.deps.persistence?.deleteAll()
     this.deps.hub.emit({ type: 'status_changed' })
   }
 }

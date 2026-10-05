@@ -145,7 +145,19 @@ The acceptance test runs rules-only by default. With `ANTHROPIC_API_KEY` set and
 
 Ideas that fit later, in order of value: a chat endpoint over one case (read-only tools over cases/events), language detection and replies in the customer's language (the facts already carry `language`), anomaly hints from case history (partly done), policy-gap detection (done: rule NONE → `awaiting_approval` for the customer service lead), policy retrieval with embeddings (Supabase pgvector) to ground the explanation on a larger corpus.
 
-## 8. Live updates
+## 8. Persistence (Supabase, optional)
+
+`SUPABASE_URL` + `SUPABASE_SECRET_KEY` turn on write-through persistence (`src/persistence.ts`). The in-memory `Store` stays the working copy; every touched case is upserted into `public.cases` (whole case as JSON plus a few columns for reporting), SAP writes into `public.sap_writes`, settings into `public.settings`, evaluation runs into `public.eval_runs`. At startup all cases are loaded back. A database error is logged and never fails a request. Create the tables once with `apps/api/supabase/schema.sql` in the Supabase SQL editor. The health route reports `persistence: true` when it is on.
+
+## 9. How complaints get in
+
+Three channels, all ending in `service.ingestInbound()` and, unless `INBOUND_AUTORUN=false`, an automatic run:
+
+1. **Mailbox (IMAP).** Set `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` (Gmail: enable IMAP, two-step verification, app password). `src/intake/mailbox.ts` polls for unseen messages every `IMAP_POLL_MS`, parses them with mailparser, saves image attachments under `apps/api/uploads` (served at `/uploads/…`, linked with `PUBLIC_URL`), marks them seen. Duplicate message ids are ignored. This is the demo path: send the complaint from a phone, watch it appear.
+2. **Webhook.** `POST /api/inbound` with JSON `{from, subject, text, receivedAt?, messageId?, attachments?}` or a raw email as `message/rfc822`. Returns 201 with the case summary, or `{duplicate: true}`. Works from Postman or any email-to-webhook service.
+3. **Upload / seed.** `POST /api/cases/ingest` (multipart `.eml` files, parsed with mailparser) and `POST /api/cases/seed` for the eight demo cases.
+
+## 10. Live updates
 
 `GET /api/events` is Server-Sent Events: `data: {"type":"case_changed","id":"case-01"}` or `{"type":"status_changed"}`, with `: ping` comments every 25 s. The frontend invalidates its queries on every event and falls back to polling if SSE is unavailable.
 
@@ -157,7 +169,7 @@ Ideas that fit later, in order of value: a chat endpoint over one case (read-onl
 4. Deploy: `apps/api` on BTP Cloud Foundry (Node buildpack, `PORT` from the platform, env vars above), the web build behind the approuter, `VITE_API_BASE` pointing at the API.
 5. Only if time remains: persistence in Supabase (replace `Store`), policy retrieval, case chat.
 
-## 10. Known limitations (say them if asked; do not hide them)
+## 11. Known limitations (say them if asked; do not hide them)
 
 - **R4 price-difference credit.** When the agreed price is below the invoiced one, the decision is "credit the difference", but the YCR payload carries only the quantity with reference to the invoice. SAP would copy the invoice price and credit the full line value. A correct implementation needs a manual price condition on the credit request, which must be verified on DS4 first. The demo data never reaches this path (agreed price equals invoiced). Until fixed, a credit manager must correct the amount in SAP after release, or the rule can be changed to send the case to a person.
 - **Customer identity.** Uploaded emails default to customer 10021; once the invoice is read, the case takes the customer from the invoice. There is no table from sender address to SAP customer, so the agent does not verify that the complaining party owns the invoice.
@@ -166,7 +178,7 @@ Ideas that fit later, in order of value: a chat endpoint over one case (read-onl
 - **Reason names.** Only reason 101 is mapped to a gateway name (§6). R1, R3 and R5 writes are refused in real mode until the names are confirmed; mock mode is unaffected.
 - **Rejections** are not sent to the gateway's approval log; only approved requests get a record.
 
-## 11. Rules that must not be broken
+## 12. Rules that must not be broken
 
 - Quantity never exceeds the invoiced quantity; amount never exceeds the invoice line.
 - Every YRE and YCR carries `HeaderBillingBlockReason: "08"`.

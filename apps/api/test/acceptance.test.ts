@@ -12,7 +12,7 @@ let ctx: ReturnType<typeof buildApp>
 const cm = { actor: 'Demo', role: 'credit_manager' as const }
 
 beforeEach(async () => {
-  ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: process.env.AI_MODE === 'assisted' && detectProvider() ? 'assisted' : 'rules_only' } })
+  ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: process.env.AI_MODE === 'assisted' && detectProvider() ? 'assisted' : 'rules_only' } })
   await ctx.app.ready()
 })
 afterEach(async () => ctx.app.close())
@@ -123,7 +123,7 @@ describe('audit fixes', () => {
       },
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => slow })
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => slow })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-03')
@@ -160,7 +160,7 @@ describe('audit fixes', () => {
   it('a missing or failing agreed-price lookup sends the price complaint to a person', async () => {
     const noPrice: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), { getAgreedPrice: async () => null })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => noPrice })
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => noPrice })
     await ctx.app.ready()
     await post('/api/cases/seed')
     expect((await run('case-02')).statusCode).toBe(204)
@@ -173,7 +173,7 @@ describe('audit fixes', () => {
       },
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => throwing })
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => throwing })
     await ctx.app.ready()
     await post('/api/cases/seed')
     expect((await run('case-02')).statusCode).toBe(204)
@@ -190,7 +190,7 @@ describe('audit fixes', () => {
     expect((await get<{ sapMode: string }>('/api/settings')).sapMode).toBe('mock')
     const gw = new MockGateway({ simulateConflict: () => false, delayMs: 0 })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw, gatewayUrl: 'http://gateway.invalid' })
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw, gatewayUrl: 'http://gateway.invalid' })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-08')
@@ -212,7 +212,7 @@ describe('audit fixes', () => {
     ] }
     const gw: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), { getInvoice: async () => two })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-03')
@@ -229,7 +229,7 @@ describe('audit fixes', () => {
       createCreditMemoRequest: async () => ({ ok: true as const, number: '60000999', response: { status: 201, CreditMemoRequest: '60000999', HeaderBillingBlockReason: '' } }),
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-03')
@@ -240,5 +240,31 @@ describe('audit fixes', () => {
     expect(k.status).toBe('written_to_sap')
     expect(k.events.some((e) => e.kind === 'error' && /billing block/i.test(e.title))).toBe(true)
     expect((await post(`/api/sap/${(res.json() as SapDocument).id}/release`, cm)).statusCode).toBe(409)
+  })
+})
+
+describe('inbound complaints', () => {
+  it('accepts a JSON complaint, creates the case and starts the run', async () => {
+    process.env.INBOUND_AUTORUN = 'false'
+    const res = await post('/api/inbound', { from: 'Quality, Cust DE 1 <quality@cust-de-1.example>', subject: 'Short delivery – invoice 90000355', text: 'Invoice 90000355 charges 20 KG of material 54 but only 18 KG arrived. Please credit the 2 KG missing.', messageId: '<m1@test>' })
+    expect(res.statusCode).toBe(201)
+    const s = res.json() as CaseSummary
+    expect(s.status).toBe('received')
+    await run(s.id)
+    expect(primaryProposal(await theCase(s.id))!.decision).toMatchObject({ ruleId: 'R5', quantity: 2, amount: 540 })
+    const again = await post('/api/inbound', { from: 'x', subject: 'dup', text: 'dup', messageId: '<m1@test>' })
+    expect(again.json()).toEqual({ duplicate: true })
+  })
+
+  it('accepts a raw email (message/rfc822) with a quoted-printable body', async () => {
+    process.env.INBOUND_AUTORUN = 'false'
+    const eml = 'From: Warehouse, Cust DE 1 <warehouse@cust-de-1.example>\r\nTo: returns@o2c-hackathon.example\r\nSubject: Short delivery =?utf-8?b?4oCT?= invoice 90000355\r\nDate: Mon, 05 Oct 2026 07:50:00 +0000\r\nMessage-ID: <raw1@test>\r\nContent-Type: text/plain; charset="utf-8"\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\nInvoice 90000355 charges 20 KG of material 54 but only 18 KG arrived. Please =\r\ncredit the 2 KG missing.\r\n'
+    const res = await ctx.app.inject({ method: 'POST', url: '/api/inbound', headers: { 'content-type': 'message/rfc822' }, payload: eml })
+    expect(res.statusCode).toBe(201)
+    const s = res.json() as CaseSummary
+    expect(s.subject).toBe('Short delivery – invoice 90000355')
+    const k = await theCase(s.id)
+    expect(k.bodyText).toContain('Please credit the 2 KG missing')
+    expect(k.receivedAt).toBe('2026-10-05T07:50:00.000Z')
   })
 })
