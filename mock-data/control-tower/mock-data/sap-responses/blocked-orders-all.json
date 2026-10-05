@@ -1,0 +1,2620 @@
+{
+  "about": "The full list without the 100-row cap: 144 blocked orders (71 with a billing block, 68 with a delivery block, 11 credit-blocked; an order can carry more than one). Value at risk 1 609 540 EUR and 474 910 RON.",
+  "tool": "s4_list_blocked_orders",
+  "arguments": {
+    "top": 500
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrder?$filter=HeaderBillingBlockReason ne '' or DeliveryBlockReason ne '' or TotalCreditCheckStatus eq 'B'&$select=SalesOrder,SalesOrderType,SalesOrganization,SoldToParty,CreationDate,RequestedDeliveryDate,TotalNetAmount,TransactionCurrency,HeaderBillingBlockReason,DeliveryBlockReason,TotalCreditCheckStatus,OverallSDProcessStatus&$orderby=TotalNetAmount desc&$top=500"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "count": 144,
+    "valueAtRisk": {
+      "EUR": 1609540,
+      "RON": 474910
+    },
+    "orders": [
+      {
+        "SalesOrder": "1667",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "270000.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "01",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:01"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1677",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "270000.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "01",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:01"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1687",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "270000.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "01",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:01"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1697",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "270000.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "01",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:01"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1707",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "270000.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "01",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:01"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1120",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2023-01-31",
+        "TotalNetAmount": "45200.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2023-02-03",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "07",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:07"
+        ],
+        "ageDays": 1339
+      },
+      {
+        "SalesOrder": "1448",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "18750.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1438",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "17500.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1428",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "16250.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1451",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "15300.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1418",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "15000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1441",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "14400.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1408",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "13750.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1431",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "13500.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1421",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "12600.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1398",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "12500.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1411",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "11700.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1388",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "11250.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1401",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "10800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1670",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "10800.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04",
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1680",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "10800.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04",
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1690",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "10800.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04",
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1700",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "10800.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04",
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1710",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "10800.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04",
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1378",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "10000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1391",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "9900.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1381",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "9000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1450",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "9000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1830",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "9000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1368",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "8750.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1440",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "8400.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1828",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "8400.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1371",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "8100.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1665",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "8100.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1675",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "8100.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1685",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "8100.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1695",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "8100.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1705",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "8100.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1430",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "7800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1826",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "7800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1420",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "7200.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1824",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "7200.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1452",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "6840.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1664",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "6750.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1674",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "6750.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1684",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "6750.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1694",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "6750.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1704",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "6750.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1410",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "6600.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1822",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "6600.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1442",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "6480.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1432",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "6120.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1400",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "6000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1820",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "6000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1669",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5940.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1679",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5940.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1689",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5940.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1699",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5940.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1709",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5940.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1422",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "5760.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1390",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1412",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1662",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1672",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1682",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1692",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1702",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1818",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "5400.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1402",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "5040.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1668",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4860.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1678",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4860.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1688",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4860.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1698",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4860.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1708",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4860.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1380",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "4800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1816",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "4800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1392",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "4680.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1382",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "4320.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1370",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "4200.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1814",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "4200.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1663",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4050.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1673",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4050.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1683",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4050.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1693",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4050.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1703",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "4050.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1372",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "3960.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1666",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "3240.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1676",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "3240.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1686",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "3240.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1696",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "3240.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1706",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "3240.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "04",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1661",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "2700.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1671",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "2700.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1681",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "2700.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1691",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "2700.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1701",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "2700.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1459",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "2000.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1484",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1499",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "07",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:07"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1832",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1833",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1834",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1835",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1836",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1837",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1838",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1839",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1840",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-09-30",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-06",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 1
+      },
+      {
+        "SalesOrder": "1954",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10110",
+        "CreationDate": "2026-10-01",
+        "TotalNetAmount": "1800.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-15",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "B",
+        "TotalCreditCheckStatus": "B",
+        "blocks": [
+          "credit"
+        ],
+        "ageDays": 0
+      },
+      {
+        "SalesOrder": "1481",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "900.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1496",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "900.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1998",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-10-01",
+        "TotalNetAmount": "720.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-15",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 0
+      },
+      {
+        "SalesOrder": "1487",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "600.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1502",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "600.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1994",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-10-01",
+        "TotalNetAmount": "480.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-15",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 0
+      },
+      {
+        "SalesOrder": "1490",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "375.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-20",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "07",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:07"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1505",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "375.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-20",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "30",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:30"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1995",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-10-01",
+        "TotalNetAmount": "360.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-15",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 0
+      },
+      {
+        "SalesOrder": "2001",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOD",
+        "SoldToParty": "10021",
+        "CreationDate": "2026-10-01",
+        "TotalNetAmount": "340.00",
+        "TransactionCurrency": "EUR",
+        "RequestedDeliveryDate": "2026-10-12",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 0
+      },
+      {
+        "SalesOrder": "1996",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-10-01",
+        "TotalNetAmount": "300.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-15",
+        "HeaderBillingBlockReason": "02",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:02"
+        ],
+        "ageDays": 0
+      },
+      {
+        "SalesOrder": "1449",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "285.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1439",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "270.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1493",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "270.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1508",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-09-29",
+        "TotalNetAmount": "270.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-02",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "07",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:07"
+        ],
+        "ageDays": 2
+      },
+      {
+        "SalesOrder": "1999",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10172",
+        "CreationDate": "2026-10-01",
+        "TotalNetAmount": "270.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-15",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "01",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:01"
+        ],
+        "ageDays": 0
+      },
+      {
+        "SalesOrder": "1429",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "255.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1419",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "240.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1409",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "225.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1399",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "210.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1389",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "195.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1453",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "195.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1379",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "180.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1443",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "180.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1369",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "165.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1433",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "165.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1423",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "150.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1413",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "135.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1403",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "120.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1393",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "105.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1383",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "90.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1373",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10059",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "75.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "04",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:04"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "143",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10012",
+        "CreationDate": "2019-10-30",
+        "TotalNetAmount": "0.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2019-11-04",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "01",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01",
+          "delivery:01"
+        ],
+        "ageDays": 2528
+      },
+      {
+        "SalesOrder": "1360",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "0.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "01",
+        "DeliveryBlockReason": "",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "billing:01"
+        ],
+        "ageDays": 3
+      },
+      {
+        "SalesOrder": "1361",
+        "SalesOrderType": "YOR",
+        "SalesOrganization": "YSOR",
+        "SoldToParty": "10220",
+        "CreationDate": "2026-09-28",
+        "TotalNetAmount": "0.00",
+        "TransactionCurrency": "RON",
+        "RequestedDeliveryDate": "2026-10-01",
+        "HeaderBillingBlockReason": "",
+        "DeliveryBlockReason": "07",
+        "OverallSDProcessStatus": "A",
+        "TotalCreditCheckStatus": "",
+        "blocks": [
+          "delivery:07"
+        ],
+        "ageDays": 3
+      }
+    ]
+  }
+}

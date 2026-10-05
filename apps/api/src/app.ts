@@ -13,11 +13,13 @@ import { Service } from './service'
 import { MockGateway } from './gateway/mock'
 import { RealGateway } from './gateway/real'
 import { RulesOnlyAi } from './ai/rules-only'
+import { ResilientAi } from './ai/resilient'
 import { ClaudeAi, detectProvider } from './ai/claude'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import { SupabasePersistence } from './persistence'
 import { supabaseVerifier, type Principal, type Verifier } from './auth'
+import { ControlTower } from './control-tower'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -79,14 +81,15 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   const mock = new MockGateway({ simulateConflict: () => store.settings.simulateConflict, delayMs: opts.mockDelayMs })
   const real = opts.gatewayUrl ? new RealGateway(opts.gatewayUrl) : null
   const rulesOnly = new RulesOnlyAi()
-  let claude: ClaudeAi | null = null
+  let claude: ResilientAi | null = null
 
   const gateway = opts.gateway ?? ((s: Settings) => (s.sapMode === 'real' && real ? real : mock))
   const ai =
     opts.ai ??
     ((s: Settings) => {
       if (s.aiMode !== 'assisted' || !detectProvider()) return rulesOnly
-      return (claude ??= new ClaudeAi())
+      // Bedrock answers 503/429 now and then: retry, and fall back to the rules-only reader rather than fail the case.
+      return (claude ??= new ResilientAi(new ClaudeAi(), rulesOnly))
     })
 
   let pollerRef: { status: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } } | null = null
@@ -226,6 +229,19 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     const r = await service.release(req.params.id, who(req))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
+  })
+
+  // Control Tower (extra credit, agent 10): reads, computes, answers, routes. No write to SAP anywhere in it.
+  const tower = new ControlTower({ store, ai, ingest: (m) => service.ingestInbound(m), log })
+  app.get('/api/control-tower/snapshot', async () => tower.current())
+  app.post('/api/control-tower/run', async (req) => tower.run(req.principal.name))
+  app.post('/api/control-tower/ask', async (req) => tower.ask(z.object({ question: z.string().min(3) }).parse(req.body).question, req.principal.name))
+  app.get('/api/control-tower/memo', async (_req, reply) => reply.type('text/markdown; charset=utf-8').send(tower.memo()))
+  app.get('/api/control-tower/notes', async () => tower.notes())
+  app.post<{ Params: { id: string } }>('/api/control-tower/handover/:id', async (req, reply) => {
+    const r = await tower.handover(req.params.id, req.principal.name)
+    if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
+    return r
   })
 
   // Analytics, eval, status, settings

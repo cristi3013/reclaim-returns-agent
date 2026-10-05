@@ -1,0 +1,26 @@
+From: Control Tower <control-tower@o2c-hackathon.example>
+To: Billing Gatekeeper <billing-gatekeeper@o2c-hackathon.example>
+Subject: Control Tower 2026-10-01: shipped, POD confirmed, not billed (4.1.1)
+Date: Thu, 01 Oct 2026 16:05:00 +0000
+Message-ID: <09-routing-note-to-billing-gatekeeper@mock.o2c-hackathon.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Information only. The Control Tower changed nothing in SAP; you decide what
+to do, behind your own approval.
+
+Finding: goods issued and POD confirmed, but no invoice (L4 4.1.1 Create
+billing document based on delivery). The POD is not the cause here.
+
+  Delivery   Order  Sold-to  Goods issue  POD date    Age  Severity  Rule
+  80609071   2010   10044    15.09.2026   17.09.2026  16d  high      S3
+  80609039   1943   10044    25.09.2026   27.09.2026   6d  medium    S3
+
+S3: a leak after 3 days, high after 14 days.
+
+Owner: neither order is hackathon team data nor shared HACK data (customer
+references AGENTLAB-06-007 and AGENTLAB-06-001). No team may bill them:
+for the hackathon lead to decide.
+
+Control Tower (draft: sent by the agent, reviewed by the team)

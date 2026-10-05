@@ -1,0 +1,16 @@
+From: Paul Weber, Sales Director DACH <paul.weber@o2c-hackathon.example>
+To: Control Tower <control-tower@o2c-hackathon.example>
+Subject: Order 1876 flagged as delivered, not billed
+Date: Thu, 01 Oct 2026 14:50:00 +0000
+Message-ID: <04-sales-director-order-1876@mock.o2c-hackathon.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Hi,
+
+Your conformance view shows a red flag on order 1876 (customer 10057,
+10 800 EUR): "delivered but not billed". Is this revenue leakage? Who
+should fix it, and how fast?
+
+Paul

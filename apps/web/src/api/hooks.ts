@@ -127,6 +127,33 @@ export const useSendReply = () => {
   })
 }
 
+export const useControlTower = () => {
+  const api = useApi()
+  return useQuery({ queryKey: ['control-tower'], queryFn: () => api.getControlTower(), staleTime: 60_000 })
+}
+export const useRunControlTower = () => {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: () => api.runControlTower(), onSuccess: () => { void qc.invalidateQueries({ queryKey: ['control-tower'] }); void qc.invalidateQueries({ queryKey: ['control-tower-memo'] }); void qc.invalidateQueries({ queryKey: ['control-tower-notes'] }) } })
+}
+export const useAskControlTower = () => {
+  const api = useApi()
+  return useMutation({ mutationFn: (question: string) => api.askControlTower(question) })
+}
+export const useControlTowerMemo = (enabled: boolean) => {
+  const api = useApi()
+  return useQuery({ queryKey: ['control-tower-memo'], queryFn: () => api.getControlTowerMemo(), enabled })
+}
+export const useControlTowerNotes = (enabled: boolean) => {
+  const api = useApi()
+  return useQuery({ queryKey: ['control-tower-notes'], queryFn: () => api.getControlTowerNotes(), enabled })
+}
+export const useHandoverFinding = () => {
+  const api = useApi()
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: (id: string) => api.handoverFinding(id), onSettled: () => inv('cases', 'status') })
+}
+
 export const useConfirmGoodsReceipt = () => {
   const api = useApi()
   const inv = useInvalidate()

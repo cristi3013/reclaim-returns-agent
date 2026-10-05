@@ -1,0 +1,16 @@
+customer,name_on_ds4,country,city,main_company_code,currency,note
+10012,TM Customer US,US,New York,YRO1,RON,
+10020,Cust CH 1,CH,,YDE1,EUR,overdue open item 1800000012 (shared Cash scenario data)
+10021,Cust DE 1,DE,Hamburg,YDE1,EUR,largest overdue balance (also 5 RON overdue in YRO1)
+10044,XYZ Partner Limited,DE,Berlin,YDE1,EUR,POD-relevant (HACK-POD deliveries)
+10057,Test_BP_26/09/19_new,DE,Hamburg,YDE1,EUR,POD-relevant (HACK-POD deliveries)
+10059,Test_BP_26/09/19_alex C&F Grünstahl GmbH,DE,Hamburg,YRO1,RON,
+10100,Pharma Customer 1,DE,,YDE1,EUR,
+10101,Test TD,DE,Hamburg,YDE1,EUR,POD-relevant (HACK-POD deliveries)
+10110,Example BP - Cornel,RO,Bucharest,YRO1,RON,credit-blocked team orders 1832-1840
+10172,Domestic RO Test LN,RO,Bucharest,YRO1,RON,
+10220,Test BP Ilinca,JP,,YRO1,RON,
+62,(no name read),RO,Bucharest,,,
+46,(no address on DS4),,,,,
+51,(no address on DS4),,,,,
+7800000096,(no address on DS4),,,,,

@@ -3,9 +3,11 @@ import { NavRail } from './NavRail'
 import { TopBar } from './TopBar'
 import { BottomTabs } from './BottomTabs'
 import { LoginPage, useAuth } from '@/auth'
+import { useRefetchOnUser } from '@/api'
 
 export function AppShell() {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
+  useRefetchOnUser(user?.id ?? null)
   if (status === 'loading') return <div className="flex min-h-screen items-center justify-center bg-bg text-sm text-muted">Checking your session…</div>
   if (status === 'signed_out') return <LoginPage />
   return (

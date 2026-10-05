@@ -6,6 +6,9 @@ import {
   CaseSummarySchema,
   EvalResultSchema,
   ReturnStatusSchema,
+  SnapshotSchema,
+  AnswerSchema,
+  RoutingNoteSchema,
   SapDocumentSchema,
   SettingsSchema,
   type Settings,
@@ -119,6 +122,32 @@ export class HttpApiClient implements ApiClient {
       return { ok: false, status: err.status ?? 500, message: err.message }
     }
   }
+  getControlTower() {
+    return this.call('controlTower', {}, undefined, SnapshotSchema)
+  }
+  runControlTower() {
+    return this.call('controlTowerRun', {}, {}, SnapshotSchema)
+  }
+  askControlTower(question: string) {
+    return this.call('controlTowerAsk', {}, { question }, AnswerSchema)
+  }
+  async getControlTowerMemo() {
+    const token = await this.getToken()
+    const res = await fetch(this.url(API_ROUTES.controlTowerMemo.path), { headers: token ? { authorization: `Bearer ${token}` } : {} })
+    if (!res.ok) throw Object.assign(new Error(await res.text()), { status: res.status })
+    return res.text()
+  }
+  getControlTowerNotes() {
+    return this.call('controlTowerNotes', {}, undefined, z.array(RoutingNoteSchema))
+  }
+  async handoverFinding(id: string): Promise<{ ok: true; caseId: string } | { ok: false; status: number; message: string }> {
+    try {
+      return await this.call('controlTowerHandover', { id }, {}, z.object({ ok: z.literal(true), caseId: z.string() }))
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return { ok: false, status: err.status ?? 500, message: err.message }
+    }
+  }
   getReturnStatus(id: string) {
     return this.call('returnStatus', { id }, undefined, ReturnStatusSchema)
   }
@@ -145,11 +174,20 @@ export class HttpApiClient implements ApiClient {
   }
   subscribe(listener: (e: ApiEvent) => void) {
     if (typeof EventSource !== 'undefined') {
-      // EventSource cannot send headers: the token travels as a query parameter.
+      // EventSource cannot send headers: the token travels as a query parameter. The app subscribes before anyone
+      // signed in, so wait for a session; and when the stream drops (token expired, server restart), reconnect
+      // with a fresh token.
       let es: EventSource | null = null
       let closed = false
-      void this.getToken().then((token) => {
-        if (closed || !token) return
+      let timer: ReturnType<typeof setTimeout> | null = null
+      const start = async () => {
+        if (closed) return
+        const token = await this.getToken()
+        if (closed) return
+        if (!token) {
+          timer = setTimeout(() => void start(), 1500)
+          return
+        }
         es = new EventSource(`${this.base}${API_ROUTES.events.path}?token=${encodeURIComponent(token)}`)
         es.onmessage = (m) => {
           try {
@@ -158,9 +196,16 @@ export class HttpApiClient implements ApiClient {
             /* heartbeat or comment */
           }
         }
-      })
+        es.onerror = () => {
+          es?.close()
+          es = null
+          timer = setTimeout(() => void start(), 3000)
+        }
+      }
+      void start()
       return () => {
         closed = true
+        if (timer) clearTimeout(timer)
         es?.close()
       }
     }

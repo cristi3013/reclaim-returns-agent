@@ -23,7 +23,7 @@ const ycr = (reason: string, invoice = '90001234') => ({
   ReferenceSDDocument: invoice,
   SDDocumentReason: reason,
   SoldToParty: '1000123',
-  to_Item: [{ Material: 'MAT-1', RequestedQuantity: '5', RequestedQuantityUnit: 'KG' }],
+  to_Item: [{ ReferenceSDDocument: invoice, ReferenceSDDocumentItem: '10', Material: 'MAT-1', RequestedQuantity: '5', RequestedQuantityUnit: 'KG' }],
 })
 
 describe('RealGateway', () => {
@@ -58,8 +58,14 @@ describe('RealGateway', () => {
     stub(() => ({ CreditMemoRequest: '60000200', HeaderBillingBlockReason: '08', __metadata: { etag: 'W/"x1"' } }))
     const r = await gw().createCreditMemoRequest(ycr('101'), ctx('R4'))
     expect(calls[0]).toMatchObject({ method: 'POST', url: `${BASE}/createCreditMemoRequest` })
-    expect(calls[0]?.body).toEqual({ auditLogID: 'log-1', invoiceNumber: '90001234', material: 'MAT-1', quantity: '5', unit: 'KG', rule: 'R4', soldToParty: '1000123', creditValue: 540, evidenceUrl: 'https://api.example/uploads/photo.jpg' })
+    expect(calls[0]?.body).toEqual({ auditLogID: 'log-1', invoiceNumber: '90001234', invoiceItem: '10', material: 'MAT-1', quantity: '5', unit: 'KG', rule: 'R4', soldToParty: '1000123', creditValue: 540, evidenceUrl: 'https://api.example/uploads/photo.jpg' })
     expect(r).toMatchObject({ ok: true, number: '60000200', etag: 'W/"x1"' })
+  })
+
+  it('reads the version stamp under its live name, sapDocumentVersion', async () => {
+    stub(() => ({ CreditMemoRequest: '60000165', SDDocumentReason: '103', sapDocumentVersion: 'W/"datetimeoffset\'2026-10-05T20%3A55%3A46.0500410Z\'"' }))
+    const r = await gw().createCreditMemoRequest(ycr('103'), ctx('R5'))
+    expect(r).toMatchObject({ ok: true, number: '60000165', etag: 'W/"datetimeoffset\'2026-10-05T20%3A55%3A46.0500410Z\'"' })
   })
 
   it('createReturn sends the rule and the approval record', async () => {
@@ -133,6 +139,6 @@ describe('RealGateway', () => {
     expect(log).toMatchObject({ ok: true, id: 'abc' })
     expect(calls[0]?.body).toEqual({ invoiceNumber: '90001234', proposedAction: 'CREDIT', rule: 'R5', reason: 'Short delivery', claimedQuantity: 2, claimedAmount: 540, creditValue: 540, evidenceUrl: null })
     await gw().setApprovalStatus({ id: 'abc', status: 'APPROVED', approvedBy: 'Demo', approverRole: 'credit_manager' })
-    expect(calls[1]?.body).toEqual({ ID: 'abc', status: 'APPROVED', approvedBy: 'Demo', approverRole: 'credit_manager' })
+    expect(calls[1]?.body).toEqual({ ID: 'abc', status: 'APPROVED', approvedBy: 'Demo', approverRole: 'credit-manager' })
   })
 })

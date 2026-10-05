@@ -103,9 +103,9 @@ Base path `/odata/v4/returns`. Reads are OData v4 functions (GET, parameters in 
 | getAgreedPrice | GET `getAgreedPrice(soldToParty, material, salesOrganization, distributionChannel)` | PR00 valid today. We read `unitPrice`, `price` or `ConditionRateValue`, divided by `ConditionQuantity` if present. Case 02 |
 | getReturnStatus | GET `getReturnStatus(returnDocumentNumber)` | `{returnDocumentNumber, overallProcessingStatus, warehouseReceiptStatus, received}`; step 5.1.3 before releasing a return |
 | logRequest | POST `logRequest {invoiceNumber, proposedAction, rule, reason, claimedQuantity, claimedAmount, creditValue, evidenceUrl}` | `RETURN`/`CREDIT`/`REPLACEMENT`/`REJECT`/`PENDING`; returns the `AuditLog` record with `ID`, approvalStatus PENDING |
-| setApprovalStatus | POST `setApprovalStatus {ID, status, approvedBy, approverRole}` | `APPROVED`/`REJECTED` |
+| setApprovalStatus | POST `setApprovalStatus {ID, status, approvedBy, approverRole}` | `APPROVED`/`REJECTED`; roles spelled with hyphens (`credit-manager`), checked against the credit value |
 | createReturn | POST `createReturn {auditLogID, invoiceNumber, invoiceItem, material, quantity, unit, rule, soldToParty, creditValue}` | the gateway maps `rule` to the order reason; must create with reference to the invoice item or SAP makes a normal sale (TAN instead of REN) |
-| createCreditMemoRequest | POST `createCreditMemoRequest {auditLogID, invoiceNumber, material, quantity, unit, rule, soldToParty, creditValue, evidenceUrl}` | returns the YCR with block 08; we read the version stamp from `__metadata.etag` (or `versionStamp`/`etag`) |
+| createCreditMemoRequest | POST `createCreditMemoRequest {auditLogID, invoiceNumber, invoiceItem, material, quantity, unit, rule, soldToParty, creditValue, evidenceUrl}` | returns the YCR with block 08; we read the version stamp from `__metadata.etag` (or `versionStamp`/`etag`) |
 | release (YCR) | POST `releaseCreditMemoRequest {creditMemoNumber, versionStamp}` | only after APPROVED. Returns `{creditMemoNumber, status}` |
 | release (YRE) | POST `releaseCustomerReturn {returnDocumentNumber, versionStamp}` | returns `{returnDocumentNumber, status}` |
 | (not used) | GET `proposeAction(...)`, GET `checkPrice(...)`, POST `confirmSpecialAgreement {ID}` | the gateway's own rule engine and R4 agreement flag; our decisions come from `decide()` in shared, so these are not called |
@@ -135,6 +135,8 @@ The creates take flat parameters, so `RealGateway` maps `sapPayload` onto his pa
 SAP facts that bite (from the hackathon guide): writes need a CSRF token fetched with a GET first plus the session cookies (the gateway handles it); a return item needs both `ReferenceSDDocument` and `ReferenceSDDocumentItem`; a released credit memo request is not posted to accounting automatically on DS4 (stop the demo at the release); OData v2 dates are `/Date(ms)/` and numbers are strings.
 
 ## 7. The model (ClaudeAi)
+
+**When Bedrock is busy.** `ResilientAi` wraps `ClaudeAi`: 429/5xx answers are retried (3 attempts, 1.5 s then 4 s), and if the model still fails the `RulesOnlyAi` reader takes over for that call, so the case gets its proposal. The pipeline writes an `error` event saying so ("Model unavailable; facts read by pattern rules instead"). The decision never depended on the model; what degrades is the reading of the email and the wording.
 
 **Provider.** `ANTHROPIC_API_KEY` → Anthropic API (model `claude-opus-5-5`). Otherwise `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` → Amazon Bedrock in `AWS_REGION` (default `eu-central-1`) with the EU cross-region inference profile `eu.anthropic.claude-opus-5-5`, so inference stays in Europe. Verified on 5 Oct 2026: the account can call Opus 5.5, Sonnet 5.5, Sonnet 4.6, Sonnet 4.5 and Haiku 4.5 through `eu.` and `global.` profiles.
 
@@ -200,3 +202,12 @@ Three channels, all ending in `service.ingestInbound()` and, unless `INBOUND_AUT
 - SAP write failures are returned with their HTTP status and SAP's message; never retried blindly.
 - Demo invoices are never written to the real system.
 - Every step produces an audit event with its L4 id where one applies (`5.1.1` check, `5.1.2` create return, `5.1.3` goods receipt, `5.2.1` create/release credit request, `5.2.2` intercompany flag).
+
+## 13. Control Tower (extra credit, agent 10)
+
+A second agent in the same product, read-only by construction: it has no write call anywhere (`src/control-tower.ts`, `packages/shared/src/control-tower/`). It reads the SAP lists (today: the organisers' pack in `mock-data/control-tower/mock-data/sap-responses`, real DS4 answers of 1 Oct 2026; a live run fills the same `PackFiles` from gateway reads), runs the pure `runScan` (rules S1–S12 of the guide with their thresholds: grace 3 days, high after 14, blocks high after 30, overdue high from 10 000, legacy older than a year, period = the month being closed), and produces KPIs per currency (EUR and RON never added), one finding per leak with L4 step, severity, rule, reason with numbers, route and data owner, the close verdict (S9) and the memo in the template's shape (`buildMemo`). A delivery that is unbilled and awaiting POD is one finding, cause POD. Lists cut at their row cap are reported as such.
+
+Questions (`answerQuestion`) are parsed by code (country, customer, order, topic) and answered from the snapshot only; "no data" for a subject SAP holds nothing about (Norway), and a request to change SAP is refused and routed to the block owner. In assisted mode the model words the answer (`Ai.phrase`) from the computed facts and may not add a figure; rules-only wording is the fallback. Routing notes: one per fixing agent per day, information only. A finding for the Returns & Credit Note agent (a return older than 7 days without a credit memo, read from our own cases) is handed into our inbox with `POST /api/control-tower/handover/:id`.
+
+Routes: `GET /api/control-tower/snapshot`, `POST /run`, `POST /ask {question}`, `GET /memo` (markdown), `GET /notes`, `POST /handover/:findingId`. Tests: `packages/shared/src/__tests__/control-tower.test.ts` checks the scan and the seven questions against the organisers' `expected-results.json`; the acceptance test covers the routes.
+

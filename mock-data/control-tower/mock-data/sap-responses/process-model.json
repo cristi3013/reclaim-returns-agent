@@ -1,0 +1,505 @@
+{
+  "about": "The O2C reference process L1-L4 (7 L2, 18 L3, 48 L4) as the MCP server ships it (also resource o2c://process-model). Local data from the hackathon process document, not an SAP API.",
+  "tool": "s4_get_process_model",
+  "arguments": {},
+  "underlyingRequests": [],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "source": "SAP Order to Cash Process Hierarchy (L1-L4).docx",
+    "l1": "Order to Cash",
+    "l2": [
+      {
+        "name": "Pre-Sales",
+        "l3": [
+          {
+            "name": "Inquiry Management",
+            "l4": [
+              {
+                "id": "1.1.1",
+                "step": "Receive and register customer inquiry (VA11)",
+                "tcodes": [
+                  "VA11"
+                ],
+                "sourceRefs": []
+              },
+              {
+                "id": "1.1.2",
+                "step": "Determine pricing, products, and availability",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          },
+          {
+            "name": "Quotation Management",
+            "l4": [
+              {
+                "id": "1.2.1",
+                "step": "Create quotation with reference to inquiry (VA21)",
+                "tcodes": [
+                  "VA21"
+                ],
+                "sourceRefs": []
+              },
+              {
+                "id": "1.2.2",
+                "step": "Send quotation to customer; receive customer validation",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Sales Order Management",
+        "l3": [
+          {
+            "name": "Sales Order Creation",
+            "l4": [
+              {
+                "id": "2.1.1",
+                "step": "Create sales order (VA01) with or without quotation reference",
+                "tcodes": [
+                  "VA01"
+                ],
+                "sourceRefs": []
+              },
+              {
+                "id": "2.1.2",
+                "step": "Determine sold-to party, ship-to party, sales group, division, and order type",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "2.1.3",
+                "step": "Determine materials, quantities, delivery date, and distribution plant",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "2.1.4",
+                "step": "Fill in purchase order details and select applicable pricing conditions",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Availability Check",
+            "l4": [
+              {
+                "id": "2.2.1",
+                "step": "Perform availability check for requested materials (MMBE)",
+                "tcodes": [
+                  "MMBE"
+                ],
+                "sourceRefs": [
+                  2
+                ]
+              },
+              {
+                "id": "2.2.2",
+                "step": "Request alternative products from TSR if materials are unavailable",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "2.2.3",
+                "step": "Modify order accordingly based on availability result",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          },
+          {
+            "name": "Credit & Billing Block Management",
+            "l4": [
+              {
+                "id": "2.3.1",
+                "step": "Apply billing block on order if required",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "2.3.2",
+                "step": "Check pricing; apply specific pricing if applicable (e.g., drydocking)",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "2.3.3",
+                "step": "Remove billing block upon approval",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Order Confirmation",
+            "l4": [
+              {
+                "id": "2.4.1",
+                "step": "Send order confirmation to customer",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "2.4.2",
+                "step": "Receive customer validation; validate order or advise on modifications",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Fulfillment & Delivery",
+        "l3": [
+          {
+            "name": "Delivery Processing",
+            "l4": [
+              {
+                "id": "3.1.1",
+                "step": "Release order for delivery",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "3.1.2",
+                "step": "Create delivery document (VL01N)",
+                "tcodes": [
+                  "VL01N"
+                ],
+                "sourceRefs": [
+                  2,
+                  3
+                ]
+              },
+              {
+                "id": "3.1.3",
+                "step": "Check and confirm delivery date; modify delivery date and ship-to if needed",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "3.1.4",
+                "step": "Remove delivery block via email",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          },
+          {
+            "name": "Warehouse & Picking",
+            "l4": [
+              {
+                "id": "3.2.1",
+                "step": "Execute picking of goods from storage location",
+                "tcodes": [],
+                "sourceRefs": [
+                  3
+                ]
+              },
+              {
+                "id": "3.2.2",
+                "step": "Pack and prepare goods for shipment",
+                "tcodes": [],
+                "sourceRefs": [
+                  2
+                ]
+              },
+              {
+                "id": "3.2.3",
+                "step": "Send shipping documents (MSDS, TDS, etc.) to relevant parties",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Goods Issue",
+            "l4": [
+              {
+                "id": "3.3.1",
+                "step": "Post goods issue (PGI) — triggers accounting entry",
+                "tcodes": [],
+                "sourceRefs": [
+                  2,
+                  3
+                ]
+              },
+              {
+                "id": "3.3.2",
+                "step": "Deliver goods to customer via transport company",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "3.3.3",
+                "step": "Collect goods receipt confirmation from customer",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          },
+          {
+            "name": "Proof of Delivery (POD)",
+            "l4": [
+              {
+                "id": "3.4.1",
+                "step": "Request proof of delivery (POD) from logistics provider",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "3.4.2",
+                "step": "Receive and send POD to relevant parties",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Billing & Invoicing",
+        "l3": [
+          {
+            "name": "Invoice Creation",
+            "l4": [
+              {
+                "id": "4.1.1",
+                "step": "Create billing document (VF01) based on delivery",
+                "tcodes": [
+                  "VF01"
+                ],
+                "sourceRefs": [
+                  2,
+                  3
+                ]
+              },
+              {
+                "id": "4.1.2",
+                "step": "Issue intercompany invoice and shipping/pro forma invoice if applicable",
+                "tcodes": [],
+                "sourceRefs": [
+                  1,
+                  4
+                ]
+              },
+              {
+                "id": "4.1.3",
+                "step": "Create manual invoice to group multiple deliveries if needed",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "4.1.4",
+                "step": "Release billing block before invoice creation",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Invoice Dispatch",
+            "l4": [
+              {
+                "id": "4.2.1",
+                "step": "Send invoice, credit note, and consumption report to customer",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "4.2.2",
+                "step": "Send invoice together with POD if required",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Returns & Credit Management",
+        "l3": [
+          {
+            "name": "Return Order Processing",
+            "l4": [
+              {
+                "id": "5.1.1",
+                "step": "Check if return orders are needed",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "5.1.2",
+                "step": "Create return order (e.g., type ZZEI)",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "5.1.3",
+                "step": "Release return order and confirm goods received in warehouse",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          },
+          {
+            "name": "Credit Note Processing",
+            "l4": [
+              {
+                "id": "5.2.1",
+                "step": "Create manual credit note for return order if applicable",
+                "tcodes": [],
+                "sourceRefs": [
+                  1
+                ]
+              },
+              {
+                "id": "5.2.2",
+                "step": "Issue intercompany credit memo as needed",
+                "tcodes": [],
+                "sourceRefs": [
+                  5
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Accounts Receivable & Payment",
+        "l3": [
+          {
+            "name": "Payment Processing",
+            "l4": [
+              {
+                "id": "6.1.1",
+                "step": "Update accounts receivable subledger with invoiced amount",
+                "tcodes": [],
+                "sourceRefs": [
+                  6
+                ]
+              },
+              {
+                "id": "6.1.2",
+                "step": "Monitor customer payment terms and track outstanding payments",
+                "tcodes": [],
+                "sourceRefs": [
+                  6
+                ]
+              },
+              {
+                "id": "6.1.3",
+                "step": "Post incoming customer payment (F-28)",
+                "tcodes": [
+                  "F-28"
+                ],
+                "sourceRefs": [
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Cash Application",
+            "l4": [
+              {
+                "id": "6.2.1",
+                "step": "Apply payment against open invoice; mark order as closed",
+                "tcodes": [],
+                "sourceRefs": []
+              },
+              {
+                "id": "6.2.2",
+                "step": "Book and post revenue to finance",
+                "tcodes": [],
+                "sourceRefs": [
+                  7,
+                  8
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Revenue Recognition & Reporting",
+        "l3": [
+          {
+            "name": "Revenue Recognition",
+            "l4": [
+              {
+                "id": "7.1.1",
+                "step": "Recognize revenue based on delivered goods or services per applicable accounting standards (ASC 606 / IFRS 15)",
+                "tcodes": [],
+                "sourceRefs": [
+                  9
+                ]
+              },
+              {
+                "id": "7.1.2",
+                "step": "Apply revenue recognition rules for service products triggered directly from sales order",
+                "tcodes": [],
+                "sourceRefs": [
+                  10
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Financial Reporting",
+            "l4": [
+              {
+                "id": "7.2.1",
+                "step": "Generate reports on sales, revenue, and accounts receivable",
+                "tcodes": [],
+                "sourceRefs": [
+                  6
+                ]
+              },
+              {
+                "id": "7.2.2",
+                "step": "Analyze O2C process performance and support decision-making",
+                "tcodes": [],
+                "sourceRefs": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

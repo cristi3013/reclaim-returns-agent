@@ -20,6 +20,16 @@ import {
   type EvalResult,
   type Settings,
   type ReturnStatus,
+  type Snapshot,
+  type Answer,
+  type RoutingNote,
+  type PackFiles,
+  type ScanInput,
+  answerQuestion,
+  buildMemo,
+  packToScanInput,
+  runScan,
+  AGENTS,
 } from '@reclaim/shared'
 import {
   CONFLICT_MESSAGE,
@@ -373,6 +383,53 @@ export class MockApiClient implements ApiClient {
       return { ok: true, document: d }
     }
     throw Object.assign(new Error('Document not found'), { status: 404 })
+  }
+
+  // ---- Control Tower on the organisers' pack, loaded on first use (the JSON stays out of the main bundle)
+  private tower: { snapshot: Snapshot; input: ScanInput } | null = null
+  private async towerRun(): Promise<{ snapshot: Snapshot; input: ScanInput }> {
+    const files = import.meta.glob('../../../../../mock-data/control-tower/mock-data/sap-responses/*.json', { import: 'default' }) as Record<string, () => Promise<unknown>>
+    const load = async (name: string) => {
+      const key = Object.keys(files).find((k) => k.endsWith('/' + name))
+      return key ? files[key]!() : undefined
+    }
+    const conformance = (await Promise.all(Object.keys(files).filter((k) => /conformance-order-/.test(k)).map((k) => files[k]!()))) as PackFiles['conformance']
+    const pack: PackFiles = {
+      asOf: '2026-10-01',
+      unbilled: (await load('unbilled-deliveries-all.json')) as PackFiles['unbilled'],
+      awaitingPod: (await load('deliveries-awaiting-pod.json')) as PackFiles['awaitingPod'],
+      blockedOrders: (await load('blocked-orders-all.json')) as PackFiles['blockedOrders'],
+      leakage: { YDE1: (await load('leakage-scan-yde1.json')) as NonNullable<PackFiles['leakage']>[string], YRO1: (await load('leakage-scan-yro1.json')) as NonNullable<PackFiles['leakage']>[string] },
+      dueLists: [(await load('billing-due-list-customer-10044.json')) as NonNullable<PackFiles['dueLists']>[number]],
+      keyDeliveries: (await load('delivery-status-key-deliveries.json')) as PackFiles['keyDeliveries'],
+      customers: (await load('customers-country.json')) as PackFiles['customers'],
+      conformance,
+    }
+    const input = packToScanInput(pack)
+    this.tower = { snapshot: runScan(input), input }
+    return this.tower
+  }
+  async getControlTower(): Promise<Snapshot> {
+    return (this.tower ?? (await this.towerRun())).snapshot
+  }
+  async runControlTower(): Promise<Snapshot> {
+    return (await this.towerRun()).snapshot
+  }
+  async askControlTower(question: string): Promise<Answer> {
+    const t = this.tower ?? (await this.towerRun())
+    return answerQuestion(question, t.snapshot, t.input.customers, t.input.conformance, t.input.blockedOrders.rows)
+  }
+  async getControlTowerMemo(): Promise<string> {
+    return buildMemo((this.tower ?? (await this.towerRun())).snapshot)
+  }
+  async getControlTowerNotes(): Promise<RoutingNote[]> {
+    const s = (this.tower ?? (await this.towerRun())).snapshot
+    const groups = new Map<string, typeof s.findings>()
+    for (const f of s.findings) if (f.severity !== 'watch' && f.routeTo !== 'none' && f.routeTo !== 'person') groups.set(f.routeTo, [...(groups.get(f.routeTo) ?? []), f])
+    return [...groups.entries()].map(([route, rows]) => ({ id: `note-${s.asOf}-${route}`, date: s.asOf, agent: AGENTS[route as keyof typeof AGENTS], route: route as RoutingNote['route'], l4: [...new Set(rows.map((f) => f.l4))].sort(), findingIds: rows.map((f) => f.id), subject: `Control Tower ${s.asOf}: ${rows.length} finding(s)`, body: ['Information only. Nothing was changed in SAP.', ...rows.map((f) => `- ${f.documentType} ${f.document} · ${f.ageDays} days · ${f.severity} · ${f.l4}`)].join('\n') }))
+  }
+  async handoverFinding(): Promise<{ ok: true; caseId: string } | { ok: false; status: number; message: string }> {
+    return { ok: false, status: 400, message: 'Hand-over needs the backend; the in-browser mock only computes the picture.' }
   }
 
   /** Step 5.1.3 by hand: only the Returns desk, once, for an unreleased return. */

@@ -4,6 +4,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
 import { complaintText, FactsSchema, RULES, narrate as templateNarrate, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
 import type { Ai } from './types'
+import type { Answer } from '@reclaim/shared'
 
 const NarrativeSchema = z.object({
   explanation: z.string().describe('3 to 6 sentences for the approver: what the invoice says, what the customer reports, which rule applies and what is proposed. Quote the rule id.'),
@@ -15,6 +16,9 @@ const NarrativeSchema = z.object({
   }),
 })
 
+const SYSTEM_PHRASE = `You word answers for the O2C Control Tower, a read-only agent that reports where money leaks in order-to-cash on SAP.
+Write a short reply to the manager who asked (plain prose, at most 160 words, no headings, no markdown). Use ONLY the figures, documents, customers, routes and owners in the COMPUTED ANSWER; never add, round or infer a number, a cause or a customer. Keep every amount with its currency; never add EUR and RON. If the computed answer says there is no data for the subject, say so plainly and do not invent a cause. If the request was refused because the Control Tower only reads, say that first, then the facts and the route. Name the fixing agent as given (e.g. "6 POD Chaser"). Say that nothing was changed in SAP.`
+
 const SYSTEM_EXTRACT = `You read customer complaint emails for the returns desk of a chemicals distributor that uses SAP.
 Extract only what the email (and the photo, if any) actually says. Do not guess numbers.
 - invoiceNumber: the 8-digit SAP invoice number if the email names one, else null.
@@ -22,7 +26,7 @@ Extract only what the email (and the photo, if any) actually says. Do not guess 
 - claimedQuantity and unit: the quantity the customer complains about (damaged, missing, to return), not the invoiced total.
 - complaintType: damaged (arrived damaged/leaking/crushed), ruined (contaminated, destroyed, unusable), quality (defective, discoloured, not as expected), price (invoiced price higher than agreed), short_delivery (less arrived than invoiced), over_quantity, replacement (wants new goods), follow_up (asks about an earlier complaint, "RE:", "any news"), unknown.
 - claimedUnitPrice: only for price complaints, the price the customer says was agreed.
-- wantsReplacement: true only if the customer explicitly wants a re-delivery instead of money.
+- wantsReplacement: true only if the customer asks for new goods and does NOT want a credit (e.g. "please send a replacement", "we need the material, not a credit note"). false when they ask for a credit, or offer a choice such as "credit or replace" / "credit note or new delivery": a credit is always acceptable to them then.
 - goodsReturnable: false if the goods are lost/leaked/consumed and cannot be sent back; true if they say the goods can be collected; null if unclear.
 - evidence: one sentence with the facts you relied on, including what the photo shows.
 - language: ISO code of the email language.
@@ -158,6 +162,19 @@ export class ClaudeAi implements Ai {
     const facts = await this.structured(FactsSchema, SYSTEM_EXTRACT, content, 4000, 'medium', 'extract')
     if (!facts) throw Object.assign(new Error('The model could not extract the facts from this email.'), { status: 502 })
     return { facts, usage: this.lastUsage ?? undefined }
+  }
+
+  async phrase(question: string, answer: Answer): Promise<{ text: string; usage?: ModelUsage }> {
+    const startedAt = Date.now()
+    const res = await this.client.messages.create({
+      model: this.model,
+      max_tokens: 700,
+      system: SYSTEM_PHRASE,
+      messages: [{ role: 'user', content: `QUESTION\n${question}\n\nCOMPUTED ANSWER (the only source of numbers, documents and routes)\nHeadline: ${answer.headline}\nFacts:\n${answer.facts.map((f) => `- ${f}`).join('\n')}\nRoute to: ${answer.routeTo}\nNo data for the subject: ${answer.noData}\nRequest refused (read-only): ${answer.refused}\n\nWrite the reply.` }],
+    })
+    this.record('narrate', res, startedAt)
+    const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text?.trim() ?? ''
+    return { text: text || answer.text, usage: this.lastUsage ?? undefined }
   }
 
   async narrate(d: Decision, facts: Facts, findings: Findings, ctx: { existingDocNumber?: string; openCaseId?: string }): Promise<{ narrative: Narrative; usage?: ModelUsage }> {

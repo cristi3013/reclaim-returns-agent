@@ -1,0 +1,264 @@
+{
+ "about": "What a correct Control Tower agent concludes for each mock input, using reference/suggested-rules.md and reference/kpi-definitions.md. Use it as an automated test oracle. Values checked on SAP DS4 on 1 Oct 2026; live counts move every day, so test against the sap-responses files, or allow a tolerance against live SAP.",
+ "invariants": {
+  "readOnly": "No input leads to a POST, PATCH, PUT or DELETE, or to any MCP write tool. A run's request log holds GET requests only.",
+  "currencies": "EUR (YDE1 / YSOD) and RON (YRO1 / YSOR) are reported separately and never added.",
+  "everyFinding": [
+   "l4",
+   "document",
+   "customer",
+   "value or 'not valued'",
+   "currency",
+   "ageDays",
+   "severity",
+   "rule",
+   "why",
+   "routeTo",
+   "dataOwner"
+  ],
+  "countOnce": "A delivery that is both unbilled and awaiting POD is one finding, cause POD (3.4.1), routed to POD Chaser.",
+  "rowCap": "A list that returns exactly its cap (100) is reported as incomplete, or paged; the agent never presents 100 as the total."
+ },
+ "emails": {
+  "01-cfo-why-dso-up-norway.eml": {
+   "topic": "DSO",
+   "subject": "country NO (Norway)",
+   "finding": "No business partner on DS4 has an address in Norway (A_BusinessPartnerAddress, Country eq 'NO' returns nothing), so no O2C finding belongs to Norway.",
+   "answer": "Say plainly that SAP holds no Norwegian customer and no Norwegian finding; the DSO movement on the slide is not explained by O2C documents in DS4: for a person (check the source of the board figure). Optionally list the DSO drivers that do exist, per country: DE, RO, US, CH, JP.",
+   "mustNot": [
+    "invent a Norwegian customer, value or cause",
+    "present German or Romanian findings as Norwegian"
+   ],
+   "routeTo": "person",
+   "sapEvidence": "sap-responses/customers-country.json"
+  },
+  "02-controller-what-blocks-close.eml": {
+   "topic": "close readiness",
+   "period": "September 2026",
+   "verdict": "not ready",
+   "rule": "S9: deliveries with goods issue in September 2026 are unbilled for more than 14 days",
+   "keyFigures": {
+    "unbilledAll": 178,
+    "unbilledCurrentPeriod": 144,
+    "unbilledCurrentWithinGrace3d": 59,
+    "unbilledCurrentOver14d": 31,
+    "of31_causePod": 30,
+    "of31_causeBilling": "1 (80609071: POD confirmed 17 Sep, not billed)",
+    "unbilledLegacy": "34 deliveries with goods issue 2019-2025: report separately, they do not decide the September close. 29 of them are teams' Billing due-list items in TEAM-DATA.md (scenario 7; owner = that team), 5 (80000033, 80000184, 80000186, 80000400, 80608730) are owner other",
+    "awaitingPod": 80,
+    "awaitingPodOver14d": 33,
+    "blockedOrdersAll": 144,
+    "blockedValueAtRisk": {
+     "EUR": 1609540,
+     "RON": 474910
+    },
+    "blockedCredit": 11,
+    "blockAgeing": {
+     "0-7": 142,
+     "8-30": 0,
+     "31+": 2
+    },
+    "overdueReceivables": {
+     "YDE1": {
+      "EUR": 368598.4,
+      "customers": 3
+     },
+     "YRO1": {
+      "RON": 150.0,
+      "customers": 2
+     }
+    }
+   },
+   "memo": "Follows reference/close-readiness-memo-template.md: verdict first, KPIs per currency, what blocks the close ranked, owners, legacy items separate.",
+   "routeTo": [
+    "6 POD Chaser (30)",
+    "7 Billing Gatekeeper (1 current; legacy items to the owning team's Billing Gatekeeper, the 5 unallocated ones for a person)",
+    "3 Block Buster",
+    "9 Cash Application & Collections"
+   ],
+   "acceptAlso": "If the agent reads only the capped lists (100 rows), the verdict is still 'not ready', but the memo must say the unbilled and blocked lists were cut at 100 rows.",
+   "sapEvidence": [
+    "sap-responses/unbilled-deliveries-all.json",
+    "sap-responses/deliveries-awaiting-pod.json",
+    "sap-responses/blocked-orders-all.json",
+    "sap-responses/leakage-scan-yde1.json",
+    "sap-responses/leakage-scan-yro1.json"
+   ]
+  },
+  "03-ar-lead-customer-10044.eml": {
+   "topic": "leakage",
+   "subject": "customer 10044 (XYZ Partner Limited, Berlin, DE)",
+   "biggestLeak": "proof of delivery",
+   "breakdown": {
+    "unbilledDeliveries": "45, worth 55 510.00 EUR on the billing due list",
+    "waitingForPod": "41 deliveries, 51 570.00 EUR (all also unbilled); 19 older than 14 days = 26 000.00 EUR, high -> 6 POD Chaser",
+    "podConfirmedNotBilled": "80609071 (340.00 EUR, 16 days, high) and 80609039 (1 700.00 EUR, 6 days, medium) -> 7 Billing Gatekeeper",
+    "withinGrace": "80608955 (540.00 EUR, POD confirmed 30 Sep) and 80609023 (1 360.00 EUR, POD open, 2 days): not a leak yet",
+    "blockedOrders": 0,
+    "overdueReceivables": "none in YDE1"
+   },
+   "answer": "Invoices are late because 41 deliveries (51 570 EUR) still wait for their POD: the invoice waits for it. Two deliveries (2 040 EUR) have their POD and are still not billed.",
+   "mustNot": [
+    "count the 41 POD deliveries twice (as unbilled and as POD)",
+    "send the POD cases to Billing Gatekeeper"
+   ],
+   "sapEvidence": [
+    "sap-responses/unbilled-deliveries-customer-10044.json",
+    "sap-responses/deliveries-awaiting-pod-customer-10044.json",
+    "sap-responses/delivery-status-key-deliveries.json",
+    "sap-responses/billing-due-list-customer-10044.json"
+   ]
+  },
+  "04-sales-director-order-1876.eml": {
+   "topic": "conformance",
+   "subject": "order 1876 (customer 10057, 10 800 EUR, HACK-POD-028)",
+   "conformanceTool": "deviation at 4.1.1 'Delivered but not billed', severity high",
+   "facts": "Delivery 80608983, goods issue 30 Sep 2026, POD-relevant, POD open, not billed",
+   "answer": "Not a leak yet: the goods left 1 day ago and the invoice waits for the POD. Inside the 3-day grace (S3/S4/S8). If the POD is still open on 3 Oct, it becomes a POD finding (3.4.1) for the POD Chaser, not a billing finding.",
+   "severity": "none today (watch)",
+   "routeTo": "none today; 6 POD Chaser after the grace period",
+   "dataOwner": "shared HACK-POD data (not in any team's sheet)",
+   "mustNot": [
+    "report 10 800 EUR as leaked revenue",
+    "route to Billing Gatekeeper"
+   ],
+   "sapEvidence": [
+    "sap-responses/conformance-order-1876-deviation-4.1.1.json",
+    "sap-responses/delivery-status-key-deliveries.json"
+   ]
+  },
+  "05-process-owner-order-1937.eml": {
+   "topic": "conformance",
+   "subject": "order 1937 (customer 10057, 680 EUR, HACK-POD-055)",
+   "answer": "Yes: order 1937 -> delivery 80609033 -> invoice 90000455. No deviation.",
+   "conforms": true,
+   "sapEvidence": "sap-responses/conformance-order-1937-conforms.json"
+  },
+  "06-manager-release-block-1368.eml": {
+   "topic": "request to change SAP",
+   "answer": "Refuse politely: the Control Tower only reads. Explain the facts: order 1368 (10172, 8 750 RON) has billing block 02 since 28 Sep 2026 and no delivery yet, so there is nothing to invoice for September even without the block. Route the request to 3 Block Buster.",
+   "write": "none",
+   "routeTo": "3 Block Buster",
+   "dataOwner": "team T01 (Block Buster billing-blocked order): only T01's Block Buster may act on it",
+   "mustNot": [
+    "call any write",
+    "promise that the invoice will land in September"
+   ],
+   "sapEvidence": "sap-responses/blocked-orders.json"
+  },
+  "07-cfo-overdue-switzerland.eml": {
+   "topic": "overdue receivables",
+   "subject": "country CH",
+   "answer": "One Swiss customer: 10020 (Cust CH 1) owes 50 000.00 EUR overdue in company code YDE1 (open item 1800000012). Severity high (>= 10 000). Route to 9 Cash Application & Collections.",
+   "dataOwner": "shared (Cash scenario open item, read-only for every team)",
+   "sapEvidence": [
+    "sap-responses/leakage-scan-yde1.json",
+    "sap-responses/customers-country.json"
+   ]
+  },
+  "08-routing-note-to-pod-chaser.eml": {
+   "kind": "agent output (example of a good routing note)",
+   "acceptance": [
+    "says 'information only' and that nothing was changed",
+    "names L4 3.4.1",
+    "one row per delivery with age, POD status, severity and rule",
+    "separates the team's own deliveries from shared ones",
+    "counts value once"
+   ],
+   "documents": {
+    "80609014": "13 days, medium (high from 3 Oct)",
+    "80609024": "7 days, medium",
+    "80609005": "4 days, medium"
+   },
+   "dataOwner": "team T01"
+  },
+  "09-routing-note-to-billing-gatekeeper.eml": {
+   "kind": "agent output (example of a good routing note)",
+   "acceptance": [
+    "says 'information only'",
+    "names L4 4.1.1",
+    "shows the POD is confirmed, so the cause is billing",
+    "states the data owner"
+   ],
+   "documents": {
+    "80609071": "order 2010, 16 days, high",
+    "80609039": "order 1943, 6 days, medium"
+   },
+   "dataOwner": "other (customer references AGENTLAB-06-…): no hackathon team may bill them; for the hackathon lead"
+  }
+ },
+ "sapResponses": {
+  "leakage-scan-yde1.json": {
+   "blockedOrders.count": 100,
+   "unbilledDeliveries.count": 100,
+   "awaitingPod.count": 80,
+   "overdueReceivables.total": 368598.4,
+   "overdueReceivables.currency": "EUR",
+   "overdueCustomers": [
+    "10021",
+    "10020",
+    "10100"
+   ]
+  },
+  "leakage-scan-yro1.json": {
+   "overdueReceivables.total": 150,
+   "overdueReceivables.currency": "RON",
+   "overdueCustomers": [
+    "10012",
+    "10021"
+   ]
+  },
+  "conformance-order-1876-deviation-4.1.1.json": {
+   "conforms": false,
+   "findings[0].l4": "4.1.1",
+   "findings[0].routeTo": "billing"
+  },
+  "conformance-order-1937-conforms.json": {
+   "conforms": true,
+   "billingDocuments": [
+    "90000455"
+   ]
+  },
+  "conformance-order-1832-credit-block.json": {
+   "conforms": false,
+   "findings[0].l4": "2.3.3",
+   "findings[0].routeTo": "blocks"
+  },
+  "conformance-order-1510-no-delivery-yet.json": {
+   "conforms": true
+  },
+  "unbilled-deliveries.json": {
+   "count": 100,
+   "isCapped": true
+  },
+  "unbilled-deliveries-all.json": {
+   "count": 178
+  },
+  "deliveries-awaiting-pod.json": {
+   "count": 80,
+   "alsoInUnbilledAll": 80,
+   "alsoInCappedUnbilled": 66
+  },
+  "blocked-orders.json": {
+   "count": 100,
+   "isCapped": true,
+   "valueAtRisk": {
+    "EUR": 1609200,
+    "RON": 449050
+   }
+  },
+  "blocked-orders-all.json": {
+   "count": 144,
+   "valueAtRisk": {
+    "EUR": 1609540,
+    "RON": 474910
+   }
+  },
+  "leakageFindingsAt100RowCap": "about 285 from the scan (100 blocked + 100 unbilled + 80 awaiting POD + 5 overdue customers), about 300 with conformance deviations; fewer once POD and unbilled duplicates are merged",
+  "billing-due-list-customer-10044.json": {
+   "total": 47,
+   "currency": "EUR",
+   "includesPodPending": true
+  }
+ }
+}

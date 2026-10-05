@@ -21,6 +21,14 @@ export function ApiProvider({ client, children }: { client: ApiClient; children:
   return <Ctx.Provider value={client}>{children}</Ctx.Provider>
 }
 
+/** Call when the signed-in user changes: every cached query belongs to the previous session. */
+export function useRefetchOnUser(userId: string | null) {
+  const qc = useQueryClient()
+  useEffect(() => {
+    void qc.invalidateQueries()
+  }, [userId, qc])
+}
+
 export function useApi(): ApiClient {
   const c = useContext(Ctx)
   if (!c) throw new Error('ApiProvider missing')

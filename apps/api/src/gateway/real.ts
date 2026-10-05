@@ -207,9 +207,7 @@ export class RealGateway implements Gateway {
     const o = (r ?? {}) as Record<string, unknown>
     const number = String(o[type === 'YRE' ? 'CustomerReturn' : 'CreditMemoRequest'] ?? o.number ?? o.documentNumber ?? '')
     if (!number) return { ok: false, status: 502, message: `Gateway returned no document number: ${JSON.stringify(o).slice(0, 300)}` }
-    const meta = o.__metadata as { etag?: string } | undefined
-    const etag = meta?.etag ?? (o.versionStamp as string | undefined) ?? (o.etag as string | undefined)
-    return { ok: true, number, response: o, etag }
+    return { ok: true, number, response: o, etag: versionStampOf(o) }
   }
 
   /**
@@ -243,7 +241,8 @@ export class RealGateway implements Gateway {
 
   async setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED'; approvedBy: string; approverRole: string }): Promise<LogResult> {
     try {
-      return this.logResult(await this.action('setApprovalStatus', { ID: args.id, status: args.status, approvedBy: args.approvedBy, approverRole: args.approverRole }))
+      // The gateway spells roles with hyphens (credit-manager) and checks them against the credit value.
+      return this.logResult(await this.action('setApprovalStatus', { ID: args.id, status: args.status, approvedBy: args.approvedBy, approverRole: args.approverRole.replace(/_/g, '-') }))
     } catch (e) {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 502, message: err.message }
@@ -292,6 +291,7 @@ export class RealGateway implements Gateway {
       const r = await this.action('createCreditMemoRequest', {
         auditLogID: ctx.gatewayLogId,
         invoiceNumber: payload.ReferenceSDDocument,
+        invoiceItem: item.ReferenceSDDocumentItem,
         material: item.Material,
         quantity: item.RequestedQuantity,
         unit: item.RequestedQuantityUnit,
@@ -332,6 +332,13 @@ const GATEWAY_RULES: Record<string, { type: 'YRE' | 'YCR'; reason: string }> = {
   R3: { type: 'YCR', reason: '104' },
   R4: { type: 'YCR', reason: '101' },
   R5: { type: 'YCR', reason: '103' },
+}
+
+/** The version stamp SAP returned on create. Live name (5 Oct 2026): `sapDocumentVersion`; older shapes kept. */
+export function versionStampOf(o: Record<string, unknown>): string | undefined {
+  const meta = o.__metadata as { etag?: string } | undefined
+  const v = (o.sapDocumentVersion ?? o.versionStamp ?? o.etag ?? meta?.etag) as string | undefined
+  return v ? String(v) : undefined
 }
 
 /** "/Date(1790640000000)/" → "2026-09-29" */

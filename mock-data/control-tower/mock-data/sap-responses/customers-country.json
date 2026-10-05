@@ -1,0 +1,132 @@
+{
+  "about": "Country of every customer in the captured findings, plus the search for business partners in Norway (none on DS4).",
+  "tool": "s4_odata_query",
+  "arguments": {
+    "service": "API_BUSINESS_PARTNER",
+    "entitySet": "A_BusinessPartnerAddress"
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_BUSINESS_PARTNER/A_BusinessPartnerAddress?$filter=BusinessPartner eq '10012' or BusinessPartner eq '10020' or ... (every customer in the lists)&$select=BusinessPartner,Country,CityName",
+    "GET /sap/opu/odata/sap/API_BUSINESS_PARTNER/A_BusinessPartnerAddress?$filter=Country eq 'NO'&$select=BusinessPartner,Country,CityName&$top=50",
+    "GET /sap/opu/odata/sap/API_BUSINESS_PARTNER/A_BusinessPartner?$filter=BusinessPartner eq '10012' or ...&$select=BusinessPartner,BusinessPartnerFullName"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "addresses": [
+      {
+        "BusinessPartner": "62",
+        "CityName": "Bucharest",
+        "Country": "RO"
+      },
+      {
+        "BusinessPartner": "10012",
+        "CityName": "New York",
+        "Country": "US"
+      },
+      {
+        "BusinessPartner": "10020",
+        "CityName": "",
+        "Country": "CH"
+      },
+      {
+        "BusinessPartner": "10021",
+        "CityName": "Hamburg",
+        "Country": "DE"
+      },
+      {
+        "BusinessPartner": "10044",
+        "CityName": "Berlin",
+        "Country": "DE"
+      },
+      {
+        "BusinessPartner": "10057",
+        "CityName": "Hamburg",
+        "Country": "DE"
+      },
+      {
+        "BusinessPartner": "10059",
+        "CityName": "Hamburg",
+        "Country": "DE"
+      },
+      {
+        "BusinessPartner": "10100",
+        "CityName": "",
+        "Country": "DE"
+      },
+      {
+        "BusinessPartner": "10101",
+        "CityName": "Hamburg",
+        "Country": "DE"
+      },
+      {
+        "BusinessPartner": "10110",
+        "CityName": "Bucharest",
+        "Country": "RO"
+      },
+      {
+        "BusinessPartner": "10172",
+        "CityName": "Bucharest",
+        "Country": "RO"
+      },
+      {
+        "BusinessPartner": "10220",
+        "CityName": "",
+        "Country": "JP"
+      }
+    ],
+    "norway": [],
+    "names": [
+      {
+        "BusinessPartner": "10012",
+        "BusinessPartnerFullName": "TM Customer US"
+      },
+      {
+        "BusinessPartner": "10020",
+        "BusinessPartnerFullName": "Cust CH 1"
+      },
+      {
+        "BusinessPartner": "10021",
+        "BusinessPartnerFullName": "Cust DE 1"
+      },
+      {
+        "BusinessPartner": "10044",
+        "BusinessPartnerFullName": "XYZ Partner Limited"
+      },
+      {
+        "BusinessPartner": "10057",
+        "BusinessPartnerFullName": "Test_BP_26/09/19_new"
+      },
+      {
+        "BusinessPartner": "10059",
+        "BusinessPartnerFullName": "Test_BP_26/09/19_alex C&F Grünstahl GmbH"
+      },
+      {
+        "BusinessPartner": "10100",
+        "BusinessPartnerFullName": "Pharma Customer 1"
+      },
+      {
+        "BusinessPartner": "10101",
+        "BusinessPartnerFullName": "Test TD"
+      },
+      {
+        "BusinessPartner": "10110",
+        "BusinessPartnerFullName": "Example BP - Cornel"
+      },
+      {
+        "BusinessPartner": "10172",
+        "BusinessPartnerFullName": "Domestic RO Test LN"
+      },
+      {
+        "BusinessPartner": "10220",
+        "BusinessPartnerFullName": "Test BP Ilinca"
+      }
+    ],
+    "noAddressOnDS4": [
+      "46",
+      "51",
+      "7800000096"
+    ]
+  }
+}

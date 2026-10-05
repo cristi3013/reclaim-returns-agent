@@ -6,6 +6,9 @@ import type {
   CaseSummary,
   EvalResult,
   ReturnStatus,
+  Snapshot,
+  Answer,
+  RoutingNote,
   Role,
   SapDocument,
   Settings,
@@ -81,6 +84,13 @@ export interface ApiClient {
   getReturnStatus(sapDocumentId: string): Promise<ReturnStatus>
   /** The Returns desk confirms the goods receipt of a return by hand (step 5.1.3). */
   confirmGoodsReceipt(sapDocumentId: string, input: ReleaseInput): Promise<ReleaseResult>
+  /** Control Tower (extra credit): the current run, a new run, a question, the memo, the routing notes, a hand-over. */
+  getControlTower(): Promise<Snapshot>
+  runControlTower(): Promise<Snapshot>
+  askControlTower(question: string): Promise<Answer>
+  getControlTowerMemo(): Promise<string>
+  getControlTowerNotes(): Promise<RoutingNote[]>
+  handoverFinding(findingId: string): Promise<{ ok: true; caseId: string } | { ok: false; status: number; message: string }>
   getAnalytics(): Promise<Analytics>
   runEval(): Promise<EvalResult[]>
   getLatestEval(): Promise<EvalResult[] | null>

@@ -1,0 +1,395 @@
+{
+  "about": "Billing due list (Fiori app Create Billing Documents, F0798) for sold-to 10044: 47 rows, all EUR, none with an error. It lists POD-pending deliveries too (e.g. 80609014, POD open) with their net value, so use it to value unbilled and POD-pending deliveries. Rows 60000151/60000152 are customer returns (credit side).",
+  "tool": "s4_list_billing_due_list",
+  "arguments": {
+    "soldToParty": "10044",
+    "top": 50
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/SD_CUSTOMER_INVOICES_CREATE/C_BillingDueListItem_F0798?$filter=SoldToParty eq '10044'&$top=50 (this service rejects $orderby)"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool, trimmed to the fields shown (the tool also returns sales area, destination country and customer name). Reproduce with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "total": 47,
+    "items": [
+      {
+        "ReferenceSDDocument": "80609017",
+        "NetAmount": "680.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-03",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609011",
+        "NetAmount": "1020.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-05",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608977",
+        "NetAmount": "270.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-07",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608982",
+        "NetAmount": "2700.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-07",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608976",
+        "NetAmount": "1350.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-08",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608975",
+        "NetAmount": "1080.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-09",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608978",
+        "NetAmount": "4320.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-09",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608974",
+        "NetAmount": "810.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-10",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609038",
+        "NetAmount": "3400.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-10",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608973",
+        "NetAmount": "540.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-11",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608972",
+        "NetAmount": "270.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-12",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609032",
+        "NetAmount": "1700.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-12",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608971",
+        "NetAmount": "1350.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-13",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608970",
+        "NetAmount": "1080.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-14",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609026",
+        "NetAmount": "1700.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-14",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608969",
+        "NetAmount": "810.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-15",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609071",
+        "NetAmount": "340.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-15",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609106",
+        "NetAmount": "340.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-15",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608968",
+        "NetAmount": "540.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-16",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609020",
+        "NetAmount": "2040.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-16",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608967",
+        "NetAmount": "270.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-17",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608966",
+        "NetAmount": "1350.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-18",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609014",
+        "NetAmount": "3400.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-18",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608965",
+        "NetAmount": "1080.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-19",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608964",
+        "NetAmount": "810.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-20",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609008",
+        "NetAmount": "1700.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-20",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609041",
+        "NetAmount": "680.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-20",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609103",
+        "NetAmount": "680.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-20",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608963",
+        "NetAmount": "540.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-21",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609074",
+        "NetAmount": "595.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-21",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609109",
+        "NetAmount": "595.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-21",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608962",
+        "NetAmount": "270.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-22",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608980",
+        "NetAmount": "5400.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-22",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608961",
+        "NetAmount": "1350.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-23",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608960",
+        "NetAmount": "1080.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-24",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608959",
+        "NetAmount": "810.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-25",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609035",
+        "NetAmount": "1020.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-25",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609039",
+        "NetAmount": "1700.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-25",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609100",
+        "NetAmount": "1700.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-25",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608958",
+        "NetAmount": "540.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-26",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609029",
+        "NetAmount": "850.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-27",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609077",
+        "NetAmount": "425.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-27",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609112",
+        "NetAmount": "425.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-27",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80609023",
+        "NetAmount": "1360.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-09-29",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "60000152",
+        "NetAmount": "270.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-10-01",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "60000151",
+        "NetAmount": "270.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-10-01",
+        "SoldToParty": "10044"
+      },
+      {
+        "ReferenceSDDocument": "80608955",
+        "NetAmount": "540.00",
+        "TransactionCurrency": "EUR",
+        "HasError": false,
+        "BillingDocumentDate": "2026-10-01",
+        "SoldToParty": "10044"
+      }
+    ]
+  }
+}
