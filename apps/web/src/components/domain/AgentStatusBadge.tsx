@@ -10,9 +10,10 @@ export function AgentStatusBadge() {
       title="Status endpoint for the Control Tower: /api/status"
     >
       <span className="size-2 rounded-full bg-accent animate-pulse-dot" aria-hidden />
-      <span className="font-mono font-medium">{data.agentId}</span>
+      <span className="hidden font-mono font-medium sm:inline">{data.agentId}</span>
       <span className="text-muted tnum">
-        {data.cases} cases · {data.pending} pending
+        <span className="hidden sm:inline">{data.cases} cases · </span>
+        {data.pending} pending
         <span className="hidden 2xl:inline">{data.lastRunAt ? ` · ran ${formatRelative(data.lastRunAt)}` : ''}</span>
       </span>
     </div>

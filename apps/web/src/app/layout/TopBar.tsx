@@ -63,18 +63,18 @@ export function TopBar() {
   )
 
   return (
-    <header className="relative flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-4 md:px-5">
+    <header className="relative flex h-14 shrink-0 items-center gap-2 border-b border-line bg-surface px-4 md:gap-3 md:px-5">
       <span className="hidden shrink-0 whitespace-nowrap text-sm font-semibold tracking-tight 2xl:inline">Returns &amp; Credit Note agent</span>
       <AgentStatusBadge />
-      <div className="ml-auto flex items-center gap-3 whitespace-nowrap">
+      <div className="ml-auto flex items-center gap-2 whitespace-nowrap md:gap-3">
         {!mobile && demoControls}
         <label className="flex items-center gap-2 text-xs">
-          <span className="text-muted">Role</span>
+          <span className="hidden text-muted sm:inline">Role</span>
           <select
             aria-label="Role"
             value={role}
             onChange={(e) => setRole(e.target.value as Role)}
-            className="h-7 max-w-[10rem] rounded-md border border-line bg-surface px-2 text-xs"
+            className="h-7 max-w-[8rem] rounded-md border border-line bg-surface px-2 text-xs sm:max-w-[10rem]"
           >
             {ROLES.map((r) => (
               <option key={r} value={r}>

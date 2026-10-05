@@ -112,7 +112,7 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
       )}
 
       {c.status === 'awaiting_approval' && (
-        <div className="mt-4 space-y-3 border-t border-line pt-3">
+        <div className="mt-4 space-y-3 border-t border-line pt-3 max-md:pb-16">
           {d.documentType !== 'NONE' && (
             <QuantityEditor value={d.quantity} max={max} unit={d.unit} unitPrice={unitPrice} currency={d.currency} onChange={setEdit} />
           )}
@@ -125,7 +125,7 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
               rows={2}
             />
           </label>
-          <div className="flex gap-2 max-md:sticky max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:-mx-4 max-md:border-t max-md:border-line max-md:bg-surface max-md:px-4 max-md:py-3">
+          <div className="flex gap-2 max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:z-10 max-md:border-t max-md:border-line max-md:bg-surface max-md:px-4 max-md:py-3">
             <Button className="flex-1 md:flex-none" onClick={onApprove} disabled={!canApprove}>
               {approve.isPending
                 ? d.documentType === 'NONE'

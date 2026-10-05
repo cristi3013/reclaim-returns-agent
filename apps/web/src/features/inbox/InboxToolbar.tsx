@@ -32,7 +32,7 @@ export function InboxToolbar({
         placeholder="Search subject, invoice, sender"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
-        className="h-9 w-72 rounded-md border border-line bg-surface px-3 text-sm"
+        className="h-9 w-full rounded-md border border-line bg-surface px-3 text-sm sm:w-72"
       />
       <select
         aria-label="Filter by status"
@@ -47,7 +47,7 @@ export function InboxToolbar({
           </option>
         ))}
       </select>
-      <div className="ml-auto flex gap-2">
+      <div className="flex flex-wrap gap-2 sm:ml-auto">
         <input
           ref={file}
           type="file"
