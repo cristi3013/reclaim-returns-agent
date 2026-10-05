@@ -1,4 +1,5 @@
 import {
+  addCustomerReply,
   approverFor,
   buildFixtureCases,
   buildSapPayload,
@@ -9,11 +10,14 @@ import {
   currentReply,
   EXPECTED,
   FIXTURES,
+  findThreadCase,
+  latestCustomerMessageId,
   primaryProposal,
   RULES,
   MANUAL_STATUSES,
   STATUS_LABELS,
   statusChangeBlocked,
+  threadMessageIds,
   toSummary,
   type AgentStatus,
   type Analytics,
@@ -177,13 +181,23 @@ export class Service {
     this.deps.hub.emit({ type: 'status_changed' })
   }
 
-  /** Creates a case from an email that arrived by mailbox or webhook. Duplicate message ids are ignored. */
+  /**
+   * Creates a case from an email that arrived by mailbox or webhook, or, when the email answers an earlier one,
+   * adds it to that case's conversation (see findThreadCase). Duplicate message ids are ignored.
+   */
   async ingestInbound(mail: InboundEmail): Promise<CaseSummary | null> {
     if (mail.messageId) {
       const dup = this.store.list().find((c) => c.events.some((e) => e.kind === 'intake' && e.detail.messageId === mail.messageId))
       if (dup) return null
     }
     const fx = mail.sourceFile ? FIXTURES.find((x) => x.emailFile === mail.sourceFile) : undefined
+    const thread = fx ? undefined : findThreadCase(this.store.list(), mail)
+    if (thread) {
+      const { reopened } = addCustomerReply(thread, mail, ev)
+      this.touch(thread.id)
+      if (reopened) this.deps.hub.emit({ type: 'status_changed' })
+      return toSummary(thread)
+    }
     const now = new Date().toISOString()
     // An email from the mailbox gets an id derived from its Message-ID, so every instance listening on the same
     // mailbox lands on the same case and the database decides who ingests it.
@@ -467,11 +481,13 @@ export class Service {
       text += `\n\nReference: ${doc.type === 'YRE' ? 'return order' : 'credit memo request'} ${doc.number}${c.invoiceNumber ? ` for invoice ${c.invoiceNumber}` : ''}.`
     }
     const subject = /^re:/i.test(c.subject) ? c.subject : `Re: ${c.subject}`
-    const inReplyTo = typeof intake.detail.messageId === 'string' ? intake.detail.messageId : null
+    // Answer the customer's latest email, and carry the whole thread so their mail client keeps one conversation.
+    const inReplyTo = latestCustomerMessageId(c)
+    const references = threadMessageIds(c)
     this.sending.add(c.id)
     const t = Date.now()
     try {
-      const r = await mailer.send({ to: c.from, subject, text, inReplyTo })
+      const r = await mailer.send({ to: c.from, subject, text, inReplyTo, references })
       ev(c, 'status', `Reply sent to ${c.from} by ${input.actor}`, { replySent: true, to: c.from, from: mailer.from, subject, text, messageId: r.messageId, inReplyTo, actor: input.actor, role: input.role }, null, Date.now() - t)
       this.touch(c.id)
       return { ok: true, value: { to: c.from, messageId: r.messageId } }
