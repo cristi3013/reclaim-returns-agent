@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { primaryProposal, type Case, type EvalResult } from './schemas'
+import { estimateCostUsd, ModelUsageSchema, type ModelUsage } from './pricing'
 
 /** Everything the Analytics page shows, computed from real cases only. Same function for backend and mock. */
 export const AnalyticsSchema = z.object({
@@ -28,6 +29,25 @@ export const AnalyticsSchema = z.object({
   series: z.object({ bucket: z.enum(['hour', 'day', 'week']), points: z.array(z.object({ label: z.string(), received: z.number(), approved: z.number(), rejected: z.number(), noDocument: z.number(), value: z.number() })) }),
   topCustomers: z.array(z.object({ customer: z.string(), name: z.string(), cases: z.number(), value: z.number() })),
   eval: z.object({ passed: z.number(), total: z.number() }).nullable(),
+  /** Token usage of the model, from the audit events. Costs are list-price estimates. */
+  model: z.object({
+    calls: z.number(),
+    casesWithModel: z.number(),
+    models: z.array(z.string()),
+    inputTokens: z.number(),
+    outputTokens: z.number(),
+    cacheReadTokens: z.number(),
+    estimatedCostUsd: z.number(),
+    avgTokensPerCall: z.number().nullable(),
+    avgTokensPerCase: z.number().nullable(),
+    avgCostPerCaseUsd: z.number().nullable(),
+    avgLatencyMs: z.number().nullable(),
+    maxCase: z.object({ caseId: z.string(), tokens: z.number(), costUsd: z.number() }).nullable(),
+    minCase: z.object({ caseId: z.string(), tokens: z.number(), costUsd: z.number() }).nullable(),
+    byPurpose: z.record(z.string(), z.object({ calls: z.number(), inputTokens: z.number(), outputTokens: z.number(), avgLatencyMs: z.number(), costUsd: z.number() })),
+    perDay: z.array(z.object({ day: z.string(), calls: z.number(), inputTokens: z.number(), outputTokens: z.number(), costUsd: z.number() })),
+    projectedMonthlyCostUsd: z.number().nullable(),
+  }),
 })
 export type Analytics = z.infer<typeof AnalyticsSchema>
 
@@ -158,6 +178,77 @@ export function computeAnalytics(cases: Case[], evalResults: EvalResult[] | null
     points.set(k, pt)
   }
 
+  // Model usage, from the audit events of every case.
+  const usages: { caseId: string; day: string; u: ModelUsage }[] = []
+  for (const c of cases) {
+    for (const e of c.events) {
+      if (e.kind !== 'model') continue
+      const list = Array.isArray(e.detail.usage) ? e.detail.usage : e.detail.usage ? [e.detail.usage] : []
+      for (const raw of list) {
+        const parsed = ModelUsageSchema.safeParse(raw)
+        if (parsed.success) usages.push({ caseId: c.id, day: e.at.slice(0, 10), u: parsed.data })
+      }
+    }
+  }
+  const tokensOf = (u: ModelUsage) => u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheWriteTokens
+  const perCase = new Map<string, { tokens: number; costUsd: number }>()
+  const byPurpose: Analytics['model']['byPurpose'] = {}
+  const perDay = new Map<string, { day: string; calls: number; inputTokens: number; outputTokens: number; costUsd: number }>()
+  let inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, costUsd = 0, latency = 0
+  for (const { caseId, day, u } of usages) {
+    const cost = estimateCostUsd(u)
+    inputTokens += u.inputTokens
+    outputTokens += u.outputTokens
+    cacheReadTokens += u.cacheReadTokens
+    costUsd += cost
+    latency += u.latencyMs
+    const pc = perCase.get(caseId) ?? { tokens: 0, costUsd: 0 }
+    pc.tokens += tokensOf(u)
+    pc.costUsd += cost
+    perCase.set(caseId, pc)
+    const bp = byPurpose[u.purpose] ?? { calls: 0, inputTokens: 0, outputTokens: 0, avgLatencyMs: 0, costUsd: 0 }
+    bp.calls++
+    bp.inputTokens += u.inputTokens
+    bp.outputTokens += u.outputTokens
+    bp.avgLatencyMs += u.latencyMs
+    bp.costUsd += cost
+    byPurpose[u.purpose] = bp
+    const pd = perDay.get(day) ?? { day, calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 }
+    pd.calls++
+    pd.inputTokens += u.inputTokens
+    pd.outputTokens += u.outputTokens
+    pd.costUsd += cost
+    perDay.set(day, pd)
+  }
+  for (const k of Object.keys(byPurpose)) {
+    const bp = byPurpose[k]!
+    bp.avgLatencyMs = Math.round(bp.avgLatencyMs / bp.calls)
+    bp.costUsd = round(bp.costUsd, 4)
+  }
+  const caseEntries = [...perCase.entries()].map(([caseId, v]) => ({ caseId, tokens: v.tokens, costUsd: round(v.costUsd, 4) }))
+  const maxCase = caseEntries.length ? caseEntries.reduce((a, b) => (b.tokens > a.tokens ? b : a)) : null
+  const minCase = caseEntries.length ? caseEntries.reduce((a, b) => (b.tokens < a.tokens ? b : a)) : null
+  const totalTokens = usages.reduce((s, x) => s + tokensOf(x.u), 0)
+  const activeDays = perDay.size
+  const model: Analytics['model'] = {
+    calls: usages.length,
+    casesWithModel: perCase.size,
+    models: [...new Set(usages.map((x) => x.u.model))],
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    estimatedCostUsd: round(costUsd, 4),
+    avgTokensPerCall: usages.length ? Math.round(totalTokens / usages.length) : null,
+    avgTokensPerCase: perCase.size ? Math.round(totalTokens / perCase.size) : null,
+    avgCostPerCaseUsd: perCase.size ? round(costUsd / perCase.size, 4) : null,
+    avgLatencyMs: usages.length ? Math.round(latency / usages.length) : null,
+    maxCase,
+    minCase,
+    byPurpose,
+    perDay: [...perDay.values()].sort((a, b) => a.day.localeCompare(b.day)).map((d) => ({ ...d, costUsd: round(d.costUsd, 4) })),
+    projectedMonthlyCostUsd: activeDays ? round((costUsd / activeDays) * 22, 2) : null,
+  }
+
   const decided = approvals.approved + approvals.rejected
   return {
     generatedAt: now.toISOString(),
@@ -176,5 +267,6 @@ export function computeAnalytics(cases: Case[], evalResults: EvalResult[] | null
     series: { bucket, points: [...points.values()].sort((a, b) => a.t - b.t).map(({ t: _t, ...p }) => p) },
     topCustomers: [...customers.values()].sort((a, b) => b.cases - a.cases || b.value - a.value).slice(0, 5),
     eval: evalResults ? { passed: evalResults.filter((r) => r.pass).length, total: evalResults.length } : null,
+    model,
   }
 }

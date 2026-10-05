@@ -9,11 +9,11 @@ import type { Ai } from './types'
 export class RulesOnlyAi implements Ai {
   readonly name = 'rules-only'
 
-  async extractFacts(c: Case): Promise<Facts> {
+  async extractFacts(c: Case): Promise<{ facts: Facts }> {
     const fx = FIXTURES.find((f) => f.id === c.id || f.emailFile === c.emailFile)
     const base = regexFacts(c)
-    if (!fx) return base
-    return {
+    if (!fx) return { facts: base }
+    const facts: Facts = {
       ...base,
       complaintType: fx.facts.complaintType,
       claimedQuantity: fx.facts.claimedQuantity,
@@ -23,9 +23,10 @@ export class RulesOnlyAi implements Ai {
       claimedUnitPrice: fx.facts.claimedUnitPrice,
       evidence: 'pattern rules, demo facts for the fixture email',
     }
+    return { facts }
   }
 
   async narrate(d: Decision, facts: Facts, findings: Findings, ctx: { existingDocNumber?: string; openCaseId?: string }) {
-    return narrate(d, facts, findings, ctx)
+    return { narrative: narrate(d, facts, findings, ctx) }
   }
 }

@@ -51,3 +51,38 @@ describe('computeAnalytics', () => {
     expect(a.series.points).toEqual([])
   })
 })
+
+import { estimateCostUsd } from '../pricing'
+describe('model usage analytics', () => {
+  it('sums tokens, costs and latency per call, case, purpose and day', () => {
+    const c = buildFixtureCases()[0]!
+    const usage = (purpose: 'extract' | 'narrate', inputTokens: number, outputTokens: number, latencyMs: number) => ({ model: 'eu.anthropic.claude-opus-5-5', purpose, inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs })
+    const withEvents = (id: string, at: string, u1: ReturnType<typeof usage>, u2: ReturnType<typeof usage>[]): Case => ({
+      ...c, id, events: [
+        { id: `e1-${id}`, caseId: id, at, l4Step: '5.1.1', kind: 'model', title: 'Facts extracted', detail: { usage: u1 }, durationMs: null },
+        { id: `e2-${id}`, caseId: id, at, l4Step: '5.1.1', kind: 'model', title: 'Explanation drafted', detail: { usage: u2 }, durationMs: null },
+      ],
+    })
+    const cases = [
+      withEvents('a', '2026-10-05T10:00:00Z', usage('extract', 1000, 200, 5000), [usage('narrate', 2000, 400, 10000)]),
+      withEvents('b', '2026-10-06T10:00:00Z', usage('extract', 500, 100, 4000), [usage('narrate', 1000, 200, 8000), usage('narrate', 1000, 200, 8000)]),
+    ]
+    const m = computeAnalytics(cases, null).model
+    expect(m.calls).toBe(5)
+    expect(m.casesWithModel).toBe(2)
+    expect(m.inputTokens).toBe(5500)
+    expect(m.outputTokens).toBe(1100)
+    expect(m.avgTokensPerCall).toBe(1320)
+    expect(m.avgTokensPerCase).toBe(3300)
+    expect(m.maxCase?.caseId).toBe('a')
+    expect(m.minCase?.caseId).toBe('b')
+    expect(m.byPurpose['extract']).toMatchObject({ calls: 2, inputTokens: 1500, outputTokens: 300, avgLatencyMs: 4500 })
+    expect(m.perDay.map((d) => [d.day, d.calls])).toEqual([['2026-10-05', 2], ['2026-10-06', 3]])
+    expect(m.estimatedCostUsd).toBeCloseTo(estimateCostUsd({ model: 'opus-5-5', inputTokens: 5500, outputTokens: 1100, cacheReadTokens: 0, cacheWriteTokens: 0 }), 4)
+    expect(m.projectedMonthlyCostUsd).toBeCloseTo((m.estimatedCostUsd / 2) * 22, 2)
+  })
+  it('prices by model family', () => {
+    expect(estimateCostUsd({ model: 'eu.anthropic.claude-opus-5-5', inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 })).toBe(4)
+    expect(estimateCostUsd({ model: 'claude-sonnet-4-6', inputTokens: 0, outputTokens: 1_000_000, cacheReadTokens: 0, cacheWriteTokens: 0 })).toBe(15)
+  })
+})

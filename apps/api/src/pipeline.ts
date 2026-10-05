@@ -50,7 +50,8 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   // 1 · extract
   const t0 = Date.now()
   const attachments = (await Promise.all(c.attachments.map((a) => deps.readAttachment(a.url)))).filter((x): x is { mimeType: string; base64: string } => !!x)
-  const facts = await ai.extractFacts(c, attachments)
+  const extracted = await ai.extractFacts(c, attachments)
+  const facts = extracted.facts
   c.facts = facts
   c.complaintType = facts.complaintType
   c.invoiceNumber = facts.invoiceNumber
@@ -58,7 +59,7 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
     c,
     assisted ? 'model' : 'rule',
     assisted ? `Facts extracted from the email${attachments.length ? ' and the photo' : ''}` : 'Facts extracted by pattern rules',
-    { facts, source: ai.name },
+    { facts, source: ai.name, usage: extracted.usage },
     '5.1.1',
     Date.now() - t0,
   )
@@ -152,9 +153,12 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   const existingDocNumber = (findings.existingReturns[0] ?? findings.existingCredits[0])?.number
   const t1 = Date.now()
   c.proposals = []
+  const narrateUsage: NonNullable<Awaited<ReturnType<Ai['narrate']>>['usage']>[] = []
   for (let i = 0; i < res.options.length; i++) {
     const d = res.options[i]!
-    const n = await ai.narrate(d, facts, findings, { existingDocNumber, openCaseId: openCase?.id })
+    const narrated = await ai.narrate(d, facts, findings, { existingDocNumber, openCaseId: openCase?.id })
+    const n = narrated.narrative
+    if (narrated.usage) narrateUsage.push(narrated.usage)
     const p: Proposal = {
       id: uid('prop'),
       caseId: c.id,
@@ -172,7 +176,7 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
     }
     c.proposals.push(p)
   }
-  if (assisted) ev(c, 'model', 'Explanation, customer reply and approver briefing drafted', { groundedOn: c.proposals[0]?.policyCitations.map((x) => x.ruleId), source: ai.name }, '5.1.1', Date.now() - t1)
+  if (assisted) ev(c, 'model', 'Explanation, customer reply and approver briefing drafted', { groundedOn: c.proposals[0]?.policyCitations.map((x) => x.ruleId), source: ai.name, usage: narrateUsage }, '5.1.1', Date.now() - t1)
   ev(c, 'proposal', res.options.length > 1 ? 'Two options proposed; a person chooses' : `Proposal: ${top.ruleId}, ${top.documentType === 'NONE' ? 'no document' : top.documentType}`, { proposalIds: c.proposals.map((p) => p.id) }, '5.1.1', null)
   c.status = 'proposed'
   touch(id)

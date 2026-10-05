@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
-import { FactsSchema, RULES, narrate as templateNarrate, type Case, type Decision, type Facts, type Findings, type Narrative } from '@reclaim/shared'
+import { FactsSchema, RULES, narrate as templateNarrate, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
 import type { Ai } from './types'
 
 const NarrativeSchema = z.object({
@@ -87,7 +87,15 @@ export class ClaudeAi implements Ai {
   }
 
   /** One structured call: parse with the schema when supported, else JSON instruction + schema validation. */
-  private async structured<T>(schema: z.ZodType<T>, system: string, content: Anthropic.ContentBlockParam[], maxTokens: number, effort: 'low' | 'medium' | 'high'): Promise<T | null> {
+  private lastUsage: ModelUsage | null = null
+
+  private record(purpose: 'extract' | 'narrate', res: Anthropic.Message, startedAt: number) {
+    const u = res.usage
+    this.lastUsage = { model: this.model, purpose, inputTokens: u?.input_tokens ?? 0, outputTokens: u?.output_tokens ?? 0, cacheReadTokens: u?.cache_read_input_tokens ?? 0, cacheWriteTokens: u?.cache_creation_input_tokens ?? 0, latencyMs: Date.now() - startedAt }
+  }
+
+  private async structured<T>(schema: z.ZodType<T>, system: string, content: Anthropic.ContentBlockParam[], maxTokens: number, effort: 'low' | 'medium' | 'high', purpose: 'extract' | 'narrate'): Promise<T | null> {
+    const startedAt = Date.now()
     if (this.structuredSupported !== false) {
       try {
         const res = await this.client.messages.parse({
@@ -98,12 +106,13 @@ export class ClaudeAi implements Ai {
           messages: [{ role: 'user', content }],
         })
         this.structuredSupported = true
+        this.record(purpose, res, startedAt)
         if (res.stop_reason === 'refusal') return null
         return res.parsed_output ?? null
       } catch (e) {
         if (this.isEffortRejection(e)) {
           this.effortSupported = false
-          return this.structured(schema, system, content, maxTokens, effort)
+          return this.structured(schema, system, content, maxTokens, effort, purpose)
         }
         const err = e as Error & { status?: number }
         const unsupported = err.status === 400 && /output_config\.format|Extra inputs/i.test(err.message ?? '')
@@ -124,10 +133,11 @@ export class ClaudeAi implements Ai {
     } catch (e) {
       if (this.isEffortRejection(e)) {
         this.effortSupported = false
-        return this.structured(schema, system, content, maxTokens, effort)
+        return this.structured(schema, system, content, maxTokens, effort, purpose)
       }
       throw e
     }
+    this.record(purpose, res, startedAt)
     if (res.stop_reason === 'refusal') return null
     const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text ?? ''
     const match = text.match(/\{[\s\S]*\}/)
@@ -136,7 +146,7 @@ export class ClaudeAi implements Ai {
     return parsed.success ? parsed.data : null
   }
 
-  async extractFacts(c: Case, attachments: { mimeType: string; base64: string }[]): Promise<Facts> {
+  async extractFacts(c: Case, attachments: { mimeType: string; base64: string }[]): Promise<{ facts: Facts; usage?: ModelUsage }> {
     const content: Anthropic.ContentBlockParam[] = []
     for (const a of attachments) {
       if (a.mimeType === 'image/png' || a.mimeType === 'image/jpeg' || a.mimeType === 'image/webp' || a.mimeType === 'image/gif') {
@@ -144,21 +154,21 @@ export class ClaudeAi implements Ai {
       }
     }
     content.push({ type: 'text', text: `From: ${c.from}\nSubject: ${c.subject}\nReceived: ${c.receivedAt}\n\n${c.bodyText}` })
-    const facts = await this.structured(FactsSchema, SYSTEM_EXTRACT, content, 4000, 'medium')
+    const facts = await this.structured(FactsSchema, SYSTEM_EXTRACT, content, 4000, 'medium', 'extract')
     if (!facts) throw Object.assign(new Error('The model could not extract the facts from this email.'), { status: 502 })
-    return facts
+    return { facts, usage: this.lastUsage ?? undefined }
   }
 
-  async narrate(d: Decision, facts: Facts, findings: Findings, ctx: { existingDocNumber?: string; openCaseId?: string }): Promise<Narrative> {
+  async narrate(d: Decision, facts: Facts, findings: Findings, ctx: { existingDocNumber?: string; openCaseId?: string }): Promise<{ narrative: Narrative; usage?: ModelUsage }> {
     const rule = RULES[d.ruleId]
     const fallback = templateNarrate(d, facts, findings, ctx)
     const inv = findings.invoice ?? findings.candidateInvoices[0] ?? null
     const prompt = `POLICY RULE APPLIED\n${rule.policyText}\n\nSAP FACTS\n${JSON.stringify({ invoice: inv, existingReturns: findings.existingReturns, existingCredits: findings.existingCredits, agreedUnitPrice: findings.agreedUnitPrice, plantCompanyCode: findings.plantCompanyCode }, null, 2)}\n\nWHAT THE CUSTOMER WROTE (extracted)\n${JSON.stringify(facts, null, 2)}\n\nDECISION (made by code, do not change it)\n${JSON.stringify(d, null, 2)}\n${ctx.existingDocNumber ? `\nAn SAP document already exists for this invoice: ${ctx.existingDocNumber}.` : ''}${ctx.openCaseId ? `\nThis invoice is already being handled in case ${ctx.openCaseId}; no document yet.` : ''}\n\nWrite the explanation, the customer reply and the approver briefing.`
     try {
-      const out = await this.structured(NarrativeSchema, SYSTEM_NARRATE, [{ type: 'text', text: prompt }], 4000, 'low')
-      return out ? { ...out, citations: fallback.citations } : fallback
+      const out = await this.structured(NarrativeSchema, SYSTEM_NARRATE, [{ type: 'text', text: prompt }], 4000, 'low', 'narrate')
+      return { narrative: out ? { ...out, citations: fallback.citations } : fallback, usage: this.lastUsage ?? undefined }
     } catch {
-      return fallback
+      return { narrative: fallback }
     }
   }
 }

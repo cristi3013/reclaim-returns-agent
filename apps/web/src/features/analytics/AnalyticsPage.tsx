@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Card, CasesOverTime, DecisionsByRule, Outcomes, ValueFunnel } from './charts'
 import { ValueCalculator } from './ValueCalculator'
+import { ModelUsage } from './ModelUsage'
 import { formatDateTime, formatMoney, formatPercent } from '@/lib/format'
 import { COMPLAINT_LABELS, ROLE_LABELS, STATUS_LABELS, type CaseStatus, type ComplaintType } from '@reclaim/shared'
 import { Download } from 'lucide-react'
@@ -104,6 +105,10 @@ export function AnalyticsPage() {
                 </table>
               )}
             </Card>
+          </div>
+
+          <div className="mt-4">
+            <ModelUsage data={d} />
           </div>
 
           <div className="mt-6">
