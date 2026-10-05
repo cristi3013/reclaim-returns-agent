@@ -68,6 +68,7 @@ export interface ServiceDeps {
     saveEval: (r: EvalResult[]) => void
     deleteAll: () => Promise<void>
     insertCase?: (c: Case) => Promise<boolean>
+    deleteCase?: (id: string) => Promise<void>
     refresh?: (store: Store, busy: (id: string) => boolean) => Promise<{ changed: string[]; removed: string[] }>
   }
 }
@@ -103,8 +104,33 @@ export class Service {
   async syncFromPersistence() {
     if (!this.deps.persistence?.refresh) return
     const { changed, removed } = await this.deps.persistence.refresh(this.store, (id) => this.isBusy(id))
-    for (const id of [...changed, ...removed]) this.deps.hub.emit({ type: 'case_changed', id })
-    if (changed.length || removed.length) this.deps.hub.emit({ type: 'status_changed' })
+    const dropped = await this.dropStrayCopies(changed)
+    for (const id of [...changed, ...removed, ...dropped]) this.deps.hub.emit({ type: 'case_changed', id })
+    if (changed.length || removed.length || dropped.length) this.deps.hub.emit({ type: 'status_changed' })
+  }
+
+  /**
+   * An instance running older code may have ingested the same email under a random id. Of two cases with the
+   * same Message-ID, the one with the stable id (or, failing that, the older one) stays; the other is deleted.
+   */
+  private async dropStrayCopies(ids: string[]): Promise<string[]> {
+    const dropped: string[] = []
+    const messageIdOf = (c: Case) => c.events.find((e) => e.kind === 'intake')?.detail.messageId as string | undefined
+    for (const id of ids) {
+      const c = this.store.cases.get(id)
+      const mid = c && messageIdOf(c)
+      if (!c || !mid) continue
+      const twins = this.store.list().filter((x) => x.id !== c.id && messageIdOf(x) === mid)
+      for (const t of twins) {
+        const keep = [c, t].find((x) => x.id === caseIdForMessage(mid)) ?? [c, t].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]!
+        const stray = keep.id === c.id ? t : c
+        if (this.isBusy(stray.id)) continue
+        this.store.cases.delete(stray.id)
+        await this.deps.persistence?.deleteCase?.(stray.id)
+        dropped.push(stray.id)
+      }
+    }
+    return dropped
   }
 
   listCases(): CaseSummary[] {
