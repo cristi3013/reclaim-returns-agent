@@ -1,7 +1,10 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { Play } from 'lucide-react'
+import { FileText, Play } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCase, useChoose, useRunCase } from '@/api'
+import { useCase, useChoose, useRunCase, useStatus } from '@/api'
+import { buildReport, ROLE_LABELS } from '@reclaim/shared'
+import { useUi } from '@/store/ui'
+import { runExport } from '@/features/reports/ReportsPage'
 import { ComplaintPanel } from './ComplaintPanel'
 import { SapFindingsPanel } from './SapFindingsPanel'
 import { ProposalCard } from './ProposalCard'
@@ -17,6 +20,8 @@ export function CasePage() {
   const q = useCase(id)
   const run = useRunCase()
   const choose = useChoose()
+  const status = useStatus()
+  const { role } = useUi()
   const c = q.data
   if (q.isLoading) return <Skeleton className="h-96" />
   if (q.error || !c) return <ErrorState error={q.error ?? 'Case not found'} onRetry={() => q.refetch()} />
@@ -43,6 +48,13 @@ export function CasePage() {
           </div>
         </div>
         <div className="ml-auto flex shrink-0 gap-2">
+          <Button
+            variant="outline"
+            onClick={() => runExport(buildReport([c], { generatedBy: ROLE_LABELS[role], sapMode: status.data?.sapMode, title: `Reclaim · Audit pack · ${c.id}` }), 'pdf', `-${c.id}`)}
+            title="Download this case's proposal, approvals, SAP documents and audit log as a PDF"
+          >
+            <FileText className="size-4" /> Audit pack
+          </Button>
           {c.status === 'awaiting_approval' && (
             <Button asChild variant="outline">
               <Link to="/approvals">Open in approvals</Link>
