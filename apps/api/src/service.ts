@@ -55,7 +55,7 @@ export interface SendReplyInput {
   text?: string
 }
 /** Statuses where a person has decided and the customer can be told. */
-const REPLY_STATUSES = ['written_to_sap', 'closed', 'needs_customer_input', 'handed_over', 'duplicate'] as const
+const REPLY_STATUSES = ['written_to_sap', 'closed', 'needs_customer_input', 'handed_over', 'duplicate', 'rejected'] as const
 export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; message: string }
 
 export interface ServiceDeps {
@@ -426,7 +426,8 @@ export class Service {
 
   /**
    * Emails the reply to the customer, in the thread of their complaint. Only for complaints that came in by email,
-   * only after a person decided, and only once. The text is the person's; the SAP reference is added by code.
+   * only after a person decided (approved or rejected), and only once. The text is the person's; the SAP reference
+   * is added by code. A rejection needs the person's own text: the generated draft describes the refused credit.
    */
   async sendReply(caseId: string, input: SendReplyInput): Promise<Outcome<{ to: string; messageId: string }>> {
     const c = this.store.get(caseId)
@@ -444,8 +445,8 @@ export class Service {
     }
     if (this.sending.has(c.id)) return { ok: false, status: 409, message: 'The reply is being sent.' }
     const p = primaryProposal(c)
-    let text = (input.text ?? p?.replyDraft ?? '').trim()
-    if (!text) return { ok: false, status: 400, message: 'The reply is empty.' }
+    let text = (input.text ?? (c.status === 'rejected' ? '' : p?.replyDraft) ?? '').trim()
+    if (!text) return { ok: false, status: 400, message: c.status === 'rejected' ? 'Write the reply that explains the rejection.' : 'The reply is empty.' }
     const doc = c.sapDocuments[c.sapDocuments.length - 1]
     if (doc && !text.includes(doc.number)) {
       text += `\n\nReference: ${doc.type === 'YRE' ? 'return order' : 'credit memo request'} ${doc.number}${c.invoiceNumber ? ` for invoice ${c.invoiceNumber}` : ''}.`

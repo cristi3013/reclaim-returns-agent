@@ -12,9 +12,10 @@ const REPLY_STATUSES = [
   'needs_customer_input',
   'handed_over',
   'duplicate',
+  'rejected',
 ]
 
-/** Placeholder suggestion until the generated reply is wired in. */
+/** Placeholder suggestions until the generated reply is wired in. */
 const DUMMY_SUGGESTION = `Dear customer,
 
 Thank you for contacting us about your order. We have reviewed your complaint and processed it according to our returns policy.
@@ -24,13 +25,32 @@ If you have any further questions, simply reply to this email.
 Kind regards,
 Customer Service`
 
+function rejectionSuggestion(c: Case): string {
+  const reason = [...c.approvals].reverse().find((a) => a.decision === 'rejected')?.comment.trim()
+  return `Dear customer,
+
+Thank you for contacting us${c.invoiceNumber ? ` about invoice ${c.invoiceNumber}` : ''}. We have carefully reviewed your complaint, and unfortunately we are unable to issue a credit or return in this case.${reason ? `\n\nReason: ${reason}` : ''}
+
+If you have additional information or evidence, simply reply to this email and we will review it again.
+
+Kind regards,
+Customer Service`
+}
+
 /** The reply to the customer: a suggested answer to edit, then send by email in their thread. */
-export function ReplyPanel({ c, role, actor }: { c: Case; role: Role; actor: string }) {
-  const p = primaryProposal(c)
-  const [text, setText] = useState(DUMMY_SUGGESTION)
+export function ReplyPanel(props: { c: Case; role: Role; actor: string }) {
+  const { c } = props
+  if (!primaryProposal(c) || !REPLY_STATUSES.includes(c.status)) return null
+  // Keyed by status: the suggestion is chosen when the decision is made (approved or rejected), not before.
+  return <ReplyForm key={c.status} {...props} />
+}
+
+function ReplyForm({ c, role, actor }: { c: Case; role: Role; actor: string }) {
+  const [text, setText] = useState(() =>
+    c.status === 'rejected' ? rejectionSuggestion(c) : DUMMY_SUGGESTION,
+  )
   const [result, setResult] = useState<SendReplyResult | null>(null)
   const send = useSendReply()
-  if (!p || !REPLY_STATUSES.includes(c.status)) return null
 
   const sent = c.events.find((e) => e.kind === 'status' && e.detail.replySent === true)
   const byEmail =
