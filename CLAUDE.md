@@ -36,3 +36,4 @@ npm run typecheck && npm run lint
 - Tests: `apps/api/test/acceptance.test.ts` and `apps/web/src/api/mock/__tests__/pipeline.test.ts` are the acceptance tests against `expected-results.json`. They must stay green.
 - Never write hackathon demo invoices (90000353–90000359) to the real DS4. Guarded in code; keep it that way.
 - Conventional commit messages (`feat(api): …`, `fix(web): …`).
+- Never hand-edit or regenerate `package-lock.json` on its own. Run `npm install` at the root (npm 10 or newer) and commit the result. A lockfile written any other way loses the Linux optional packages (`@rollup/rollup-linux-x64-gnu`) and every Railway build fails with "Cannot find module @rollup/rollup-linux-x64-gnu".
