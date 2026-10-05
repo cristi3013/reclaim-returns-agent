@@ -11,7 +11,7 @@ import {
   type Settings,
 } from '@reclaim/shared'
 import { z } from 'zod'
-import type { ApiClient, ApiEvent, ApproveInput, ApproveResult, RejectInput, ReleaseInput, ReleaseResult } from '../client'
+import type { ApiClient, ApiEvent, ApproveInput, ApproveResult, RejectInput, ReleaseInput, ReleaseResult, SendReplyInput, SendReplyResult } from '../client'
 
 type Routes = typeof API_ROUTES
 
@@ -71,6 +71,15 @@ export class HttpApiClient implements ApiClient {
   }
   async runAll() {
     await this.call('runAll')
+  }
+  async sendReply(id: string, input: SendReplyInput): Promise<SendReplyResult> {
+    try {
+      const r = await this.call<{ to: string; messageId: string }>('sendReply', { id }, input)
+      return { ok: true, ...r }
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return { ok: false, status: err.status ?? 500, message: err.message }
+    }
   }
   async chooseProposal(id: string) {
     await this.call('chooseProposal', { id })

@@ -18,6 +18,7 @@ import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import { SupabasePersistence } from './persistence'
 import { MailboxListener, mailboxConfigFromEnv, parseEml } from './intake/mailbox'
+import { mailerFromEnv, type Mailer } from './intake/mailer'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 /** Attachments referenced by the demo cases live in the web app's public folder. */
@@ -37,6 +38,7 @@ const InboundBody = z.object({
 const ApproveBody = z.object({ actor: z.string(), role: z.enum(['customer_service_lead', 'credit_manager', 'finance_director', 'returns_desk']), editedQuantity: z.number().optional(), comment: z.string().optional() })
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
 const ReleaseBody = ApproveBody.pick({ actor: true, role: true }).extend({ goodsReceived: z.boolean().optional() })
+const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional() })
 
 export interface AppOptions {
   initialSettings?: Partial<Settings>
@@ -48,8 +50,10 @@ export interface AppOptions {
   mockDelayMs?: number
   /** Public base URL of this API, used in attachment links. Default http://localhost:PORT. */
   publicBase?: string
-  /** Disable Supabase and the mailbox poller (tests). */
+  /** Disable Supabase, the mailbox poller and outgoing email (tests). */
   noSideCars?: boolean
+  /** Override for tests: the outgoing mailer. Default: mailerFromEnv(), none with noSideCars. */
+  mailer?: Mailer | null
 }
 
 /** Builds the Fastify app. `server.ts` listens; tests use `app.inject`. */
@@ -59,6 +63,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   const log = (msg: string) => (process.env.NODE_ENV === 'test' ? undefined : console.error(msg))
   const persistence = opts.noSideCars ? null : SupabasePersistence.fromEnv(log)
   const hub = new EventHub()
+  const mailer = opts.mailer !== undefined ? opts.mailer : opts.noSideCars ? null : mailerFromEnv()
   const mock = new MockGateway({ simulateConflict: () => store.settings.simulateConflict, delayMs: opts.mockDelayMs })
   const real = opts.gatewayUrl ? new RealGateway(opts.gatewayUrl) : null
   const rulesOnly = new RulesOnlyAi()
@@ -82,6 +87,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     hasRealGateway: !!real || !!opts.gateway,
     onReset: () => mock.reset(),
     persistence: persistence ?? undefined,
+    mailer,
     log,
     readAttachment: async (url) => {
       try {
@@ -151,6 +157,12 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     reply.status(204)
   })
 
+  app.post<{ Params: { id: string } }>('/api/cases/:id/reply', async (req, reply) => {
+    const r = await service.sendReply(req.params.id, ReplyBody.parse(req.body))
+    if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
+    return r.value
+  })
+
   // Proposals and SAP
   app.post<{ Params: { id: string } }>('/api/proposals/:id/choose', async (req, reply) => {
     service.chooseProposal(req.params.id)
@@ -200,7 +212,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     })
   })
 
-  app.get('/health', async () => ({ ok: true, agent: 'o2c-agent-8', persistence: !!persistence, mailbox: !!mailboxConfigFromEnv() && !opts.noSideCars }))
+  app.get('/health', async () => ({ ok: true, agent: 'o2c-agent-8', persistence: !!persistence, mailbox: !!mailboxConfigFromEnv() && !opts.noSideCars, reply: mailer?.from ?? null }))
 
   const mailboxCfg = opts.noSideCars ? null : mailboxConfigFromEnv()
   const poller = mailboxCfg

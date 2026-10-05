@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApi } from './context'
-import type { ApproveInput, RejectInput, ReleaseInput } from './client'
+import type { ApproveInput, RejectInput, ReleaseInput, SendReplyInput } from './client'
 import type { Settings } from '@reclaim/shared'
 
 export const useCases = () => {
@@ -107,6 +107,15 @@ export const useRelease = () => {
   const api = useApi()
   const inv = useInvalidate()
   return useMutation({ mutationFn: (v: { id: string; input: ReleaseInput }) => api.release(v.id, v.input), onSettled: () => inv('cases', 'analytics') })
+}
+
+export const useSendReply = () => {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { caseId: string; input: SendReplyInput }) => api.sendReply(v.caseId, v.input),
+    onSettled: (_r, _e, v) => qc.invalidateQueries({ queryKey: ['case', v.caseId] }),
+  })
 }
 
 /** Goods receipt of a return, asked again every 15 s while the panel is open: the warehouse posts it, not the user. */

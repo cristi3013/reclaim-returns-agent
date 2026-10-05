@@ -8,6 +8,9 @@ import { exportCaseAuditPack } from '@/features/reports/export'
 import { ComplaintPanel } from './ComplaintPanel'
 import { SapFindingsPanel } from './SapFindingsPanel'
 import { ProposalCard } from './ProposalCard'
+import { ReplyPanel } from './ReplyPanel'
+import { useUi } from '@/store/ui'
+import { ROLE_LABELS } from '@reclaim/shared'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { AuditTimeline } from '@/features/audit/AuditTimeline'
@@ -100,6 +103,7 @@ export function CasePage() {
             ))}
           </div>
         )}
+        <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />
       </section>
 
       <Tabs defaultValue="timeline" className="mt-6">
