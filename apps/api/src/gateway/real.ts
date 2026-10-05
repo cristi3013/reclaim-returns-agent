@@ -1,4 +1,4 @@
-import type { ExistingDoc, InvoiceSnapshot } from '@reclaim/shared'
+import { DEMO_INVOICES, type ExistingDoc, type InvoiceSnapshot } from '@reclaim/shared'
 import type { Gateway, WriteResult } from './types'
 
 /**
@@ -12,7 +12,8 @@ import type { Gateway, WriteResult } from './types'
  *
  * Every function returns a JSON *string* inside `{ "value": "..." }`. `unwrap()` hides that.
  * Still missing on the gateway (the methods below call the names we agreed; adjust when he ships them):
- *   releaseCreditMemoRequest(number, etag), getAgreedPrice(material, salesOrg, channel), findInvoices(customer, material, dateFrom, dateTo)
+ *   releaseCreditMemoRequest(number, type): the gateway must GET the document, take its ETag and PATCH with If-Match;
+ *   getAgreedPrice(material, salesOrg, channel), findInvoices(customer, material, dateFrom, dateTo)
  *
  * Plant → company code is NOT a gateway call; it is our own reference table.
  */
@@ -139,8 +140,17 @@ export class RealGateway implements Gateway {
     return { ok: false, status: err.status ?? 502, message: err.message }
   }
 
+  /** Second line of defence: the service checks this too. Demo invoices never reach DS4. */
+  private demoGuard(invoice: unknown): WriteResult | null {
+    return DEMO_INVOICES.includes(String(invoice ?? ''))
+      ? { ok: false, status: 400, message: `Invoice ${String(invoice)} is hackathon demo data and must never be written to the real DS4.` }
+      : null
+  }
+
   async createReturn(payload: Record<string, unknown>) {
     const item = (payload.to_Item as Record<string, string>[] | undefined)?.[0] ?? {}
+    const blocked = this.demoGuard(item.ReferenceSDDocument)
+    if (blocked) return blocked
     try {
       const r = await this.action('createReturn', {
         invoiceNumber: item.ReferenceSDDocument,
@@ -160,6 +170,8 @@ export class RealGateway implements Gateway {
 
   async createCreditMemoRequest(payload: Record<string, unknown>) {
     const item = (payload.to_Item as Record<string, string>[] | undefined)?.[0] ?? {}
+    const blocked = this.demoGuard(payload.ReferenceSDDocument)
+    if (blocked) return blocked
     try {
       const r = await this.action('createCreditMemoRequest', {
         invoiceNumber: payload.ReferenceSDDocument,
@@ -176,9 +188,9 @@ export class RealGateway implements Gateway {
     }
   }
 
-  async release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult> {
+  async release(args: { type: 'YRE' | 'YCR'; number: string }): Promise<WriteResult> {
     try {
-      const r = await this.action('releaseCreditMemoRequest', { number: args.number, etag: args.etag, type: args.type })
+      const r = await this.action('releaseCreditMemoRequest', { number: args.number, type: args.type })
       return { ok: true, number: args.number, response: (r ?? {}) as Record<string, unknown> }
     } catch (e) {
       return this.catchWrite(e)

@@ -57,7 +57,7 @@ describe('Reclaim API acceptance', () => {
     const doc = res.json() as SapDocument
     expect(doc.payload).toMatchObject({ CreditMemoRequestType: 'YCR', HeaderBillingBlockReason: '08', ReferenceSDDocument: '90000355' })
     expect((await theCase('case-03')).status).toBe('written_to_sap')
-    expect((await post(`/api/sap/${doc.id}/release`)).statusCode).toBe(200)
+    expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(200)
     expect((await theCase('case-03')).sapDocuments[0]!.released).toBe(true)
   })
 
@@ -72,15 +72,12 @@ describe('Reclaim API acceptance', () => {
     expect((await theCase('case-08')).status).toBe('sap_write_failed')
   })
 
-  it('guards: re-run after write is 409, lower role is 403, demo invoice in real mode is 400', async () => {
+  it('guards: re-run after write is 409, lower role is 403', async () => {
     await post('/api/cases/seed')
     await run('case-03')
     const p = primaryProposal(await theCase('case-03'))!
     expect((await post(`/api/proposals/${p.id}/approve`, { ...cm, editedQuantity: 20 })).statusCode).toBe(403)
-    await ctx.app.inject({ method: 'PUT', url: '/api/settings', payload: { sapMode: 'real' } })
-    expect((await post(`/api/proposals/${p.id}/approve`, { actor: 'FD', role: 'finance_director' })).statusCode).toBe(400)
-    await ctx.app.inject({ method: 'PUT', url: '/api/settings', payload: { sapMode: 'mock' } })
-    expect((await post(`/api/proposals/${p.id}/approve`, { actor: 'FD', role: 'finance_director' })).statusCode).toBe(200)
+    expect((await post(`/api/proposals/${p.id}/approve`, { actor: 'FD', role: 'finance_director', editedQuantity: 20 })).statusCode).toBe(200)
     expect((await run('case-03')).statusCode).toBe(409)
   })
 
@@ -95,5 +92,152 @@ describe('Reclaim API acceptance', () => {
     const k = await theCase(s!.id)
     expect(primaryProposal(k)!.decision.ruleId).toBe('NONE')
     expect(k.status).toBe('awaiting_approval')
+  })
+})
+
+import { MockGateway } from '../src/gateway/mock'
+import type { Gateway } from '../src/gateway/types'
+import { INVOICES } from '@reclaim/shared'
+
+
+describe('audit fixes', () => {
+  it('a refused approval leaves the proposal unchanged; quantity 0 is rejected', async () => {
+    await post('/api/cases/seed')
+    await run('case-03')
+    const before = primaryProposal(await theCase('case-03'))!
+    expect((await post(`/api/proposals/${before.id}/approve`, { actor: 'RD', role: 'returns_desk', editedQuantity: 0 })).statusCode).toBe(400)
+    expect((await post(`/api/proposals/${before.id}/approve`, { actor: 'RD', role: 'returns_desk', editedQuantity: 1 })).statusCode).toBe(403)
+    expect((await post(`/api/proposals/${before.id}/approve`, { ...cm, editedQuantity: 20 })).statusCode).toBe(403)
+    const after = primaryProposal(await theCase('case-03'))!
+    expect(after.decision).toEqual(before.decision)
+    expect(after.sapPayload).toEqual(before.sapPayload)
+    expect((await theCase('case-03')).status).toBe('awaiting_approval')
+  })
+
+  it('a case cannot be re-run from approved, written or closed, nor while a write is in flight', async () => {
+    const slow: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), {
+      createCreditMemoRequest: async (p: Record<string, unknown>) => {
+        await new Promise((r) => setTimeout(r, 80))
+        return new MockGateway({ simulateConflict: () => false, delayMs: 0 }).createCreditMemoRequest(p)
+      },
+    })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => slow })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    await run('case-03')
+    const p = primaryProposal(await theCase('case-03'))!
+    const approving = post(`/api/proposals/${p.id}/approve`, cm)
+    await new Promise((r) => setTimeout(r, 10))
+    expect((await run('case-03')).statusCode).toBe(409)
+    expect((await approving).statusCode).toBe(200)
+    expect((await theCase('case-03')).status).toBe('written_to_sap')
+    await run('case-02')
+    const p2 = primaryProposal(await theCase('case-02'))!
+    await post(`/api/proposals/${p2.id}/approve`, cm)
+    expect((await theCase('case-02')).status).toBe('closed')
+    expect((await run('case-02')).statusCode).toBe(409)
+  })
+
+  it('release needs the approver role, happens once, and a return needs goods receipt', async () => {
+    await post('/api/cases/seed')
+    await run('case-03')
+    const p = primaryProposal(await theCase('case-03'))!
+    const doc = (await post(`/api/proposals/${p.id}/approve`, cm)).json() as SapDocument
+    expect((await post(`/api/sap/${doc.id}/release`, { actor: 'RD', role: 'returns_desk' })).statusCode).toBe(403)
+    expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(200)
+    expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(409)
+    expect((await theCase('case-03')).events.filter((e) => e.kind === 'sap_release')).toHaveLength(1)
+    await run('case-08')
+    const p8 = primaryProposal(await theCase('case-08'))!
+    const d8 = (await post(`/api/proposals/${p8.id}/approve`, cm)).json() as SapDocument
+    expect(d8.type).toBe('YRE')
+    expect((await post(`/api/sap/${d8.id}/release`, cm)).statusCode).toBe(409)
+    expect((await post(`/api/sap/${d8.id}/release`, { ...cm, goodsReceived: true })).statusCode).toBe(200)
+  })
+
+  it('a missing or failing agreed-price lookup sends the price complaint to a person', async () => {
+    const noPrice: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), { getAgreedPrice: async () => null })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => noPrice })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    expect((await run('case-02')).statusCode).toBe(204)
+    let p = primaryProposal(await theCase('case-02'))!
+    expect(p.decision).toMatchObject({ ruleId: 'R4', documentType: 'NONE', approverRole: 'credit_manager' })
+    expect(p.decision.notes).toMatch(/No agreed price/)
+    const throwing: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), {
+      getAgreedPrice: async () => {
+        throw Object.assign(new Error('getAgreedPrice is not implemented on the gateway'), { status: 404 })
+      },
+    })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => throwing })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    expect((await run('case-02')).statusCode).toBe(204)
+    const k = await theCase('case-02')
+    p = primaryProposal(k)!
+    expect(p.decision).toMatchObject({ ruleId: 'R4', documentType: 'NONE' })
+    expect(k.events.some((e) => e.kind === 'error' && /getAgreedPrice/.test(e.title))).toBe(true)
+    expect(k.status).toBe('awaiting_approval')
+  })
+
+  it('real mode is refused without a gateway, and a mock-built proposal cannot be approved in real mode', async () => {
+    await post('/api/cases/seed')
+    expect((await ctx.app.inject({ method: 'PUT', url: '/api/settings', payload: { sapMode: 'real' } })).statusCode).toBe(400)
+    expect((await get<{ sapMode: string }>('/api/settings')).sapMode).toBe('mock')
+    const gw = new MockGateway({ simulateConflict: () => false, delayMs: 0 })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw, gatewayUrl: 'http://gateway.invalid' })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    await run('case-08')
+    const p = primaryProposal(await theCase('case-08'))!
+    expect(p.sapMode).toBe('mock')
+    expect((await ctx.app.inject({ method: 'PUT', url: '/api/settings', payload: { sapMode: 'real' } })).statusCode).toBe(200)
+    expect((await post(`/api/proposals/${p.id}/approve`, cm)).statusCode).toBe(409)
+    // Re-run in real mode: the proposal is now stamped real, and the demo-invoice guard refuses the write.
+    expect((await run('case-08')).statusCode).toBe(204)
+    const p2 = primaryProposal(await theCase('case-08'))!
+    expect(p2.sapMode).toBe('real')
+    expect((await post(`/api/proposals/${p2.id}/approve`, cm)).statusCode).toBe(400)
+  })
+
+  it('uses the invoice line that matches the email, and takes the customer from the invoice', async () => {
+    const two = { ...INVOICES['90000355']!, customer: '10044', customerName: 'Cust DE 2', items: [
+      { ...INVOICES['90000355']!.items[0]!, item: '10', material: '99', quantity: 1, netAmount: 10, unitPrice: 10 },
+      { ...INVOICES['90000355']!.items[0]!, item: '20', material: '54', quantity: 20, netAmount: 5400, unitPrice: 270 },
+    ] }
+    const gw: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), { getInvoice: async () => two })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    await run('case-03')
+    const k = await theCase('case-03')
+    const p = primaryProposal(k)!
+    expect(p.decision).toMatchObject({ material: '54', quantity: 2, amount: 540 })
+    expect(p.sapPayload).toMatchObject({ to_Item: [{ ReferenceSDDocumentItem: '20', Material: '54' }] })
+    expect(k.customer).toBe('10044')
+    expect(k.customerName).toBe('Cust DE 2')
+  })
+
+  it('a write whose response does not confirm block 08 is flagged, never released', async () => {
+    const gw: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), {
+      createCreditMemoRequest: async () => ({ ok: true as const, number: '60000999', response: { status: 201, CreditMemoRequest: '60000999', HeaderBillingBlockReason: '' } }),
+    })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    await run('case-03')
+    const p = primaryProposal(await theCase('case-03'))!
+    const res = await post(`/api/proposals/${p.id}/approve`, cm)
+    expect(res.statusCode).toBe(200)
+    const k = await theCase('case-03')
+    expect(k.status).toBe('written_to_sap')
+    expect(k.events.some((e) => e.kind === 'error' && /billing block/i.test(e.title))).toBe(true)
+    expect((await post(`/api/sap/${(res.json() as SapDocument).id}/release`, cm)).statusCode).toBe(409)
   })
 })

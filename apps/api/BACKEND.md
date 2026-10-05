@@ -81,7 +81,10 @@ Re-running a case that already has a SAP document is refused (409). Re-running k
 - In SAP mode `real`, the hackathon demo invoices (90000353–90000359, `DEMO_INVOICES`) are refused with 400. They must never be written to DS4.
 - Document type NONE (price not supported, policy gap): approving sends the reply and closes the case. No SAP call.
 - YRE → `gateway.createReturn(payload)`, YCR → `gateway.createCreditMemoRequest(payload)`. The payload is `proposal.sapPayload`, built by `buildSapPayload`, sent unchanged. Success → `SapDocument` stored, status `written_to_sap`, event `sap_write` with L4 `5.1.2` or `5.2.1`. Failure → status `sap_write_failed`, event `error` with the HTTP status and SAP's message; the route returns that status (412 on conflict).
-- `release(documentId)` → `gateway.release({type, number, etag})`. Removes billing block 08. 412 handled the same way.
+- `release(documentId, {actor, role, goodsReceived?})` → `gateway.release({type, number})`. Removing billing block 08 is the credit decision itself, so: same role as the approval (403 otherwise), only once (409 on repeat), refused if the create response did not confirm block 08, and for a return (YRE) only with `goodsReceived: true`, because the policy credits after the goods arrive (step 5.1.3). The gateway re-reads the document right before the PATCH and sends its current ETag as If-Match; a change since then is a 412.
+- Approve order of operations: the edited decision is computed in local variables first, every check runs (quantity > 0, role vs the re-derived approver, SAP-mode match, demo-invoice guard), and only then is the proposal changed and the write attempted. A refused approval changes nothing.
+- A proposal is stamped with the SAP mode it was investigated in. Approving it in another mode is a 409: re-run the case first. Switching to real mode without `GATEWAY_URL` is refused.
+- After a successful create the response's `HeaderBillingBlockReason` is checked. If it is present and not `08`, the document is recorded, an error event says it was created without the block, and release is refused.
 
 ## 6. The gateway contract (Alex's CAP service on BTP)
 
@@ -93,12 +96,16 @@ The gateway is the only thing that talks to SAP DS4 (through Destination + Cloud
 | checkExistingCredits | `checkExistingCredits(invoiceNumber)` | done | `{existingReturns:[], existingCredits:[]}` |
 | createReturn | `createReturn(invoiceNumber, invoiceItem, material, quantity, unit, reason, soldToParty)` | done | we also send `customerReference` (PurchaseOrderByCustomer); ask him to accept it. Must create with reference to the invoice item or SAP makes a normal sale (item category TAN instead of REN) |
 | createCreditMemoRequest | `createCreditMemoRequest(invoiceNumber, material, quantity, unit, reason, soldToParty)` | done | gateway must set HeaderBillingBlockReason 08 itself |
-| release | `releaseCreditMemoRequest(number, etag, type)` | **missing** | PATCH `HeaderBillingBlockReason: ""` with `If-Match: <etag>`; 412 on conflict. Needed for the demo's release step and the 412 story |
+| release | `releaseCreditMemoRequest(number, type)` | **missing** | The gateway must GET the document, take its ETag, then PATCH `HeaderBillingBlockReason: ""` with `If-Match`; 412 on conflict. We pass only the number. Needed for the demo's release step and the 412 story |
 | getAgreedPrice | `getAgreedPrice(material, salesOrg, channel)` | **missing** | `API_SLSPRICINGCONDITIONRECORD_SRV`, condition PR00. Needed for case 02 |
 | findInvoices | `findInvoices(customer, material, dateFrom, dateTo)` | **missing** | `A_BillingDocumentItem` filtered, then headers. Needed for case 05 |
 | getPlantCompanyCode | none | n/a | our own table `{ YGLG: 'YDE1', YRO1: 'YRO1' }` in `gateway/real.ts` |
 
-The names and shapes for the three missing ones are our proposal; adjust `gateway/real.ts` to whatever he ships. Reads are safe to call any time. **Writes only against the team's own four invoices on DS4.**
+The names and shapes for the three missing ones are our proposal; adjust `gateway/real.ts` to whatever he ships. Reads are safe to call any time. **Writes only against the team's own four invoices on DS4** (guarded in the service and again in `RealGateway`).
+
+Lookups that may be missing on the gateway (`findInvoices`, `getAgreedPrice`, the plant table) are **optional**: a failure is recorded as an error event and the rules decide with what is known. A price complaint without an agreed price goes to the credit manager as "no automatic decision". `getInvoice` failing aborts the run.
+
+Ask Alex to accept the full payload object on the two creates instead of flat parameters. Today `RealGateway` maps `sapPayload` onto his parameters, so "sent unchanged" holds up to the gateway, and billing block 08 depends on his service. The response check above is the safety net.
 
 SAP facts that bite (from the hackathon guide): writes need a CSRF token fetched with a GET first plus the session cookies (the gateway handles it); a return item needs both `ReferenceSDDocument` and `ReferenceSDDocumentItem`; a released credit memo request is not posted to accounting automatically on DS4 (stop the demo at the release); OData v2 dates are `/Date(ms)/` and numbers are strings.
 
@@ -125,7 +132,14 @@ Ideas that fit later, in order of value: a chat endpoint over one case (read-onl
 4. Deploy: `apps/api` on BTP Cloud Foundry (Node buildpack, `PORT` from the platform, env vars above), the web build behind the approuter, `VITE_API_BASE` pointing at the API.
 5. Only if time remains: persistence in Supabase (replace `Store`), policy retrieval, case chat.
 
-## 10. Rules that must not be broken
+## 10. Known limitations (say them if asked; do not hide them)
+
+- **R4 price-difference credit.** When the agreed price is below the invoiced one, the decision is "credit the difference", but the YCR payload carries only the quantity with reference to the invoice. SAP would copy the invoice price and credit the full line value. A correct implementation needs a manual price condition on the credit request, which must be verified on DS4 first. The demo data never reaches this path (agreed price equals invoiced). Until fixed, a credit manager must correct the amount in SAP after release, or the rule can be changed to send the case to a person.
+- **Customer identity.** Uploaded emails default to customer 10021; once the invoice is read, the case takes the customer from the invoice. There is no table from sender address to SAP customer, so the agent does not verify that the complaining party owns the invoice.
+- **Multi-line invoices.** The line matching the material named in the email is used (`preferItem`); when no material is named, the first line is. Check how many lines the team's real DS4 invoices have.
+- **Release of a return.** `goodsReceived` is a human confirmation, not a lookup of the returns delivery (`API_CUSTOMER_RETURNS_DELIVERY_SRV;v=0002`). A later version should read `GoodsMovementStatus`.
+
+## 11. Rules that must not be broken
 
 - Quantity never exceeds the invoiced quantity; amount never exceeds the invoice line.
 - Every YRE and YCR carries `HeaderBillingBlockReason: "08"`.

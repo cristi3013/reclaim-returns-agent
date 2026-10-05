@@ -1,10 +1,12 @@
-import { buildSapPayload, decide, type CaseStatus, type Findings, type Proposal } from '@reclaim/shared'
+import { buildSapPayload, decide, preferItem, type CaseStatus, type Findings, type Proposal } from '@reclaim/shared'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import type { Store } from './store'
 import { ev, uid } from './events'
 
 const TERMINAL_OR_IDLE: CaseStatus[] = ['received', 'rejected', 'closed', 'duplicate', 'needs_customer_input', 'handed_over']
+/** A case may be (re)run only from these. Never from approved/written/closed, and never while being written. */
+const RUNNABLE: CaseStatus[] = ['received', 'awaiting_approval', 'needs_customer_input', 'handed_over', 'duplicate', 'rejected', 'sap_write_failed']
 const KEEP_ON_RERUN = ['intake', 'approval', 'sap_write', 'sap_release', 'error'] as const
 
 export interface PipelineDeps {
@@ -15,6 +17,8 @@ export interface PipelineDeps {
   touch: (id: string) => void
   /** Reads an attachment for the model. Returns null when the file is not available. */
   readAttachment: (url: string) => Promise<{ mimeType: string; base64: string } | null>
+  /** True while service.approve is writing this case to SAP. */
+  isWriting: (id: string) => boolean
 }
 
 /**
@@ -27,6 +31,9 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   if (c.status === 'investigating') return
   if (c.sapDocuments.length) {
     throw Object.assign(new Error('This case already has a SAP document. Re-running it could create a second one.'), { status: 409 })
+  }
+  if (!RUNNABLE.includes(c.status) || deps.isWriting(id)) {
+    throw Object.assign(new Error(`A case in status "${c.status.replace(/_/g, ' ')}" cannot be re-run.`), { status: 409 })
   }
   const assisted = store.settings.aiMode === 'assisted'
 
@@ -59,7 +66,8 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
 
   // 2 · investigate
   const findings: Findings = { invoice: null, candidateInvoices: [], existingReturns: [], existingCredits: [], agreedUnitPrice: null, plantCompanyCode: null, lookups: [] }
-  const lookup = async (name: string, args: Record<string, unknown>, fn: () => Promise<Record<string, unknown>>) => {
+  /** `optional` lookups record the failure and let the rules decide with what is known; the others abort the run. */
+  const lookup = async (name: string, args: Record<string, unknown>, fn: () => Promise<Record<string, unknown>>, optional = false) => {
     const t = Date.now()
     try {
       const result = await fn()
@@ -69,8 +77,8 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
     } catch (e) {
       const d = Date.now() - t
       findings.lookups.push({ name, args, durationMs: d, ok: false })
-      ev(c, 'error', `${name} failed: ${(e as Error).message}`, { args, status: (e as { status?: number }).status ?? 500 }, '5.1.1', d)
-      throw e
+      ev(c, 'error', `${name} failed: ${(e as Error).message}`, { args, status: (e as { status?: number }).status ?? 500, optional }, '5.1.1', d)
+      if (!optional) throw e
     }
     touch(id)
   }
@@ -78,16 +86,22 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   if (facts.invoiceNumber) {
     const n = facts.invoiceNumber
     await lookup('getInvoice', { invoiceNumber: n }, async () => {
-      findings.invoice = await gateway.getInvoice(n)
+      const raw = await gateway.getInvoice(n)
+      findings.invoice = raw ? preferItem(raw, facts.material) : null
       const i = findings.invoice
+      if (i) {
+        // The invoice is the source of truth for who the customer is.
+        c.customer = i.customer
+        c.customerName = i.customerName
+      }
       return i ? { number: i.number, quantity: i.items[0]?.quantity, netAmount: i.totalNetAmount, order: i.items[0]?.salesOrder, delivery: i.items[0]?.delivery, etag: i.etag } : { found: false }
     })
   } else if (facts.material && c.customer) {
     const args = { customer: c.customer, material: facts.material, dateFrom: daysAgo(c.receivedAt, 21), dateTo: c.receivedAt.slice(0, 10) }
     await lookup('findInvoices', args, async () => {
-      findings.candidateInvoices = await gateway.findInvoices(args)
+      findings.candidateInvoices = (await gateway.findInvoices(args)).map((i) => preferItem(i, facts.material))
       return { candidates: findings.candidateInvoices.map((i) => i.number) }
-    })
+    }, true)
   } else {
     ev(c, 'lookup', 'findInvoices skipped: no invoice number and no material to search with', {}, '5.1.1', 0)
   }
@@ -105,14 +119,14 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
       await lookup('getAgreedPrice', { ...args, conditionType: 'PR00' }, async () => {
         findings.agreedUnitPrice = await gateway.getAgreedPrice(args)
         return { conditionType: 'PR00', unitPrice: findings.agreedUnitPrice }
-      })
+      }, true)
     }
     const plant = inv.items[0]?.plant
     if (plant) {
       await lookup('plantCompanyCode', { plant }, async () => {
         findings.plantCompanyCode = await gateway.getPlantCompanyCode(plant)
         return { plantCompanyCode: findings.plantCompanyCode }
-      })
+      }, true)
     }
   }
   c.findings = findings
@@ -153,6 +167,7 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
       replyDraft: n.replyDraft,
       briefing: n.briefing,
       createdAt: new Date().toISOString(),
+      sapMode: store.settings.sapMode,
     }
     c.proposals.push(p)
   }

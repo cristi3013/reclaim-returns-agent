@@ -122,7 +122,7 @@ describe('mock pipeline', () => {
     await c.runCase('case-03')
     await c.approve(primaryProposal(await c.getCase('case-03'))!.id, cm)
     const d = (await c.getCase('case-03')).sapDocuments[0]!
-    const r = await c.release(d.id)
+    const r = await c.release(d.id, cm)
     expect(r.ok).toBe(true)
     expect((await c.getCase('case-03')).sapDocuments[0]!.released).toBe(true)
   })
@@ -177,10 +177,11 @@ describe('review fixes', () => {
     expect(r).toMatchObject({ ok: false, status: 403 })
     const k = await c.getCase('case-03')
     expect(k.status).toBe('awaiting_approval')
-    expect(primaryProposal(k)!.decision.approverRole).toBe('finance_director')
-    expect(primaryProposal(k)!.decision.amount).toBe(5400)
-    const r2 = await c.approve(id, { actor: 'FD', role: 'finance_director' })
+    // A refused approval changes nothing.
+    expect(primaryProposal(k)!.decision).toMatchObject({ approverRole: 'credit_manager', amount: 540 })
+    const r2 = await c.approve(id, { actor: 'FD', role: 'finance_director', editedQuantity: 20 })
     expect(r2.ok).toBe(true)
+    expect(primaryProposal(await c.getCase('case-03'))!.decision).toMatchObject({ approverRole: 'finance_director', amount: 5400 })
   })
 
   it('YRE payload carries billing block 08', async () => {
@@ -214,5 +215,35 @@ describe('review fixes', () => {
     await expect(c.reject(id, { ...cm, comment: 'late' })).rejects.toMatchObject({ status: 409 })
     await expect(c.chooseProposal(id)).rejects.toMatchObject({ status: 409 })
     expect((await c.getCase('case-03')).status).toBe('written_to_sap')
+  })
+})
+
+describe('audit fixes (mock mirrors the backend)', () => {
+  beforeEach(() => localStorage.clear())
+  it('a refused approval leaves the proposal unchanged and quantity 0 is rejected', async () => {
+    const c = await mk()
+    await c.runCase('case-03')
+    const before = primaryProposal(await c.getCase('case-03'))!
+    expect(await c.approve(before.id, { actor: 'RD', role: 'returns_desk', editedQuantity: 0 })).toMatchObject({ ok: false, status: 400 })
+    expect(await c.approve(before.id, { ...cm, editedQuantity: 20 })).toMatchObject({ ok: false, status: 403 })
+    const after = primaryProposal(await c.getCase('case-03'))!
+    expect(after.decision).toEqual(before.decision)
+  })
+  it('release: role, once, goods receipt for a return', async () => {
+    const c = await mk()
+    await c.runCase('case-08')
+    const r = await c.approve(primaryProposal(await c.getCase('case-08'))!.id, cm)
+    const d = r.ok ? r.document! : null
+    expect(d?.type).toBe('YRE')
+    expect(await c.release(d!.id, { actor: 'RD', role: 'returns_desk' })).toMatchObject({ ok: false, status: 403 })
+    expect(await c.release(d!.id, cm)).toMatchObject({ ok: false, status: 409 })
+    expect((await c.release(d!.id, { ...cm, goodsReceived: true })).ok).toBe(true)
+    expect(await c.release(d!.id, { ...cm, goodsReceived: true })).toMatchObject({ ok: false, status: 409 })
+  })
+  it('closed cases cannot be re-run', async () => {
+    const c = await mk()
+    await c.runCase('case-02')
+    await c.approve(primaryProposal(await c.getCase('case-02'))!.id, cm)
+    await expect(c.runCase('case-02')).rejects.toMatchObject({ status: 409 })
   })
 })

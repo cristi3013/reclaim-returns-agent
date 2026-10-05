@@ -32,6 +32,13 @@ export interface RejectInput {
   comment: string
 }
 
+export interface ReleaseInput {
+  actor: string
+  role: Role
+  /** A return (YRE) is credited only after the warehouse received the goods. */
+  goodsReceived?: boolean
+}
+
 /**
  * Everything the UI needs from the backend. Two implementations: MockApiClient (in-browser,
  * fixtures from the organizers' mock data) and HttpApiClient (the real backend).
@@ -46,7 +53,7 @@ export interface ApiClient {
   chooseProposal(proposalId: string): Promise<void>
   approve(proposalId: string, input: ApproveInput): Promise<ApproveResult>
   reject(proposalId: string, input: RejectInput): Promise<void>
-  release(sapDocumentId: string): Promise<ReleaseResult>
+  release(sapDocumentId: string, input: ReleaseInput): Promise<ReleaseResult>
   getAnalytics(): Promise<AnalyticsSummary>
   runEval(): Promise<EvalResult[]>
   getLatestEval(): Promise<EvalResult[] | null>

@@ -20,8 +20,11 @@ export interface Gateway {
   createReturn(payload: Record<string, unknown>): Promise<WriteResult>
   /** POST a credit memo request (YCR) with billing block 08. Returns the new document number. */
   createCreditMemoRequest(payload: Record<string, unknown>): Promise<WriteResult>
-  /** PATCH: remove billing block 08. Must send the ETag as If-Match; 412 on conflict. */
-  release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult>
+  /**
+   * PATCH: remove billing block 08. The gateway reads the document right before the write and sends its
+   * current ETag as If-Match, so a change since the approval is refused with 412. We pass only the number.
+   */
+  release(args: { type: 'YRE' | 'YCR'; number: string }): Promise<WriteResult>
 }
 
 export type WriteResult =

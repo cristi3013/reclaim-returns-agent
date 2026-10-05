@@ -18,6 +18,7 @@ export interface PipelineHost {
   touch(id: string): void
   cases: Map<string, Case>
   aiMode: AiMode
+  sapMode: 'mock' | 'real'
   setLastRun(iso: string): void
 }
 
@@ -29,6 +30,7 @@ const TERMINAL_OR_IDLE: CaseStatus[] = [
   'needs_customer_input',
   'handed_over',
 ]
+const RUNNABLE: CaseStatus[] = ['received', 'awaiting_approval', 'needs_customer_input', 'handed_over', 'duplicate', 'rejected', 'sap_write_failed']
 
 function summarise(name: string, f: Findings): Record<string, unknown> {
   switch (name) {
@@ -64,6 +66,9 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
   if (c.status === 'investigating') return
   if (c.sapDocuments.length) {
     throw Object.assign(new Error('This case already has a SAP document. Re-running it could create a second one.'), { status: 409 })
+  }
+  if (!RUNNABLE.includes(c.status)) {
+    throw Object.assign(new Error(`A case in status "${c.status.replace(/_/g, ' ')}" cannot be re-run.`), { status: 409 })
   }
 
   const fx = FIXTURES.find((f) => f.id === id || f.emailFile === c.emailFile)
@@ -250,6 +255,7 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
       replyDraft: n.replyDraft,
       briefing: n.briefing,
       createdAt: new Date().toISOString(),
+      sapMode: h.sapMode,
     }
   })
   if (assisted) {

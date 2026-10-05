@@ -75,7 +75,7 @@ export class MockGateway implements Gateway {
     return this.write('YCR', payload)
   }
 
-  async release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult> {
+  async release(args: { type: 'YRE' | 'YCR'; number: string }): Promise<WriteResult> {
     await this.delay(500)
     if (this.opts.simulateConflict()) {
       return { ok: false, status: 412, message: 'The record changed in SAP since it was read. Nothing was changed.' }

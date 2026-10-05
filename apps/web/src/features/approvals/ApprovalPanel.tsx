@@ -21,6 +21,7 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
   const [comment, setComment] = useState('')
   const [result, setResult] = useState<ApproveResult | null>(null)
   const [rel, setRel] = useState<ReleaseResult | null>(null)
+  const [goodsReceived, setGoodsReceived] = useState(false)
   const d = p.decision
   const max = c.findings?.invoice?.items[0]?.quantity ?? d.quantity
   // For a difference credit (R4) the unit price is the difference, not the invoice price.
@@ -188,13 +189,19 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
               ? 'Billing block removed: billing can now create the credit memo.'
               : 'Releasing removes the block so billing can create the credit memo.'}
           </div>
+          {!doc.released && doc.type === 'YRE' && (
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={goodsReceived} onChange={(e) => setGoodsReceived(e.target.checked)} />
+              The warehouse has posted the goods receipt (step 5.1.3)
+            </label>
+          )}
           {!doc.released && (
             <Button
               size="sm"
               className="mt-2"
-              disabled={release.isPending || demoBlocked}
+              disabled={release.isPending || demoBlocked || (doc.type === 'YRE' && !goodsReceived)}
               onClick={() =>
-                release.mutate(doc.id, {
+                release.mutate({ id: doc.id, input: { actor, role, goodsReceived } }, {
                   onSuccess: (r) => {
                     setRel(r)
                     if (r.ok) toast.success('Billing block removed')

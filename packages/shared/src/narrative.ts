@@ -77,7 +77,15 @@ export function narrate(d: Decision, facts: Facts, f: Findings, ctx: NarrateCont
       break
     case 'R4': {
       const agreed = f.agreedUnitPrice ?? item?.unitPrice ?? 0
-      if (d.documentType === 'NONE') {
+      if (d.documentType === 'NONE' && f.agreedUnitPrice == null) {
+        explanation = `${head} ${d.notes}`
+        reply = `${greeting}\n\nThank you for your message about invoice ${inv?.number}. We are checking the price agreement for material ${item?.material} and will come back to you shortly.${signoff}`
+        b = {
+          whatHappened: `Price complaint on invoice ${inv?.number}: customer claims ${facts.claimedUnitPrice ?? '?'} ${d.currency} per ${item?.unit}.`,
+          whatWePropose: 'No automatic decision: the agreed price could not be read from SAP. Check the price agreement, then decide.',
+          risk: 'Unknown until the agreed price is confirmed.',
+        }
+      } else if (d.documentType === 'NONE') {
         explanation = `${head} The customer claims an agreed price of ${facts.claimedUnitPrice ?? '?'} ${d.currency} per ${item?.unit}. The agreed price on file (PR00, ${inv?.salesOrg}/${inv?.distributionChannel}, material ${item?.material}) is ${money(agreed, d.currency)} per ${item?.unit}, the same as invoiced. Rule R4: the claim is not supported by SAP data. No credit unless a person confirms a special agreement outside SAP.`
         reply = `${greeting}\n\nThank you for your message about invoice ${inv?.number}. Our records show an agreed price of ${money(agreed, d.currency)} per ${item?.unit} for material ${item?.material}, which is the price invoiced. If you hold a written agreement for a different price, please send it and we will review it.${signoff}`
         b = {

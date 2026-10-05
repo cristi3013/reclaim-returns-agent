@@ -121,7 +121,18 @@ export function decide(facts: Facts, findings: Findings, ctx: DecideContext): De
 
   // R4: price complaint, judged against the agreed PR00 price.
   if (facts.complaintType === 'price') {
-    const agreed = findings.agreedUnitPrice ?? item.unitPrice
+    if (findings.agreedUnitPrice == null) {
+      return one(
+        base('R4', inv, 0, 0, {
+          documentType: 'NONE',
+          reasonCode: null,
+          intercompany,
+          approverRole: 'credit_manager',
+          notes: `No agreed price (PR00) could be read from SAP for material ${item.material} in ${inv.salesOrg}/${inv.distributionChannel}. The claim of ${facts.claimedUnitPrice ?? '?'} ${inv.currency} per ${item.unit} cannot be judged automatically: a person must check the price agreement.`,
+        }),
+      )
+    }
+    const agreed = findings.agreedUnitPrice
     if (agreed >= item.unitPrice) {
       return one(
         base('R4', inv, 0, 0, {

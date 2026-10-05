@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useApi } from './context'
-import type { ApproveInput, RejectInput } from './client'
+import type { ApproveInput, RejectInput, ReleaseInput } from './client'
 import type { Settings } from '@reclaim/shared'
 
 export const useCases = () => {
@@ -96,7 +96,7 @@ export const useReject = () => {
 
 export const useRelease = () => {
   const api = useApi()
-  return useMutation({ mutationFn: (id: string) => api.release(id) })
+  return useMutation({ mutationFn: (v: { id: string; input: ReleaseInput }) => api.release(v.id, v.input) })
 }
 
 export const useRunEval = () => {

@@ -23,6 +23,7 @@ import {
   type ApproveInput,
   type ApproveResult,
   type RejectInput,
+  type ReleaseInput,
   type ReleaseResult,
 } from '../client'
 import { MockStore } from './store'
@@ -68,6 +69,7 @@ export class MockApiClient implements ApiClient {
       touch: (id: string) => this.touch(id),
       cases: this.store.cases,
       aiMode: this.store.settings.aiMode,
+      sapMode: this.store.settings.sapMode,
       setLastRun: (iso: string) => {
         this.store.lastRunAt = iso
       },
@@ -171,24 +173,31 @@ export class MockApiClient implements ApiClient {
     }
     this.writing.add(c.id)
     try {
+      // 1. Work out what would be approved, without touching the proposal.
       const inv = c.findings?.invoice ?? null
       const invoiced = inv?.items[0]?.quantity ?? p.decision.quantity
+      if (input.editedQuantity != null && !(input.editedQuantity > 0)) return { ok: false, status: 400, message: 'The quantity must be above 0.' }
       const qty = input.editedQuantity != null ? capQuantity(input.editedQuantity, invoiced) : p.decision.quantity
       // For a difference credit (R4) the unit price is the difference, not the invoice price.
       const unitPrice = p.decision.quantity ? p.decision.amount / p.decision.quantity : (inv?.items[0]?.unitPrice ?? 0)
-      if (qty !== p.decision.quantity) {
-        const amount = Math.round(qty * unitPrice * 100) / 100
-        p.decision = { ...p.decision, quantity: qty, amount, approverRole: approverFor(amount, p.decision.ruleId) }
-        p.sapPayload =
-          inv && p.decision.documentType !== 'NONE' ? buildSapPayload(p.decision, inv, `COMPLAINT-${inv.number}`) : null
-        ev(c, 'approval', `Quantity changed to ${qty} ${p.decision.unit ?? ''} by ${input.actor}; approver is now ${p.decision.approverRole}`, { quantity: qty, amount }, null, null)
-        this.touch(c.id)
+      const edited = qty !== p.decision.quantity
+      const amount = edited ? Math.round(qty * unitPrice * 100) / 100 : p.decision.amount
+      const approverRole = edited && p.decision.documentType !== 'NONE' ? approverFor(amount, p.decision.ruleId) : p.decision.approverRole
+      // 2. Every check before anything is saved.
+      if (approverRole && ROLE_RANK[input.role] < ROLE_RANK[approverRole]) {
+        return { ok: false, status: 403, message: `This credit needs the ${approverRole.replace(/_/g, ' ')}. Your role cannot approve it.` }
       }
-      if (p.decision.approverRole && ROLE_RANK[input.role] < ROLE_RANK[p.decision.approverRole]) {
-        return { ok: false, status: 403, message: `This credit needs the ${p.decision.approverRole.replace(/_/g, ' ')}. Your role cannot approve it.` }
+      if (p.sapMode && p.sapMode !== this.store.settings.sapMode) {
+        return { ok: false, status: 409, message: `This proposal was built with SAP mode "${p.sapMode}" but the system is now in "${this.store.settings.sapMode}". Re-run the case.` }
       }
       if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
         return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4. Switch SAP mode to Mock.` }
+      }
+      // 3. Save.
+      if (edited) {
+        p.decision = { ...p.decision, quantity: qty, amount, approverRole }
+        p.sapPayload = inv && p.decision.documentType !== 'NONE' ? buildSapPayload(p.decision, inv, `COMPLAINT-${inv.number}`) : null
+        ev(c, 'approval', `Quantity changed to ${qty} ${p.decision.unit ?? ''} by ${input.actor}; approver is ${approverRole}`, { quantity: qty, amount }, null, null)
       }
       c.proposals.forEach((x) => (x.chosen = x.id === proposalId))
       c.approvals.push({
@@ -286,12 +295,18 @@ export class MockApiClient implements ApiClient {
     this.touch(c.id)
   }
 
-  async release(id: string): Promise<ReleaseResult> {
+  async release(id: string, input: ReleaseInput): Promise<ReleaseResult> {
     for (const c of this.store.cases.values()) {
       const d = c.sapDocuments.find((x) => x.id === id)
       if (!d) continue
-      await this.delay(500)
       const step = d.type === 'YRE' ? '5.1.3' : '5.2.1'
+      if (d.released) return { ok: false, status: 409, message: `${d.type} ${d.number} is already released.` }
+      const required = primaryProposal(c)?.decision.approverRole ?? 'credit_manager'
+      if (ROLE_RANK[input.role] < ROLE_RANK[required]) return { ok: false, status: 403, message: `Releasing this credit needs the ${required.replace(/_/g, ' ')}.` }
+      if (d.type === 'YRE' && !input.goodsReceived) {
+        return { ok: false, status: 409, message: 'A return is credited only after the warehouse has received the goods (step 5.1.3). Confirm the goods receipt to release.' }
+      }
+      await this.delay(500)
       if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
         return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4.` }
       }
@@ -301,7 +316,7 @@ export class MockApiClient implements ApiClient {
         return { ok: false, status: 412, message: CONFLICT_MESSAGE }
       }
       d.released = true
-      ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number}`, { HeaderBillingBlockReason: '' }, step, 500)
+      ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})`, { HeaderBillingBlockReason: '', goodsReceived: !!input.goodsReceived }, step, 500)
       this.touch(c.id)
       return { ok: true, document: d }
     }

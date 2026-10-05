@@ -22,6 +22,7 @@ const ATTACHMENT_ROOT = path.resolve(here, '../../web/public')
 
 const ApproveBody = z.object({ actor: z.string(), role: z.enum(['customer_service_lead', 'credit_manager', 'finance_director', 'returns_desk']), editedQuantity: z.number().optional(), comment: z.string().optional() })
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
+const ReleaseBody = ApproveBody.pick({ actor: true, role: true }).extend({ goodsReceived: z.boolean().optional() })
 
 export interface AppOptions {
   initialSettings?: Partial<Settings>
@@ -55,6 +56,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     hub,
     gateway: (s) => gateway(s, store),
     ai,
+    hasRealGateway: !!real || !!opts.gateway,
     onReset: () => mock.reset(),
     readAttachment: async (url) => {
       try {
@@ -114,7 +116,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     reply.status(204)
   })
   app.post<{ Params: { id: string } }>('/api/sap/:id/release', async (req, reply) => {
-    const r = await service.release(req.params.id)
+    const r = await service.release(req.params.id, ReleaseBody.parse(req.body ?? {}))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
   })
@@ -125,7 +127,11 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   app.get('/api/eval/latest', async () => store.evalResults)
   app.get('/api/status', async () => service.status())
   app.get('/api/settings', async () => service.getSettings())
-  app.put('/api/settings', async (req) => service.updateSettings(SettingsSchema.partial().parse(req.body)))
+  app.put('/api/settings', async (req, reply) => {
+    const r = service.updateSettings(SettingsSchema.partial().parse(req.body))
+    if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
+    return r.value
+  })
   app.post('/api/demo/reset', async (_req, reply) => {
     service.reset()
     reply.status(204)

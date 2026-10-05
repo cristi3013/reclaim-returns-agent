@@ -10,7 +10,7 @@ import {
   type Settings,
 } from '@reclaim/shared'
 import { z } from 'zod'
-import type { ApiClient, ApiEvent, ApproveInput, ApproveResult, RejectInput, ReleaseResult } from '../client'
+import type { ApiClient, ApiEvent, ApproveInput, ApproveResult, RejectInput, ReleaseInput, ReleaseResult } from '../client'
 
 type Routes = typeof API_ROUTES
 
@@ -85,9 +85,9 @@ export class HttpApiClient implements ApiClient {
   async reject(id: string, input: RejectInput) {
     await this.call('reject', { id }, input)
   }
-  async release(id: string): Promise<ReleaseResult> {
+  async release(id: string, input: ReleaseInput): Promise<ReleaseResult> {
     try {
-      return { ok: true, document: await this.call('release', { id }, undefined, SapDocumentSchema) }
+      return { ok: true, document: await this.call('release', { id }, input, SapDocumentSchema) }
     } catch (e) {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 500, message: err.message }

@@ -31,3 +31,11 @@ describe('decide', () => {
   it('intercompany flag when plant company differs', () => { const r = decide(facts({ invoiceNumber: '90000359', claimedQuantity: 3, goodsReturnable: true }), findings({ invoice: inv('90000359', 10, 'YRO1'), plantCompanyCode: 'YRO1' }), ctx); expect(r.options[r.recommendedIndex]).toMatchObject({ ruleId: 'R1', intercompany: true, amount: 810, approverRole: 'credit_manager' }) })
   it('quantity capped and amount from invoice price', () => { expect(decide(facts({ complaintType: 'quality', claimedQuantity: 5 }), findings({}), ctx).options[0]).toMatchObject({ ruleId: 'R2', quantity: 5, amount: 1350 }) })
 })
+
+describe('audit fixes', () => {
+  it('price complaint with no agreed price on file goes to a person', () => {
+    const r = decide(facts({ invoiceNumber: '90000354', complaintType: 'price', claimedQuantity: 12, claimedUnitPrice: 260 }), findings({ invoice: inv('90000354', 12), agreedUnitPrice: null }), ctx).options[0]!
+    expect(r).toMatchObject({ ruleId: 'R4', documentType: 'NONE', amount: 0, approverRole: 'credit_manager' })
+    expect(r.notes).toMatch(/No agreed price/)
+  })
+})

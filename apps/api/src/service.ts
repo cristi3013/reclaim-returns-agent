@@ -38,6 +38,12 @@ export interface RejectInput {
   role: Role
   comment: string
 }
+export interface ReleaseInput {
+  actor: string
+  role: Role
+  /** Required for a return (YRE): the policy credits only after the goods are received (step 5.1.3). */
+  goodsReceived?: boolean
+}
 export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; message: string }
 
 export interface ServiceDeps {
@@ -48,6 +54,8 @@ export interface ServiceDeps {
   readAttachment: (url: string) => Promise<{ mimeType: string; base64: string } | null>
   /** Called on demo reset so stateful mocks forget what they created. */
   onReset?: () => void
+  /** Whether a real gateway is configured. Without one, SAP mode cannot be switched to real. */
+  hasRealGateway: boolean
 }
 
 /**
@@ -127,7 +135,14 @@ export class Service {
     this.running.add(id)
     try {
       await runPipeline(
-        { store: this.store, gateway: this.deps.gateway(this.store.settings), ai: this.deps.ai(this.store.settings), touch: (i) => this.touch(i), readAttachment: this.deps.readAttachment },
+        {
+          store: this.store,
+          gateway: this.deps.gateway(this.store.settings),
+          ai: this.deps.ai(this.store.settings),
+          touch: (i) => this.touch(i),
+          readAttachment: this.deps.readAttachment,
+          isWriting: (i) => this.writing.has(i),
+        },
         id,
       )
     } catch (e) {
@@ -161,24 +176,36 @@ export class Service {
     if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) return { ok: false, status: 409, message: 'This case is not awaiting approval.' }
     this.writing.add(c.id)
     try {
+      // 1. Work out the decision that would be approved, without touching the proposal.
       const inv = c.findings?.invoice ?? null
       const invoiced = inv?.items[0]?.quantity ?? p.decision.quantity
+      if (input.editedQuantity != null && !(input.editedQuantity > 0)) {
+        return { ok: false, status: 400, message: 'The quantity must be above 0.' }
+      }
       const qty = input.editedQuantity != null ? capQuantity(input.editedQuantity, invoiced) : p.decision.quantity
       const unitPrice = p.decision.quantity ? p.decision.amount / p.decision.quantity : (inv?.items[0]?.unitPrice ?? 0)
-      if (qty !== p.decision.quantity) {
-        const amount = Math.round(qty * unitPrice * 100) / 100
-        p.decision = { ...p.decision, quantity: qty, amount, approverRole: approverFor(amount, p.decision.ruleId) }
-        p.sapPayload = inv && p.decision.documentType !== 'NONE' ? buildSapPayload(p.decision, inv, `COMPLAINT-${inv.number}`) : null
-        ev(c, 'approval', `Quantity changed to ${qty} ${p.decision.unit ?? ''} by ${input.actor}; approver is now ${p.decision.approverRole}`, { quantity: qty, amount }, null, null)
-        this.touch(c.id)
+      const edited = qty !== p.decision.quantity
+      const amount = edited ? Math.round(qty * unitPrice * 100) / 100 : p.decision.amount
+      const approverRole = edited && p.decision.documentType !== 'NONE' ? approverFor(amount, p.decision.ruleId) : p.decision.approverRole
+      const decision = edited ? { ...p.decision, quantity: qty, amount, approverRole } : p.decision
+
+      // 2. Every check, before anything is saved.
+      if (approverRole && ROLE_RANK[input.role] < ROLE_RANK[approverRole]) {
+        return { ok: false, status: 403, message: `This credit needs the ${approverRole.replace(/_/g, ' ')}. Your role cannot approve it.` }
       }
-      if (p.decision.approverRole && ROLE_RANK[input.role] < ROLE_RANK[p.decision.approverRole]) {
-        return { ok: false, status: 403, message: `This credit needs the ${p.decision.approverRole.replace(/_/g, ' ')}. Your role cannot approve it.` }
+      if (p.sapMode && p.sapMode !== this.store.settings.sapMode) {
+        return { ok: false, status: 409, message: `This proposal was built with SAP mode "${p.sapMode}" but the system is now in "${this.store.settings.sapMode}". Re-run the case so it is investigated against the current system.` }
       }
       if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
         return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4. Switch SAP mode to Mock.` }
       }
 
+      // 3. Now save.
+      if (edited) {
+        p.decision = decision
+        p.sapPayload = inv && decision.documentType !== 'NONE' ? buildSapPayload(decision, inv, `COMPLAINT-${inv.number}`) : null
+        ev(c, 'approval', `Quantity changed to ${qty} ${decision.unit ?? ''} by ${input.actor}; approver is ${decision.approverRole}`, { quantity: qty, amount }, null, null)
+      }
       c.proposals.forEach((x) => (x.chosen = x.id === proposalId))
       c.approvals.push({ id: uid('appr'), proposalId, actor: input.actor, role: input.role, decision: 'approved', editedQuantity: input.editedQuantity != null ? qty : null, comment: input.comment ?? '', decidedAt: new Date().toISOString() })
       c.status = 'approved'
@@ -203,10 +230,15 @@ export class Service {
         this.touch(c.id)
         return { ok: false, status: r.status, message: r.message }
       }
+      const block = r.response.HeaderBillingBlockReason
+      const blockConfirmed = block === undefined ? null : block === '08'
       const doc: SapDocument = { id: uid('sap'), caseId: c.id, type, number: r.number, payload: p.sapPayload, response: r.response, createdAt: new Date().toISOString(), released: false }
       c.sapDocuments.push(doc)
       c.status = 'written_to_sap'
-      ev(c, 'sap_write', `${type} ${r.number} created with billing block 08`, { payload: p.sapPayload, response: r.response, ifMatch: inv?.etag }, step, Date.now() - t)
+      ev(c, 'sap_write', `${type} ${r.number} created${blockConfirmed === false ? '' : ' with billing block 08'}`, { payload: p.sapPayload, response: r.response, ifMatch: inv?.etag, blockConfirmed }, step, Date.now() - t)
+      if (blockConfirmed === false) {
+        ev(c, 'error', `${type} ${r.number} was created WITHOUT billing block 08. Do not release; check the document in SAP and inform the gateway owner.`, { HeaderBillingBlockReason: block }, step, null)
+      }
       this.touch(c.id)
       return { ok: true, value: doc }
     } finally {
@@ -223,21 +255,32 @@ export class Service {
     this.touch(c.id)
   }
 
-  async release(documentId: string): Promise<Outcome<SapDocument>> {
+  /** Removing billing block 08 is the credit decision itself: same role as the approval, once, and for a return only after the goods arrived. */
+  async release(documentId: string, input: ReleaseInput): Promise<Outcome<SapDocument>> {
     const { c, d } = this.store.locateDocument(documentId)
     const step = d.type === 'YRE' ? '5.1.3' : '5.2.1'
+    if (d.released) return { ok: false, status: 409, message: `${d.type} ${d.number} is already released.` }
+    const required = primaryProposal(c)?.decision.approverRole ?? 'credit_manager'
+    if (ROLE_RANK[input.role] < ROLE_RANK[required]) {
+      return { ok: false, status: 403, message: `Releasing this credit needs the ${required.replace(/_/g, ' ')}.` }
+    }
+    const blockEvent = c.events.find((e) => e.kind === 'sap_write' && e.detail.blockConfirmed === false)
+    if (blockEvent) return { ok: false, status: 409, message: `${d.type} ${d.number} was created without billing block 08; check it in SAP before anything else.` }
+    if (d.type === 'YRE' && !input.goodsReceived) {
+      return { ok: false, status: 409, message: 'A return is credited only after the warehouse has received the goods (step 5.1.3). Confirm the goods receipt to release.' }
+    }
     if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
       return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4.` }
     }
     const t = Date.now()
-    const r = await this.deps.gateway(this.store.settings).release({ type: d.type, number: d.number, etag: c.findings?.invoice?.etag ?? '' })
+    const r = await this.deps.gateway(this.store.settings).release({ type: d.type, number: d.number })
     if (!r.ok) {
-      ev(c, 'error', r.status === 412 ? 'SAP refused the release: 412 Precondition Failed' : `SAP refused the release: ${r.status}`, { status: r.status, message: r.message }, step, Date.now() - t)
+      ev(c, 'error', r.status === 412 ? 'SAP refused the release: 412 Precondition Failed' : `SAP refused the release: ${r.status}`, { status: r.status, message: r.message, actor: input.actor }, step, Date.now() - t)
       this.touch(c.id)
       return { ok: false, status: r.status, message: r.message }
     }
     d.released = true
-    ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number}`, { HeaderBillingBlockReason: '' }, step, Date.now() - t)
+    ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})`, { HeaderBillingBlockReason: '', goodsReceived: !!input.goodsReceived }, step, Date.now() - t)
     this.touch(c.id)
     return { ok: true, value: d }
   }
@@ -324,10 +367,13 @@ export class Service {
     return { ...this.store.settings }
   }
 
-  updateSettings(patch: Partial<Settings>): Settings {
+  updateSettings(patch: Partial<Settings>): Outcome<Settings> {
+    if (patch.sapMode === 'real' && !this.deps.hasRealGateway) {
+      return { ok: false, status: 400, message: 'No SAP gateway is configured (GATEWAY_URL). The system stays in mock mode.' }
+    }
     this.store.settings = { ...this.store.settings, ...patch }
     this.deps.hub.emit({ type: 'status_changed' })
-    return { ...this.store.settings }
+    return { ok: true, value: { ...this.store.settings } }
   }
 
   reset() {

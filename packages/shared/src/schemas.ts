@@ -116,6 +116,8 @@ export const ProposalSchema = z.object({
   replyDraft: z.string(),
   briefing: BriefingSchema,
   createdAt: z.string(),
+  /** SAP mode the proposal was built in. A proposal built on mock data must not be approved against the real system. */
+  sapMode: z.enum(SAP_MODES).optional(),
 })
 
 export const ApprovalSchema = z.object({
@@ -282,6 +284,18 @@ export type WeekPoint = z.infer<typeof WeekPointSchema>
 /** The proposal that currently represents the case: chosen, else recommended, else the first. */
 export function primaryProposal(c: Pick<Case, 'proposals'>): Proposal | undefined {
   return c.proposals.find((x) => x.chosen) ?? c.proposals.find((x) => x.recommended) ?? c.proposals[0]
+}
+
+/**
+ * Returns a copy of the invoice with the line matching `material` first, so code that reads items[0]
+ * works on the line the customer is complaining about. Unchanged when no line matches.
+ */
+export function preferItem(inv: InvoiceSnapshot, material: string | null): InvoiceSnapshot {
+  if (!material || inv.items.length < 2) return inv
+  const i = inv.items.findIndex((it) => it.material === material)
+  if (i <= 0) return inv
+  const items = [inv.items[i]!, ...inv.items.filter((_, j) => j !== i)]
+  return { ...inv, items }
 }
 
 export function toSummary(c: Case): CaseSummary {
