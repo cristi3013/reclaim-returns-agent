@@ -50,8 +50,9 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   // 1 · extract
   const t0 = Date.now()
   const attachments = (await Promise.all(c.attachments.map((a) => deps.readAttachment(a.url)))).filter((x): x is { mimeType: string; base64: string } => !!x)
-  const extracted = await ai.extractFacts(c, attachments)
+  const extracted = (await ai.extractFacts(c, attachments)) as Awaited<ReturnType<Ai['extractFacts']>> & { fallback?: string }
   const facts = extracted.facts
+  if (extracted.fallback) ev(c, 'error', `Model unavailable; facts read by pattern rules instead (${extracted.fallback})`, { fallback: extracted.fallback }, '5.1.1', null)
   c.facts = facts
   c.complaintType = facts.complaintType
   c.invoiceNumber = facts.invoiceNumber
@@ -156,8 +157,9 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   const narrateUsage: NonNullable<Awaited<ReturnType<Ai['narrate']>>['usage']>[] = []
   for (let i = 0; i < res.options.length; i++) {
     const d = res.options[i]!
-    const narrated = await ai.narrate(d, facts, findings, { existingDocNumber, openCaseId: openCase?.id })
+    const narrated = (await ai.narrate(d, facts, findings, { existingDocNumber, openCaseId: openCase?.id })) as Awaited<ReturnType<Ai['narrate']>> & { fallback?: string }
     const n = narrated.narrative
+    if (narrated.fallback && i === 0) ev(c, 'error', `Model unavailable; explanation written from the policy text instead (${narrated.fallback})`, { fallback: narrated.fallback }, '5.1.1', null)
     if (narrated.usage) narrateUsage.push(narrated.usage)
     const p: Proposal = {
       id: uid('prop'),

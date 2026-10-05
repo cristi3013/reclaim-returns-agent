@@ -13,6 +13,7 @@ import { Service } from './service'
 import { MockGateway } from './gateway/mock'
 import { RealGateway } from './gateway/real'
 import { RulesOnlyAi } from './ai/rules-only'
+import { ResilientAi } from './ai/resilient'
 import { ClaudeAi, detectProvider } from './ai/claude'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
@@ -77,14 +78,15 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   const mock = new MockGateway({ simulateConflict: () => store.settings.simulateConflict, delayMs: opts.mockDelayMs })
   const real = opts.gatewayUrl ? new RealGateway(opts.gatewayUrl) : null
   const rulesOnly = new RulesOnlyAi()
-  let claude: ClaudeAi | null = null
+  let claude: ResilientAi | null = null
 
   const gateway = opts.gateway ?? ((s: Settings) => (s.sapMode === 'real' && real ? real : mock))
   const ai =
     opts.ai ??
     ((s: Settings) => {
       if (s.aiMode !== 'assisted' || !detectProvider()) return rulesOnly
-      return (claude ??= new ClaudeAi())
+      // Bedrock answers 503/429 now and then: retry, and fall back to the rules-only reader rather than fail the case.
+      return (claude ??= new ResilientAi(new ClaudeAi(), rulesOnly))
     })
 
   let pollerRef: { status: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } } | null = null

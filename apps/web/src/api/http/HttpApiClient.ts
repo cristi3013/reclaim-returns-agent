@@ -145,11 +145,20 @@ export class HttpApiClient implements ApiClient {
   }
   subscribe(listener: (e: ApiEvent) => void) {
     if (typeof EventSource !== 'undefined') {
-      // EventSource cannot send headers: the token travels as a query parameter.
+      // EventSource cannot send headers: the token travels as a query parameter. The app subscribes before anyone
+      // signed in, so wait for a session; and when the stream drops (token expired, server restart), reconnect
+      // with a fresh token.
       let es: EventSource | null = null
       let closed = false
-      void this.getToken().then((token) => {
-        if (closed || !token) return
+      let timer: ReturnType<typeof setTimeout> | null = null
+      const start = async () => {
+        if (closed) return
+        const token = await this.getToken()
+        if (closed) return
+        if (!token) {
+          timer = setTimeout(() => void start(), 1500)
+          return
+        }
         es = new EventSource(`${this.base}${API_ROUTES.events.path}?token=${encodeURIComponent(token)}`)
         es.onmessage = (m) => {
           try {
@@ -158,9 +167,16 @@ export class HttpApiClient implements ApiClient {
             /* heartbeat or comment */
           }
         }
-      })
+        es.onerror = () => {
+          es?.close()
+          es = null
+          timer = setTimeout(() => void start(), 3000)
+        }
+      }
+      void start()
       return () => {
         closed = true
+        if (timer) clearTimeout(timer)
         es?.close()
       }
     }

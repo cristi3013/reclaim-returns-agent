@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useIngest } from '@/api'
 import { Button } from '@/components/ui/button'
 import { COMPLAINT_EXAMPLES } from './examples'
+import { buildEml, fileToAttachment } from './eml'
 
 /**
  * Writes a complaint by hand and ingests it as an .eml, so a case can be created for any invoice,
@@ -15,6 +16,9 @@ export function NewComplaintDialog({ open, onClose }: { open: boolean; onClose: 
   const [from, setFrom] = useState(first.from)
   const [subject, setSubject] = useState(first.subject)
   const [body, setBody] = useState(first.body)
+  // Evidence: a photo of the damage, or the signed delivery note. Rules R3 and R5 need it, and the gateway checks.
+  const [files, setFiles] = useState<File[]>([])
+  const fileInput = useRef<HTMLInputElement>(null)
   const chosen = COMPLAINT_EXAMPLES.find((e) => e.id === example)
   const pick = (id: string) => {
     const e = COMPLAINT_EXAMPLES.find((x) => x.id === id)
@@ -25,9 +29,9 @@ export function NewComplaintDialog({ open, onClose }: { open: boolean; onClose: 
     setBody(e.body)
   }
   if (!open) return null
-  const submit = () => {
-    const date = new Date().toUTCString()
-    const eml = `From: ${from}\r\nTo: returns@o2c-hackathon.example\r\nSubject: ${subject}\r\nDate: ${date}\r\nMessage-ID: <manual-${Date.now()}@reclaim.local>\r\nContent-Type: text/plain; charset="utf-8"\r\nMIME-Version: 1.0\r\n\r\n${body}\r\n`
+  const submit = async () => {
+    const attachments = await Promise.all(files.map(fileToAttachment))
+    const eml = buildEml({ from, subject, body, attachments })
     const file = new File([eml], `manual-${Date.now()}.eml`, { type: 'message/rfc822' })
     ingest.mutate([file], {
       onSuccess: () => {
@@ -69,12 +73,17 @@ export function NewComplaintDialog({ open, onClose }: { open: boolean; onClose: 
             Body
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} className="mt-1 w-full rounded-md border border-line bg-surface p-3 font-sans" />
           </label>
+          <label className="text-sm">
+            Evidence <span className="text-xs text-muted">(photo of the damage or the signed delivery note; needed for a credit-only claim or a short delivery)</span>
+            <input ref={fileInput} type="file" accept="image/*,application/pdf" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} className="mt-1 block w-full text-sm text-muted file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1 file:text-sm file:text-fg" />
+            {files.length > 0 && <span className="mt-1 block text-xs text-muted">{files.map((f) => f.name).join(', ')}</span>}
+          </label>
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={ingest.isPending || !subject.trim() || !body.trim()}>
+          <Button onClick={() => void submit()} disabled={ingest.isPending || !subject.trim() || !body.trim()}>
             {ingest.isPending ? 'Adding…' : 'Add to inbox'}
           </Button>
         </div>

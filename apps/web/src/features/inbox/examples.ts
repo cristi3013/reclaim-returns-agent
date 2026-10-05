@@ -13,16 +13,20 @@ export interface ComplaintExample {
 
 const quality = 'Quality, Cust DE 1 <quality@cust-de-1.example>'
 
-/** Ready-made complaints against the team's own DS4 invoices: each one exercises a different write path for real. */
+/**
+ * Ready-made complaints against the team's own DS4 invoices: each one exercises a different write path for real.
+ * 90000377 already carries credit memo request 60000165 (created 5 Oct 2026 22:55): a second complaint on it is the
+ * live duplicate demo, rule R8.
+ */
 export const COMPLAINT_EXAMPLES: ComplaintExample[] = [
   {
     id: 'short-delivery',
-    label: 'Short delivery on 90000377 (credit request, rule R5)',
-    invoice: '90000377',
+    label: 'Short delivery on 90000383 (credit request, rule R5)',
+    invoice: '90000383',
     from: 'Warehouse, Cust DE 1 <warehouse@cust-de-1.example>',
-    subject: 'Short delivery – invoice 90000377',
-    body: 'Hello,\n\nInvoice 90000377 charges 15 KG of material 54, but our goods receipt on 29 September counted only 13 KG. 2 KG are missing. Please credit the missing quantity.\n\nRegards,\nWarehouse, Cust DE 1',
-    expect: 'YCR with order reason 103 for 2 KG = 540 EUR, billing block 08, credit manager. Release it afterwards: that is the guide\'s check 6.',
+    subject: 'Short delivery – invoice 90000383',
+    body: 'Hello,\n\nInvoice 90000383 charges 5 KG of material 54, but our goods receipt on 29 September counted only 3 KG. 2 KG are missing. Please credit the missing quantity.\n\nRegards,\nWarehouse, Cust DE 1',
+    expect: 'YCR with order reason 103 for 2 KG = 540 EUR, billing block 08, credit manager. Attach the signed delivery note: SAP wants proof for a short delivery. Release it afterwards: that is the guide\'s check 6.',
   },
   {
     id: 'damaged-collectable',
