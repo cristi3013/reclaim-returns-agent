@@ -1,4 +1,4 @@
-import type { Answer, Case, Decision, Facts, Findings, ModelUsage, Narrative } from '@reclaim/shared'
+import type { Answer, Case, Decision, Facts, Findings, ModelUsage, Narrative, RootCauseNarration } from '@reclaim/shared'
 
 /**
  * The two places the model is used. Everything about money stays outside this interface:
@@ -12,4 +12,6 @@ export interface Ai {
   narrate(d: Decision, facts: Facts, findings: Findings, ctx: { existingDocNumber?: string; openCaseId?: string }): Promise<{ narrative: Narrative; usage?: ModelUsage }>
   /** Control Tower: phrase a computed answer for a manager. Every number stays as computed; the model only words it. */
   phrase?(question: string, answer: Answer): Promise<{ text: string; usage?: ModelUsage }>
+  /** Root causes: name the cause and the fix for each group of similar complaints. Words only; code computes the figures. */
+  explainRootCauses?(prompt: string): Promise<{ narrations: RootCauseNarration[]; usage?: ModelUsage; fallback?: string }>
 }

@@ -3,7 +3,7 @@ import { z } from 'zod'
 /** Token usage of one model call, as the API reports it. Stored in the case's audit event. */
 export const ModelUsageSchema = z.object({
   model: z.string(),
-  purpose: z.enum(['extract', 'narrate']),
+  purpose: z.enum(['extract', 'narrate', 'insights']),
   inputTokens: z.number(),
   outputTokens: z.number(),
   cacheReadTokens: z.number(),

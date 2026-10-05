@@ -30,6 +30,10 @@ import {
   packToScanInput,
   runScan,
   AGENTS,
+  COMPLAINT_ARCHIVE,
+  localRootCauses,
+  recordFromCase,
+  type RootCauseBriefing,
 } from '@reclaim/shared'
 import {
   CONFLICT_MESSAGE,
@@ -464,6 +468,18 @@ export class MockApiClient implements ApiClient {
     return computeAnalytics([...this.store.cases.values()], this.store.evalResults)
   }
 
+  // ---- Root causes: local grouping and template wording; the real backend adds embeddings and the model.
+  private rootCauses: RootCauseBriefing | null = null
+  async getRootCauses() {
+    return this.rootCauses
+  }
+  async generateRootCauses() {
+    await new Promise((r) => setTimeout(r, 900))
+    const live = [...this.store.cases.values()].filter((c) => c.facts).map(recordFromCase)
+    this.rootCauses = localRootCauses([...COMPLAINT_ARCHIVE, ...live])
+    return this.rootCauses
+  }
+
   async runEval(): Promise<EvalResult[]> {
     const results: EvalResult[] = []
     for (const [id, e] of Object.entries(EXPECTED)) {
@@ -542,6 +558,7 @@ export class MockApiClient implements ApiClient {
 
   async reset() {
     this.store.clear()
+    this.rootCauses = null
     this.emit({ type: 'status_changed' })
   }
 

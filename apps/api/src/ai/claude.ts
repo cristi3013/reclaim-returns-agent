@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
-import { FactsSchema, RULES, narrate as templateNarrate, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
+import { FactsSchema, RULES, RootCauseNarrationsSchema, narrate as templateNarrate, type RootCauseNarration, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
 import type { Ai } from './types'
 import type { Answer } from '@reclaim/shared'
 
@@ -33,6 +33,9 @@ Extract only what the email (and the photo, if any) actually says. Do not guess 
 
 const SYSTEM_NARRATE = `You write for the returns desk of a chemicals distributor that uses SAP. A rules engine has already made the decision; you never change a number, a document type or a reason code.
 Ground every statement in the policy text, the SAP facts and the decision you are given. Be concrete and short. Address the customer reply to the customer in the language of their email.`
+
+const SYSTEM_ROOT_CAUSES = `You are a returns analyst for a chemicals distributor that uses SAP. Code has already grouped similar customer complaints and computed the figures. For each group, name the most likely root cause upstream (packaging, loading, carrier, production batch, price master data, ...) and the one action that would stop these complaints.
+Ground every statement in the complaints and photo descriptions given and name the specific evidence: a part (e.g. the lid seal), a batch number, a pattern (e.g. the driver asks for a signature before unloading). Do not write any amounts, counts, percentages, prices or dates: code shows the figures next to your words, and any number you add that is not in the complaints is rejected. You may name plant codes, material numbers, batch numbers and customer names exactly as they appear. Write in English, even when the complaints are in German or Romanian. Return one entry per group, with the group id exactly as given.`
 
 type Provider = 'anthropic' | 'bedrock'
 
@@ -93,12 +96,12 @@ export class ClaudeAi implements Ai {
   /** One structured call: parse with the schema when supported, else JSON instruction + schema validation. */
   private lastUsage: ModelUsage | null = null
 
-  private record(purpose: 'extract' | 'narrate', res: Anthropic.Message, startedAt: number) {
+  private record(purpose: ModelUsage['purpose'], res: Anthropic.Message, startedAt: number) {
     const u = res.usage
     this.lastUsage = { model: this.model, purpose, inputTokens: u?.input_tokens ?? 0, outputTokens: u?.output_tokens ?? 0, cacheReadTokens: u?.cache_read_input_tokens ?? 0, cacheWriteTokens: u?.cache_creation_input_tokens ?? 0, latencyMs: Date.now() - startedAt }
   }
 
-  private async structured<T>(schema: z.ZodType<T>, system: string, content: Anthropic.ContentBlockParam[], maxTokens: number, effort: 'low' | 'medium' | 'high', purpose: 'extract' | 'narrate'): Promise<T | null> {
+  private async structured<T>(schema: z.ZodType<T>, system: string, content: Anthropic.ContentBlockParam[], maxTokens: number, effort: 'low' | 'medium' | 'high', purpose: ModelUsage['purpose']): Promise<T | null> {
     const startedAt = Date.now()
     if (this.structuredSupported !== false) {
       try {
@@ -174,6 +177,12 @@ export class ClaudeAi implements Ai {
     this.record('narrate', res, startedAt)
     const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text?.trim() ?? ''
     return { text: text || answer.text, usage: this.lastUsage ?? undefined }
+  }
+
+  async explainRootCauses(prompt: string): Promise<{ narrations: RootCauseNarration[]; usage?: ModelUsage }> {
+    const out = await this.structured(RootCauseNarrationsSchema, SYSTEM_ROOT_CAUSES, [{ type: 'text', text: `${prompt}\n\nWrite the title, root cause, action, owner and confidence for every group.` }], 6000, 'medium', 'insights')
+    if (!out) throw Object.assign(new Error('The model could not word the root causes.'), { status: 502 })
+    return { narrations: out.clusters, usage: this.lastUsage ?? undefined }
   }
 
   async narrate(d: Decision, facts: Facts, findings: Findings, ctx: { existingDocNumber?: string; openCaseId?: string }): Promise<{ narrative: Narrative; usage?: ModelUsage }> {

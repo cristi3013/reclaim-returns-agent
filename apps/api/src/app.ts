@@ -20,6 +20,8 @@ import type { Ai } from './ai/types'
 import { SupabasePersistence } from './persistence'
 import { supabaseVerifier, type Principal, type Verifier } from './auth'
 import { ControlTower } from './control-tower'
+import { RootCauses } from './insights/root-causes'
+import { BedrockEmbedder, VectorCache, type Embedder } from './insights/embeddings'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -66,6 +68,8 @@ export interface AppOptions {
   mailer?: Mailer | null
   /** Token verifier. Default: Supabase Auth with the project's public keys. Tests pass `headerVerifier()`. */
   verifier?: Verifier
+  /** Override for tests: the embedding model for root causes. Default: Cohere on Bedrock when AWS keys are set, none with noSideCars. */
+  embedder?: Embedder | null
 }
 
 /** Builds the Fastify app. `server.ts` listens; tests use `app.inject`. */
@@ -98,7 +102,10 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     gateway: (s) => gateway(s, store),
     ai,
     hasRealGateway: !!real || !!opts.gateway,
-    onReset: () => mock.reset(),
+    onReset: () => {
+      mock.reset()
+      rootCauses.latest = null
+    },
     persistence: persistence ?? undefined,
     mailer,
     log,
@@ -240,6 +247,17 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r
   })
+
+  // Root causes: groups similar complaints, the model names cause and fix, code computes the figures. Read-only.
+  const rootCauses = new RootCauses({
+    store,
+    ai,
+    embedder: opts.embedder !== undefined ? opts.embedder : opts.noSideCars ? null : BedrockEmbedder.fromEnv(),
+    vectors: opts.noSideCars ? new VectorCache(null) : VectorCache.fromEnv(log),
+    log,
+  })
+  app.get('/api/insights/root-causes', async () => ({ briefing: rootCauses.latest }))
+  app.post('/api/insights/root-causes', async (req) => rootCauses.generate(req.principal.name))
 
   // Analytics, eval, status, settings
   app.get('/api/analytics/summary', async () => service.analytics())
