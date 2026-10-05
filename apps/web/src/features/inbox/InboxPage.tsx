@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useCases, useSeed } from '@/api'
+import { useCases, useSeed, useStatus } from '@/api'
 import { InboxToolbar } from './InboxToolbar'
 import { InboxTable } from './InboxTable'
 import { EmptyState } from '@/components/domain/EmptyState'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatRelative } from '@/lib/format'
 
 export function InboxPage() {
   const nav = useNavigate()
@@ -17,6 +18,7 @@ export function InboxPage() {
 export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
   const q = useCases()
   const seed = useSeed()
+  const { data: agent } = useStatus()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
   const all = q.data ?? []
@@ -35,6 +37,14 @@ export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
           Every complaint, what the agent found in SAP and what it proposes. Nothing reaches SAP without a person's approval.
           {pending > 0 && <span className="ml-2 rounded bg-warn-soft px-1.5 py-0.5 text-xs text-warn">{pending} awaiting approval</span>}
         </p>
+        {agent?.mailbox && (
+          <p className="mt-1 flex items-center gap-2 text-xs text-muted">
+            <span className={`size-2 rounded-full ${agent.mailbox.connected ? 'bg-ok' : 'bg-warn'}`} aria-hidden />
+            Complaints arrive from <span className="font-mono text-fg">{agent.mailbox.address}</span>
+            {agent.mailbox.connected ? ' · listening' : ` · reconnecting${agent.mailbox.lastError ? ` (${agent.mailbox.lastError.slice(0, 60)})` : ''}`}
+            {agent.mailbox.lastMessageAt && ` · last email ${formatRelative(agent.mailbox.lastMessageAt)}`}
+          </p>
+        )}
       </div>
       <InboxToolbar query={query} onQuery={setQuery} status={status} onStatus={setStatus} hasCases={all.length > 0} />
       {q.isLoading ? (

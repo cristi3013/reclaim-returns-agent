@@ -220,6 +220,13 @@ export const EvalResultSchema = z.object({
   pass: z.boolean(),
 })
 
+export const MailboxStatusSchema = z.object({
+  address: z.string(),
+  connected: z.boolean(),
+  lastMessageAt: z.string().nullable(),
+  lastError: z.string().nullable(),
+})
+
 export const AgentStatusSchema = z.object({
   name: z.string(),
   agentId: z.string(),
@@ -228,6 +235,10 @@ export const AgentStatusSchema = z.object({
   lastRunAt: z.string().nullable(),
   sapMode: z.enum(SAP_MODES),
   aiMode: z.enum(AI_MODES),
+  /** Which mailbox complaints arrive from, if one is configured. */
+  mailbox: MailboxStatusSchema.nullable().optional(),
+  /** Where the model runs, e.g. "claude (bedrock: eu.anthropic.claude-opus-5-5)" or "rules-only". */
+  ai: z.string().optional(),
 })
 
 export const SettingsSchema = z.object({
@@ -281,6 +292,7 @@ export type CaseSummary = z.infer<typeof CaseSummarySchema>
 export type EvalResult = z.infer<typeof EvalResultSchema>
 export type EvalField = z.infer<typeof EvalFieldSchema>
 export type AgentStatus = z.infer<typeof AgentStatusSchema>
+export type MailboxStatus = z.infer<typeof MailboxStatusSchema>
 export type Settings = z.infer<typeof SettingsSchema>
 export type AnalyticsSummary = z.infer<typeof AnalyticsSummarySchema>
 export type WeekPoint = z.infer<typeof WeekPointSchema>

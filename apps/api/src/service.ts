@@ -57,6 +57,8 @@ export interface ServiceDeps {
   onReset?: () => void
   /** Whether a real gateway is configured. Without one, SAP mode cannot be switched to real. */
   hasRealGateway: boolean
+  /** Mailbox listener status for the UI, when one is configured. */
+  mailboxStatus?: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } | null
   /** Optional write-through persistence (Supabase). Never blocks a request. */
   persistence?: {
     saveCase: (c: Case) => void
@@ -434,6 +436,8 @@ export class Service {
       lastRunAt: this.store.lastRunAt,
       sapMode: this.store.settings.sapMode,
       aiMode: this.store.settings.aiMode,
+      mailbox: this.deps.mailboxStatus?.() ?? null,
+      ai: this.deps.ai(this.store.settings).name,
     }
   }
 

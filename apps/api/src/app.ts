@@ -72,9 +72,11 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
       return (claude ??= new ClaudeAi())
     })
 
+  let pollerRef: { status: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } } | null = null
   const service = new Service({
     store,
     hub,
+    mailboxStatus: () => pollerRef?.status() ?? null,
     gateway: (s) => gateway(s, store),
     ai,
     hasRealGateway: !!real || !!opts.gateway,
@@ -223,6 +225,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     }
     poller?.start()
   }
+  pollerRef = poller
   const stop = () => poller?.stop()
 
   return { app, service, store, ready, stop }

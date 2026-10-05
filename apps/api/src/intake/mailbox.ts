@@ -99,6 +99,8 @@ function stripHtml(html: string): string {
 export class MailboxListener {
   private client: ImapFlow | null = null
   private stopped = false
+  private lastMessageAt: string | null = null
+  private lastError: string | null = null
   private draining: Promise<number> | null = null
   private sweep: NodeJS.Timeout | null = null
   constructor(
@@ -117,6 +119,10 @@ export class MailboxListener {
     this.log(`Mailbox listener: ${this.cfg.user}@${this.cfg.host}, push (IDLE) with a safety sweep every ${every / 1000}s`)
   }
 
+  status() {
+    return { address: this.cfg.user, connected: !!this.client?.usable, lastMessageAt: this.lastMessageAt, lastError: this.lastError }
+  }
+
   stop() {
     this.stopped = true
     if (this.sweep) clearInterval(this.sweep)
@@ -132,6 +138,7 @@ export class MailboxListener {
       const closed = new Promise<void>((resolve) => {
         client.once('close', () => resolve())
         client.once('error', (e: Error) => {
+          this.lastError = e.message
           this.log(`Mailbox connection error: ${e.message}`)
           resolve()
         })
@@ -141,6 +148,7 @@ export class MailboxListener {
         await client.mailboxOpen(this.cfg.folder)
         this.client = client
         backoff = 2000
+        this.lastError = null
         this.log('Mailbox connected; waiting for new messages')
         client.on('exists', (ev: { count: number; prevCount: number }) => {
           if (ev.count > ev.prevCount) void this.drain('push')
@@ -148,6 +156,7 @@ export class MailboxListener {
         await this.drain('connect')
         await closed // imapflow idles on its own while nothing else runs on the connection
       } catch (e) {
+        this.lastError = (e as Error).message
         this.log(`Mailbox connect failed: ${(e as Error).message}`)
       }
       this.client = null
@@ -175,6 +184,7 @@ export class MailboxListener {
               this.log(`Mailbox: skipped a message from ${mail.from} (sender domain not allowed)`)
             } else {
               await this.onEmail(mail)
+              this.lastMessageAt = new Date().toISOString()
               count++
             }
             await client.messageFlagsAdd({ uid: msg.uid }, ['\\Seen'], { uid: true })
