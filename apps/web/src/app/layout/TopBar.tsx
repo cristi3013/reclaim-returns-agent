@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, LogOut, SlidersHorizontal } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { ChevronDown, LogOut, RotateCcw, SlidersHorizontal, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { ROLE_LABELS } from '@reclaim/shared'
 import { useReset, useSettings, useUpdateSettings } from '@/api'
@@ -18,10 +19,12 @@ export function TopBar() {
   const { user, signOut } = useAuth()
   const mobile = useIsMobile()
   const [menu, setMenu] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
   const box = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!menu) return
+    // While the reset dialog is open it handles its own clicks and Escape.
+    if (!menu || confirmReset) return
     const close = (e: MouseEvent | KeyboardEvent) => {
       if (
         e instanceof KeyboardEvent ? e.key === 'Escape' : !box.current?.contains(e.target as Node)
@@ -35,7 +38,7 @@ export function TopBar() {
       document.removeEventListener('mousedown', close)
       document.removeEventListener('keydown', close)
     }
-  }, [menu])
+  }, [menu, confirmReset])
 
   const sap = s?.sapMode === 'real' ? 'DS4' : 'Mock'
   const ai = s?.aiMode === 'rules_only' ? 'Rules only' : 'AI assisted'
@@ -109,25 +112,34 @@ export function TopBar() {
       </Setting>
       <div className="border-t border-line pt-3">
         <Button
-          variant="outline"
+          variant="destructive"
           size="sm"
           className="w-full"
-          onClick={() => {
-            if (
-              window.confirm(
-                'Reset the demo? The eight demo cases are removed and settings go back to defaults. Complaints from emails, uploads and typed complaints are kept.',
-              )
-            ) {
-              reset.mutate(undefined, {
-                onSuccess: () =>
-                  toast.success('Demo reset: demo cases removed, real complaints kept'),
-              })
-            }
-          }}
+          disabled={reset.isPending}
+          onClick={() => setConfirmReset(true)}
         >
-          Reset demo
+          <RotateCcw className="size-3.5" /> {reset.isPending ? 'Resetting…' : 'Reset demo'}
         </Button>
       </div>
+      {confirmReset && (
+        <ResetDialog
+          pending={reset.isPending}
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={() =>
+            reset.mutate(undefined, {
+              onSuccess: () => {
+                setConfirmReset(false)
+                toast.success(
+                  REMOVES_ALL
+                    ? 'Demo reset: all complaints removed'
+                    : 'Demo reset: demo complaints removed, real complaints kept',
+                )
+              },
+              onError: (e) => toast.error(e instanceof Error ? e.message : 'The reset failed'),
+            })
+          }
+        />
+      )}
     </div>
   )
 
@@ -226,5 +238,66 @@ function initials(name: string) {
   return (
     ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : '')).toUpperCase() ||
     '?'
+  )
+}
+
+/** The in-browser mock clears everything; the backend removes the demo cases and keeps real complaints. */
+const REMOVES_ALL = import.meta.env.VITE_API_MODE !== 'http'
+
+/** "Are you sure?" before the reset: it cannot be undone. */
+function ResetDialog({
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  pending: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onCancel()
+    document.addEventListener('keydown', esc)
+    return () => document.removeEventListener('keydown', esc)
+  }, [onCancel])
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+      onMouseDown={onCancel}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="reset-title"
+        aria-describedby="reset-desc"
+        className="w-full max-w-md rounded-lg border border-line bg-surface p-5 shadow-lg"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-bad-soft text-bad">
+            <TriangleAlert className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 id="reset-title" className="text-base font-semibold">
+              {REMOVES_ALL ? 'Remove all complaints?' : 'Remove the demo complaints?'}
+            </h2>
+            <p id="reset-desc" className="mt-1 text-sm text-muted">
+              {REMOVES_ALL
+                ? 'Are you sure? This removes every complaint, its decisions and its audit trail, and puts the settings back to their defaults.'
+                : 'Are you sure? This removes the demo complaints, their decisions and their audit trail, and puts the settings back to their defaults. Complaints from emails, uploads and typed complaints are kept.'}{' '}
+              <span className="font-medium text-bad">This cannot be undone.</span>
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" size="sm" autoFocus onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button variant="destructive" size="sm" disabled={pending} onClick={onConfirm}>
+            {pending ? 'Removing…' : 'Yes, remove'}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

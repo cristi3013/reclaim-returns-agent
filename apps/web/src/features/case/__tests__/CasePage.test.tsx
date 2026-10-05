@@ -71,3 +71,50 @@ it('a complaint with no invoice can be decided and answered from the case page',
   await waitFor(async () => expect((await api.getCase(s!.id)).status).toBe('needs_customer_input'))
   expect(await screen.findByText('More information needed')).toBeTruthy()
 })
+
+it('a customer reply in the same thread joins the case and shows as a conversation', async () => {
+  localStorage.clear()
+  useUi.getState().setRole('customer_service_lead')
+  const api = new MockApiClient({ fast: true })
+  const first =
+    'From: Someone <someone@example.com>\nSubject: Damaged drums\nMessage-ID: <a1@example.com>\n\nTwo drums arrived damaged.'
+  const reply =
+    'From: someone@example.com\nSubject: Re: Damaged drums\nIn-Reply-To: <a1@example.com>\n\nIt was invoice 90000355.\n\nOn Mon, Reclaim wrote:\n> Which invoice?'
+  const [s] = await api.ingest([new File([first], 'first.eml')])
+  const [r] = await api.ingest([new File([reply], 'reply.eml')])
+  expect(r!.id).toBe(s!.id)
+  expect(await api.listCases()).toHaveLength(1)
+
+  const root = createRootRoute({
+    component: () => (
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
+    ),
+  })
+  const caseRoute = createRoute({
+    getParentRoute: () => root,
+    path: '/cases/$id',
+    component: CasePage,
+  })
+  const others = ['/', '/approvals'].map((path) =>
+    createRoute({ getParentRoute: () => root, path }),
+  )
+  const router = createRouter({
+    routeTree: root.addChildren([caseRoute, ...others]),
+    history: createMemoryHistory({ initialEntries: [`/cases/${s!.id}`] }),
+  })
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ApiProvider client={api}>
+        <RouterProvider router={router} />
+      </ApiProvider>
+    </QueryClientProvider>,
+  )
+
+  expect(await screen.findByRole('heading', { name: 'Conversation · 2 emails' })).toBeTruthy()
+  const emails = screen.getByRole('list', { name: 'Emails in this case' })
+  expect(emails.textContent).toContain('Two drums arrived damaged.')
+  expect(emails.textContent).toContain('It was invoice 90000355.')
+  expect(emails.textContent).not.toContain('Which invoice?')
+})

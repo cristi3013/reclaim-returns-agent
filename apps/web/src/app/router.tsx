@@ -3,6 +3,8 @@ import { AppShell } from './layout/AppShell'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { InboxPage } from '@/features/inbox/InboxPage'
 import { CasePage } from '@/features/case/CasePage'
+import { InvoiceCasesPage } from '@/features/invoice-cases/InvoiceCasesPage'
+import { InvoiceCasePage } from '@/features/invoice-cases/InvoiceCasePage'
 import { ApprovalsPage } from '@/features/approvals/ApprovalsPage'
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage'
 import { EvaluationPage } from '@/features/evaluation/EvaluationPage'
@@ -19,6 +21,9 @@ const inbox = createRoute({
   validateSearch: (s: Record<string, unknown>): { filter?: 'intercompany' } => (s.filter === 'intercompany' ? { filter: 'intercompany' } : {}),
 })
 const caseRoute = createRoute({ getParentRoute: () => rootRoute, path: '/cases/$id', component: CasePage })
+/** One case per invoice: all complaints and emails about it. */
+const invoiceCases = createRoute({ getParentRoute: () => rootRoute, path: '/invoices', component: InvoiceCasesPage })
+const invoiceCase = createRoute({ getParentRoute: () => rootRoute, path: '/invoices/$invoice', component: InvoiceCasePage })
 /** `?case=<id>` opens the approvals page on that case (links from the dashboard). */
 const approvals = createRoute({
   getParentRoute: () => rootRoute,
@@ -32,7 +37,7 @@ const controlTower = createRoute({ getParentRoute: () => rootRoute, path: '/cont
 const evaluation = createRoute({ getParentRoute: () => rootRoute, path: '/evaluation', component: EvaluationPage })
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([dashboard, inbox, caseRoute, approvals, analytics, reports, controlTower, evaluation]),
+  routeTree: rootRoute.addChildren([dashboard, inbox, caseRoute, invoiceCases, invoiceCase, approvals, analytics, reports, controlTower, evaluation]),
 })
 
 declare module '@tanstack/react-router' {

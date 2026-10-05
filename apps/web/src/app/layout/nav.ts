@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardCheck, FileDown, Home, Inbox, Radar, ShieldCheck } from 'lucide-react'
+import { BarChart3, ClipboardCheck, FileDown, FolderOpen,Home, Inbox, Radar, ShieldCheck } from 'lucide-react'
 import type { CaseSummary } from '@reclaim/shared'
 
 /**
@@ -9,12 +9,13 @@ export const NAV_ITEMS = [
   { to: '/', label: 'Home', short: 'Home', icon: Home, group: 'Daily work' },
   {
     to: '/inbox',
-    label: 'Complaints',
-    short: 'Complaints',
+    label: 'Inbox',
+    short: 'Inbox',
     icon: Inbox,
     group: 'Daily work',
     badge: 'open',
   },
+  { to: '/invoices', label: 'Cases', short: 'Cases', icon: FolderOpen, group: 'Daily work' },
   {
     to: '/approvals',
     label: 'To approve',
