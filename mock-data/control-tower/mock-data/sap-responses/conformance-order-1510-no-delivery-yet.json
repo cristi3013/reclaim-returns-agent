@@ -1,0 +1,22 @@
+{
+  "about": "Order 1510 (ATP Rescue backorder, team T01): no delivery yet and no block, so the check reports no deviation. A backorder is not a Control Tower finding by itself.",
+  "tool": "s4_check_order_conformance",
+  "arguments": {
+    "salesOrder": "1510"
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrder('1510')?$select=SalesOrder,SalesOrderType,SoldToParty,PurchaseOrderByCustomer,CreationDate,TotalNetAmount,TransactionCurrency,OverallTotalDeliveryStatus,OverallOrdReltdBillgStatus,TotalCreditCheckStatus,HeaderBillingBlockReason,DeliveryBlockReason",
+    "GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryItem?$filter=ReferenceSDDocument eq '1510'&$select=DeliveryDocument,DeliveryDocumentItem,Material,ActualDeliveryQuantity,DeliveryQuantityUnit",
+    "GET /sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocumentItem?$filter=SalesDocument eq '1510'&$select=BillingDocument,BillingDocumentItem,ReferenceSDDocument,NetAmount,TransactionCurrency"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "salesOrder": "1510",
+    "conforms": true,
+    "findings": [],
+    "deliveries": [],
+    "billingDocuments": []
+  }
+}

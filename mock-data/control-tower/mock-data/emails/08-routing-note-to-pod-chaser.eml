@@ -1,0 +1,32 @@
+From: Control Tower <control-tower@o2c-hackathon.example>
+To: POD Chaser team T01 <pod-chaser.t01@o2c-hackathon.example>
+Subject: Control Tower 2026-10-01: deliveries waiting for POD (3.4.1)
+Date: Thu, 01 Oct 2026 16:00:00 +0000
+Message-ID: <08-routing-note-to-pod-chaser@mock.o2c-hackathon.example>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Information only. The Control Tower changed nothing in SAP; you decide what
+to do, behind your own approval.
+
+Finding: goods issued, proof of delivery still open (L4 3.4.1 Request POD
+from the logistics provider). The invoice waits for the POD.
+
+Your team's deliveries (team data sheet, team T01):
+
+  Delivery   Ship-to  Goods issue  Age  POD   Billed  Severity  Rule
+  80609014   10044    18.09.2026   13d  open  no      medium    S4
+  80609024   10057    24.09.2026    7d  open  no      medium    S4
+  80609005   10101    27.09.2026    4d  open  no      medium    S4
+
+S4: chase after 3 days, high after 14 days. 80609014 turns high on 3 Oct.
+
+For the hackathon lead (shared HACK-POD deliveries, read-only for every
+team): 9 of the 11 unallocated deliveries wait for POD for more than 14
+days, oldest 80608979 (27 days, customer 10057).
+
+Value is counted once: these deliveries are also on the unbilled list,
+cause POD.
+
+Control Tower (draft: sent by the agent, reviewed by the team)

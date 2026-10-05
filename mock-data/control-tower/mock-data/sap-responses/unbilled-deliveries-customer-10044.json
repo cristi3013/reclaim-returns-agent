@@ -1,0 +1,518 @@
+{
+  "about": "The same list filtered on customer 10044 (XYZ Partner Limited, Berlin): 45 deliveries, the full picture for that customer.",
+  "tool": "s4_list_unbilled_deliveries",
+  "arguments": {
+    "soldToParty": "10044",
+    "top": 100
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?$filter=OverallGoodsMovementStatus eq 'C' and (OverallDelivReltdBillgStatus eq 'A' or OverallDelivReltdBillgStatus eq 'B') and SoldToParty eq '10044'&$select=DeliveryDocument,SoldToParty,ShipToParty,SalesOrganization,ActualGoodsMovementDate,OverallDelivReltdBillgStatus,DeliveryBlockReason&$orderby=ActualGoodsMovementDate asc&$top=100"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "count": 45,
+    "groupingCandidates": {
+      "10044": [
+        "80609017",
+        "80609011",
+        "80608977",
+        "80608982",
+        "80608976",
+        "80608975",
+        "80608978",
+        "80608974",
+        "80609038",
+        "80608973",
+        "80608972",
+        "80609032",
+        "80608971",
+        "80608970",
+        "80609026",
+        "80608969",
+        "80609071",
+        "80609106",
+        "80608968",
+        "80609020",
+        "80608967",
+        "80608966",
+        "80609014",
+        "80608965",
+        "80608964",
+        "80609008",
+        "80609041",
+        "80609103",
+        "80608963",
+        "80609074",
+        "80609109",
+        "80608962",
+        "80608980",
+        "80608961",
+        "80608960",
+        "80608959",
+        "80609035",
+        "80609039",
+        "80609100",
+        "80608958",
+        "80609029",
+        "80609077",
+        "80609112",
+        "80609023",
+        "80608955"
+      ]
+    },
+    "deliveries": [
+      {
+        "ActualGoodsMovementDate": "2026-09-03",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609017",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 28
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-05",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609011",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 26
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-07",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608977",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 24
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-07",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608982",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 24
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-08",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608976",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 23
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-09",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608975",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 22
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-09",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608978",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 22
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-10",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608974",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 21
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-10",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609038",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 21
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-11",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608973",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 20
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-12",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608972",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 19
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-12",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609032",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 19
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-13",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608971",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 18
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-14",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608970",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 17
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-14",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609026",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 17
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-15",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608969",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 16
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-15",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609071",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 16
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-15",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609106",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 16
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-16",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608968",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 15
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-16",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609020",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 15
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-17",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608967",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 14
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-18",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608966",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 13
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-18",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609014",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 13
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-19",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608965",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 12
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-20",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608964",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 11
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-20",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609008",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 11
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-20",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609041",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 11
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-20",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609103",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 11
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-21",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608963",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 10
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-21",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609074",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 10
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-21",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609109",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 10
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-22",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608962",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 9
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-22",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608980",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 9
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-23",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608961",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 8
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-24",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608960",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 7
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-25",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608959",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 6
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-25",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609035",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 6
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-25",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609039",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 6
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-25",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609100",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 6
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-26",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608958",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 5
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-27",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609029",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 4
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-27",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609077",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 4
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-27",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609112",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 4
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-29",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80609023",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 2
+      },
+      {
+        "ActualGoodsMovementDate": "2026-09-30",
+        "DeliveryBlockReason": "",
+        "DeliveryDocument": "80608955",
+        "OverallDelivReltdBillgStatus": "A",
+        "SalesOrganization": "YSOD",
+        "ShipToParty": "10044",
+        "SoldToParty": "10044",
+        "daysSinceGoodsIssue": 1
+      }
+    ]
+  }
+}

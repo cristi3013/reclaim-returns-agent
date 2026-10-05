@@ -7,6 +7,7 @@ import { ApprovalsPage } from '@/features/approvals/ApprovalsPage'
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage'
 import { EvaluationPage } from '@/features/evaluation/EvaluationPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
+import { ControlTowerPage } from '@/features/control-tower/ControlTowerPage'
 
 const rootRoute = createRootRoute({ component: AppShell })
 const dashboard = createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage })
@@ -27,10 +28,11 @@ const approvals = createRoute({
 })
 const analytics = createRoute({ getParentRoute: () => rootRoute, path: '/analytics', component: AnalyticsPage })
 const reports = createRoute({ getParentRoute: () => rootRoute, path: '/reports', component: ReportsPage })
+const controlTower = createRoute({ getParentRoute: () => rootRoute, path: '/control-tower', component: ControlTowerPage })
 const evaluation = createRoute({ getParentRoute: () => rootRoute, path: '/evaluation', component: EvaluationPage })
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([dashboard, inbox, caseRoute, approvals, analytics, reports, evaluation]),
+  routeTree: rootRoute.addChildren([dashboard, inbox, caseRoute, approvals, analytics, reports, controlTower, evaluation]),
 })
 
 declare module '@tanstack/react-router' {

@@ -1,0 +1,429 @@
+{
+  "about": "Awaiting POD for ship-to 10044: 41 deliveries, all of them also unbilled.",
+  "tool": "s4_list_deliveries_awaiting_pod",
+  "arguments": {
+    "shipToParty": "10044",
+    "top": 100
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?$filter=OverallGoodsMovementStatus eq 'C' and (OverallProofOfDeliveryStatus eq 'A' or OverallProofOfDeliveryStatus eq 'B') and ShipToParty eq '10044' and ActualGoodsMovementDate le datetime'2026-09-28T00:00:00'&$orderby=ActualGoodsMovementDate asc"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "count": 41,
+    "deliveries": [
+      {
+        "DeliveryDocument": "80609017",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-03",
+        "daysSinceGoodsIssue": 28,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609011",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-05",
+        "daysSinceGoodsIssue": 26,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608977",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-07",
+        "daysSinceGoodsIssue": 24,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608982",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-07",
+        "daysSinceGoodsIssue": 24,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608976",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-08",
+        "daysSinceGoodsIssue": 23,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608975",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-09",
+        "daysSinceGoodsIssue": 22,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608978",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-09",
+        "daysSinceGoodsIssue": 22,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608974",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-10",
+        "daysSinceGoodsIssue": 21,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609038",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-10",
+        "daysSinceGoodsIssue": 21,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608973",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-11",
+        "daysSinceGoodsIssue": 20,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608972",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-12",
+        "daysSinceGoodsIssue": 19,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609032",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-12",
+        "daysSinceGoodsIssue": 19,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608971",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-13",
+        "daysSinceGoodsIssue": 18,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608970",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-14",
+        "daysSinceGoodsIssue": 17,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609026",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-14",
+        "daysSinceGoodsIssue": 17,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608969",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-15",
+        "daysSinceGoodsIssue": 16,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609106",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-15",
+        "daysSinceGoodsIssue": 16,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608968",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-16",
+        "daysSinceGoodsIssue": 15,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609020",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-16",
+        "daysSinceGoodsIssue": 15,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608967",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-17",
+        "daysSinceGoodsIssue": 14,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608966",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-18",
+        "daysSinceGoodsIssue": 13,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609014",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-18",
+        "daysSinceGoodsIssue": 13,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608965",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-19",
+        "daysSinceGoodsIssue": 12,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608964",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-20",
+        "daysSinceGoodsIssue": 11,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609008",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-20",
+        "daysSinceGoodsIssue": 11,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609041",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-20",
+        "daysSinceGoodsIssue": 11,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609103",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-20",
+        "daysSinceGoodsIssue": 11,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608963",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-21",
+        "daysSinceGoodsIssue": 10,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609074",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-21",
+        "daysSinceGoodsIssue": 10,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609109",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-21",
+        "daysSinceGoodsIssue": 10,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608962",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-22",
+        "daysSinceGoodsIssue": 9,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608980",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-22",
+        "daysSinceGoodsIssue": 9,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608961",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-23",
+        "daysSinceGoodsIssue": 8,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608960",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-24",
+        "daysSinceGoodsIssue": 7,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608959",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-25",
+        "daysSinceGoodsIssue": 6,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609035",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-25",
+        "daysSinceGoodsIssue": 6,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609100",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-25",
+        "daysSinceGoodsIssue": 6,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80608958",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-26",
+        "daysSinceGoodsIssue": 5,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609029",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-27",
+        "daysSinceGoodsIssue": 4,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609077",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-27",
+        "daysSinceGoodsIssue": 4,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      },
+      {
+        "DeliveryDocument": "80609112",
+        "ShipToParty": "10044",
+        "ActualGoodsMovementDate": "2026-09-27",
+        "daysSinceGoodsIssue": 4,
+        "podFields": {
+          "OverallProofOfDeliveryStatus": "A",
+          "ProofOfDeliveryDate": null
+        }
+      }
+    ]
+  }
+}

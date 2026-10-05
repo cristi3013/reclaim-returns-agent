@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardCheck, FileDown, Home, Inbox, ShieldCheck } from 'lucide-react'
+import { BarChart3, ClipboardCheck, FileDown, Home, Inbox, Radar, ShieldCheck } from 'lucide-react'
 import type { CaseSummary } from '@reclaim/shared'
 
 /**
@@ -29,6 +29,14 @@ export const NAV_ITEMS = [
     label: 'Reports',
     short: 'Reports',
     icon: FileDown,
+    group: 'Results',
+    desktopOnly: true,
+  },
+  {
+    to: '/control-tower',
+    label: 'Control Tower',
+    short: 'Tower',
+    icon: Radar,
     group: 'Results',
     desktopOnly: true,
   },

@@ -1,0 +1,447 @@
+{
+  "about": "One-call snapshot: blocked orders (top 10 shown, count capped at 100), goods-issued unbilled deliveries (oldest 10, count capped at 100), deliveries awaiting POD (80), overdue receivables of company code YDE1 (EUR).",
+  "tool": "s4_o2c_leakage_scan",
+  "arguments": {
+    "companyCode": "YDE1"
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrder?$filter=HeaderBillingBlockReason ne '' or DeliveryBlockReason ne '' or TotalCreditCheckStatus eq 'B'&$select=SalesOrder,SalesOrderType,SalesOrganization,SoldToParty,CreationDate,RequestedDeliveryDate,TotalNetAmount,TransactionCurrency,HeaderBillingBlockReason,DeliveryBlockReason,TotalCreditCheckStatus,OverallSDProcessStatus&$orderby=TotalNetAmount desc&$top=100",
+    "GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?$filter=OverallGoodsMovementStatus eq 'C' and (OverallDelivReltdBillgStatus eq 'A' or OverallDelivReltdBillgStatus eq 'B')&$select=DeliveryDocument,SoldToParty,ShipToParty,SalesOrganization,ActualGoodsMovementDate,OverallDelivReltdBillgStatus,DeliveryBlockReason&$orderby=ActualGoodsMovementDate asc&$top=100",
+    "GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?$filter=OverallGoodsMovementStatus eq 'C' and (OverallProofOfDeliveryStatus eq 'A' or OverallProofOfDeliveryStatus eq 'B') and ActualGoodsMovementDate le datetime'2026-09-28T00:00:00'&$orderby=ActualGoodsMovementDate asc",
+    "GET /sap/opu/odata/sap/FAR_CUSTOMER_LINE_ITEMS/Items?$filter=KeyDate eq datetime'2026-10-01T00:00:00' and (HasClearingAccountingDocument eq '' or ClearingDate gt datetime'2026-10-01T00:00:00') and CompanyCode eq 'YDE1' and NetDueDate lt datetime'2026-10-01T00:00:00'&$select=Customer,AmountInCompanyCodeCurrency,CompanyCodeCurrency&$orderby=AmountInCompanyCodeCurrency desc&$top=20"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "asOf": "2026-10-01",
+    "blockedOrders": {
+      "l4": "2.3.3",
+      "routeTo": "blocks",
+      "count": 100,
+      "valueAtRisk": {
+        "EUR": 1609200,
+        "RON": 449050
+      },
+      "top": [
+        {
+          "SalesOrder": "1667",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOD",
+          "SoldToParty": "10021",
+          "CreationDate": "2026-09-29",
+          "TotalNetAmount": "270000.00",
+          "TransactionCurrency": "EUR",
+          "RequestedDeliveryDate": "2026-10-02",
+          "HeaderBillingBlockReason": "",
+          "DeliveryBlockReason": "01",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "delivery:01"
+          ],
+          "ageDays": 2
+        },
+        {
+          "SalesOrder": "1677",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOD",
+          "SoldToParty": "10021",
+          "CreationDate": "2026-09-29",
+          "TotalNetAmount": "270000.00",
+          "TransactionCurrency": "EUR",
+          "RequestedDeliveryDate": "2026-10-02",
+          "HeaderBillingBlockReason": "",
+          "DeliveryBlockReason": "01",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "delivery:01"
+          ],
+          "ageDays": 2
+        },
+        {
+          "SalesOrder": "1687",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOD",
+          "SoldToParty": "10021",
+          "CreationDate": "2026-09-29",
+          "TotalNetAmount": "270000.00",
+          "TransactionCurrency": "EUR",
+          "RequestedDeliveryDate": "2026-10-02",
+          "HeaderBillingBlockReason": "",
+          "DeliveryBlockReason": "01",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "delivery:01"
+          ],
+          "ageDays": 2
+        },
+        {
+          "SalesOrder": "1697",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOD",
+          "SoldToParty": "10021",
+          "CreationDate": "2026-09-29",
+          "TotalNetAmount": "270000.00",
+          "TransactionCurrency": "EUR",
+          "RequestedDeliveryDate": "2026-10-02",
+          "HeaderBillingBlockReason": "",
+          "DeliveryBlockReason": "01",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "delivery:01"
+          ],
+          "ageDays": 2
+        },
+        {
+          "SalesOrder": "1707",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOD",
+          "SoldToParty": "10021",
+          "CreationDate": "2026-09-29",
+          "TotalNetAmount": "270000.00",
+          "TransactionCurrency": "EUR",
+          "RequestedDeliveryDate": "2026-10-02",
+          "HeaderBillingBlockReason": "",
+          "DeliveryBlockReason": "01",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "delivery:01"
+          ],
+          "ageDays": 2
+        },
+        {
+          "SalesOrder": "1120",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOR",
+          "SoldToParty": "10172",
+          "CreationDate": "2023-01-31",
+          "TotalNetAmount": "45200.00",
+          "TransactionCurrency": "RON",
+          "RequestedDeliveryDate": "2023-02-03",
+          "HeaderBillingBlockReason": "",
+          "DeliveryBlockReason": "07",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "delivery:07"
+          ],
+          "ageDays": 1339
+        },
+        {
+          "SalesOrder": "1448",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOR",
+          "SoldToParty": "10172",
+          "CreationDate": "2026-09-28",
+          "TotalNetAmount": "18750.00",
+          "TransactionCurrency": "RON",
+          "RequestedDeliveryDate": "2026-10-01",
+          "HeaderBillingBlockReason": "02",
+          "DeliveryBlockReason": "",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "billing:02"
+          ],
+          "ageDays": 3
+        },
+        {
+          "SalesOrder": "1438",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOR",
+          "SoldToParty": "10172",
+          "CreationDate": "2026-09-28",
+          "TotalNetAmount": "17500.00",
+          "TransactionCurrency": "RON",
+          "RequestedDeliveryDate": "2026-10-01",
+          "HeaderBillingBlockReason": "02",
+          "DeliveryBlockReason": "",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "billing:02"
+          ],
+          "ageDays": 3
+        },
+        {
+          "SalesOrder": "1428",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOR",
+          "SoldToParty": "10172",
+          "CreationDate": "2026-09-28",
+          "TotalNetAmount": "16250.00",
+          "TransactionCurrency": "RON",
+          "RequestedDeliveryDate": "2026-10-01",
+          "HeaderBillingBlockReason": "02",
+          "DeliveryBlockReason": "",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "billing:02"
+          ],
+          "ageDays": 3
+        },
+        {
+          "SalesOrder": "1451",
+          "SalesOrderType": "YOR",
+          "SalesOrganization": "YSOR",
+          "SoldToParty": "10172",
+          "CreationDate": "2026-09-28",
+          "TotalNetAmount": "15300.00",
+          "TransactionCurrency": "RON",
+          "RequestedDeliveryDate": "2026-10-01",
+          "HeaderBillingBlockReason": "",
+          "DeliveryBlockReason": "04",
+          "OverallSDProcessStatus": "A",
+          "TotalCreditCheckStatus": "",
+          "blocks": [
+            "delivery:04"
+          ],
+          "ageDays": 3
+        }
+      ]
+    },
+    "unbilledDeliveries": {
+      "l4": "4.1.1",
+      "routeTo": "billing",
+      "count": 100,
+      "oldest": [
+        {
+          "ActualGoodsMovementDate": "2019-03-13",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000033",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "YSOD",
+          "ShipToParty": "10021",
+          "SoldToParty": "10021",
+          "daysSinceGoodsIssue": 2759
+        },
+        {
+          "ActualGoodsMovementDate": "2020-05-15",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000170",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "ZPH2",
+          "ShipToParty": "10100",
+          "SoldToParty": "10100",
+          "daysSinceGoodsIssue": 2330
+        },
+        {
+          "ActualGoodsMovementDate": "2020-06-11",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000184",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "YSOR",
+          "ShipToParty": "10012",
+          "SoldToParty": "10012",
+          "daysSinceGoodsIssue": 2303
+        },
+        {
+          "ActualGoodsMovementDate": "2020-06-12",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000186",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "YSOR",
+          "ShipToParty": "10012",
+          "SoldToParty": "10012",
+          "daysSinceGoodsIssue": 2302
+        },
+        {
+          "ActualGoodsMovementDate": "2020-06-18",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000188",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "ZPH2",
+          "ShipToParty": "10100",
+          "SoldToParty": "10100",
+          "daysSinceGoodsIssue": 2296
+        },
+        {
+          "ActualGoodsMovementDate": "2020-06-19",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000189",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "ZPH2",
+          "ShipToParty": "10100",
+          "SoldToParty": "10100",
+          "daysSinceGoodsIssue": 2295
+        },
+        {
+          "ActualGoodsMovementDate": "2020-06-19",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000190",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "ZPH2",
+          "ShipToParty": "10100",
+          "SoldToParty": "10100",
+          "daysSinceGoodsIssue": 2295
+        },
+        {
+          "ActualGoodsMovementDate": "2020-09-09",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000200",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "ZPH2",
+          "ShipToParty": "10100",
+          "SoldToParty": "10100",
+          "daysSinceGoodsIssue": 2213
+        },
+        {
+          "ActualGoodsMovementDate": "2020-12-24",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000225",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "ZITA",
+          "ShipToParty": "46",
+          "SoldToParty": "46",
+          "daysSinceGoodsIssue": 2107
+        },
+        {
+          "ActualGoodsMovementDate": "2021-01-31",
+          "DeliveryBlockReason": "",
+          "DeliveryDocument": "80000247",
+          "OverallDelivReltdBillgStatus": "A",
+          "SalesOrganization": "YSOD",
+          "ShipToParty": "51",
+          "SoldToParty": "51",
+          "daysSinceGoodsIssue": 2069
+        }
+      ]
+    },
+    "awaitingPod": {
+      "l4": "3.4.1",
+      "routeTo": "pod",
+      "count": 80,
+      "oldest": [
+        {
+          "DeliveryDocument": "80000271",
+          "ShipToParty": "10172",
+          "ActualGoodsMovementDate": "2021-04-16",
+          "daysSinceGoodsIssue": 1994,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "B",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80000293",
+          "ShipToParty": "10172",
+          "ActualGoodsMovementDate": "2021-07-27",
+          "daysSinceGoodsIssue": 1892,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80000294",
+          "ShipToParty": "10059",
+          "ActualGoodsMovementDate": "2021-08-24",
+          "daysSinceGoodsIssue": 1864,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80609017",
+          "ShipToParty": "10044",
+          "ActualGoodsMovementDate": "2026-09-03",
+          "daysSinceGoodsIssue": 28,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80608979",
+          "ShipToParty": "10057",
+          "ActualGoodsMovementDate": "2026-09-04",
+          "daysSinceGoodsIssue": 27,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80609028",
+          "ShipToParty": "10101",
+          "ActualGoodsMovementDate": "2026-09-04",
+          "daysSinceGoodsIssue": 27,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80609011",
+          "ShipToParty": "10044",
+          "ActualGoodsMovementDate": "2026-09-05",
+          "daysSinceGoodsIssue": 26,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80609022",
+          "ShipToParty": "10101",
+          "ActualGoodsMovementDate": "2026-09-06",
+          "daysSinceGoodsIssue": 25,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80608977",
+          "ShipToParty": "10044",
+          "ActualGoodsMovementDate": "2026-09-07",
+          "daysSinceGoodsIssue": 24,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        },
+        {
+          "DeliveryDocument": "80608982",
+          "ShipToParty": "10044",
+          "ActualGoodsMovementDate": "2026-09-07",
+          "daysSinceGoodsIssue": 24,
+          "podFields": {
+            "OverallProofOfDeliveryStatus": "A",
+            "ProofOfDeliveryDate": null
+          }
+        }
+      ]
+    },
+    "overdueReceivables": {
+      "l4": "6.1.2",
+      "routeTo": "cash",
+      "total": 368598.4,
+      "currency": "EUR",
+      "topCustomers": [
+        {
+          "AmountInCompanyCodeCurrency": "318508.40",
+          "CompanyCodeCurrency": "EUR",
+          "Customer": "10021"
+        },
+        {
+          "AmountInCompanyCodeCurrency": "50000.00",
+          "CompanyCodeCurrency": "EUR",
+          "Customer": "10020"
+        },
+        {
+          "AmountInCompanyCodeCurrency": "90.00",
+          "CompanyCodeCurrency": "EUR",
+          "Customer": "10100"
+        }
+      ]
+    }
+  }
+}

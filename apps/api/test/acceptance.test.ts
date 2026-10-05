@@ -411,3 +411,25 @@ describe('authentication', () => {
     expect((await theCase('case-03')).approvals[0]!.actor).toBe('Dana')
   })
 })
+
+describe('Control Tower (extra credit): reads, answers, routes, never writes', () => {
+  it('runs the scan on the pack, answers the Norway question honestly and refuses to change SAP', async () => {
+    const s = (await post('/api/control-tower/run')).json() as { verdict: string; kpis: { unbilled: { count: number } }; requestLog: string[]; findings: unknown[] }
+    expect(s.verdict).toBe('not ready')
+    expect(s.kpis.unbilled.count).toBe(178)
+    expect(s.requestLog.length).toBeGreaterThan(5)
+    expect(s.requestLog.every((r) => r.startsWith('GET '))).toBe(true)
+    const no = (await post('/api/control-tower/ask', { question: 'Why is DSO up for Norway?' })).json() as { noData: boolean; routeTo: string; text: string }
+    expect(no.noData).toBe(true)
+    expect(no.routeTo).toBe('person')
+    const ref = (await post('/api/control-tower/ask', { question: 'Please release the billing block on 1368 and invoice it today' })).json() as { refused: boolean; routeTo: string }
+    expect(ref).toMatchObject({ refused: true, routeTo: 'blocks' })
+    const memo = await ctx.app.inject({ method: 'GET', url: '/api/control-tower/memo', headers: auth(cm) })
+    expect(memo.headers['content-type']).toMatch(/markdown/)
+    expect(memo.body).toMatch(/^# Close readiness · 2026-09/)
+    const notes = (await get<{ route: string; body: string }[]>('/api/control-tower/notes'))
+    expect(notes.map((n) => n.route).sort()).toEqual(['billing', 'blocks', 'cash', 'pod'])
+    expect(notes.every((n) => /Information only/.test(n.body))).toBe(true)
+    expect((await post('/api/control-tower/handover/shipped_not_billed:80609071')).statusCode).toBe(400)
+  })
+})

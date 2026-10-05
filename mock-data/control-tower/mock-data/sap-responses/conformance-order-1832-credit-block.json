@@ -1,0 +1,30 @@
+{
+  "about": "Order 1832 (customer 10110, team T01's credit-blocked order): deviation at 2.3.3, routed to blocks (Block Buster). A credit-limit change is master data: for a person.",
+  "tool": "s4_check_order_conformance",
+  "arguments": {
+    "salesOrder": "1832"
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrder('1832')?$select=SalesOrder,SalesOrderType,SoldToParty,PurchaseOrderByCustomer,CreationDate,TotalNetAmount,TransactionCurrency,OverallTotalDeliveryStatus,OverallOrdReltdBillgStatus,TotalCreditCheckStatus,HeaderBillingBlockReason,DeliveryBlockReason",
+    "GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryItem?$filter=ReferenceSDDocument eq '1832'&$select=DeliveryDocument,DeliveryDocumentItem,Material,ActualDeliveryQuantity,DeliveryQuantityUnit",
+    "GET /sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocumentItem?$filter=SalesDocument eq '1832'&$select=BillingDocument,BillingDocumentItem,ReferenceSDDocument,NetAmount,TransactionCurrency"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": {
+    "salesOrder": "1832",
+    "conforms": false,
+    "findings": [
+      {
+        "severity": "high",
+        "l4": "2.3.3",
+        "step": "Credit & Billing Block Management: Remove billing block upon approval",
+        "finding": "Order is on credit block.",
+        "routeTo": "blocks"
+      }
+    ],
+    "deliveries": [],
+    "billingDocuments": []
+  }
+}

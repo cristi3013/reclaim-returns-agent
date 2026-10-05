@@ -202,3 +202,12 @@ Three channels, all ending in `service.ingestInbound()` and, unless `INBOUND_AUT
 - SAP write failures are returned with their HTTP status and SAP's message; never retried blindly.
 - Demo invoices are never written to the real system.
 - Every step produces an audit event with its L4 id where one applies (`5.1.1` check, `5.1.2` create return, `5.1.3` goods receipt, `5.2.1` create/release credit request, `5.2.2` intercompany flag).
+
+## 13. Control Tower (extra credit, agent 10)
+
+A second agent in the same product, read-only by construction: it has no write call anywhere (`src/control-tower.ts`, `packages/shared/src/control-tower/`). It reads the SAP lists (today: the organisers' pack in `mock-data/control-tower/mock-data/sap-responses`, real DS4 answers of 1 Oct 2026; a live run fills the same `PackFiles` from gateway reads), runs the pure `runScan` (rules S1–S12 of the guide with their thresholds: grace 3 days, high after 14, blocks high after 30, overdue high from 10 000, legacy older than a year, period = the month being closed), and produces KPIs per currency (EUR and RON never added), one finding per leak with L4 step, severity, rule, reason with numbers, route and data owner, the close verdict (S9) and the memo in the template's shape (`buildMemo`). A delivery that is unbilled and awaiting POD is one finding, cause POD. Lists cut at their row cap are reported as such.
+
+Questions (`answerQuestion`) are parsed by code (country, customer, order, topic) and answered from the snapshot only; "no data" for a subject SAP holds nothing about (Norway), and a request to change SAP is refused and routed to the block owner. In assisted mode the model words the answer (`Ai.phrase`) from the computed facts and may not add a figure; rules-only wording is the fallback. Routing notes: one per fixing agent per day, information only. A finding for the Returns & Credit Note agent (a return older than 7 days without a credit memo, read from our own cases) is handed into our inbox with `POST /api/control-tower/handover/:id`.
+
+Routes: `GET /api/control-tower/snapshot`, `POST /run`, `POST /ask {question}`, `GET /memo` (markdown), `GET /notes`, `POST /handover/:findingId`. Tests: `packages/shared/src/__tests__/control-tower.test.ts` checks the scan and the seven questions against the organisers' `expected-results.json`; the acceptance test covers the routes.
+

@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>O2C Control Tower Agent · O2C Hackathon Guide (extra credit)</title>
+<style>
+:root {
+  --bg: #f6f4ef; --surface: #ffffff; --surface-2: #efece4; --ink: #1d1b16; --ink-2: #4a463d; --muted: #6f6a5e;
+  --line: #ddd7c9; --accent: #0b5d4b; --accent-ink: #ffffff; --accent-soft: #dcefe9; --warn: #8a4b00; --warn-soft: #fdf0dc;
+  --code-bg: #f0ede4; --focus: #1a73e8;
+  --res-bg: #1d1b16; --res-ink: #f6f4ef; --res-accent: #7fd8bd;
+  --font-text: "Iowan Old Style", "Charter", Georgia, serif;   /* editorial body for long reading */
+  --font-ui: -apple-system, "Segoe UI", system-ui, sans-serif; /* labels, tables, controls */
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px; --gap: clamp(1rem, .8rem + 1vw, 1.6rem);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15140f; --surface: #1d1c16; --surface-2: #26241d; --ink: #f1ede2; --ink-2: #cfc9ba; --muted: #a39d8e;
+  --line: #3a372d; --accent: #5cc4a6; --accent-ink: #0d1a16; --accent-soft: #1f3a33; --warn: #f0b062; --warn-soft: #3a2c19; --code-bg: #2a2820; --res-bg: #0c3a30; --res-ink: #eef7f3; --res-accent: #8ff0cf; } }
+:root[data-theme="dark"] {
+  --bg: #15140f; --surface: #1d1c16; --surface-2: #26241d; --ink: #f1ede2; --ink-2: #cfc9ba; --muted: #a39d8e;
+  --line: #3a372d; --accent: #5cc4a6; --accent-ink: #0d1a16; --accent-soft: #1f3a33; --warn: #f0b062; --warn-soft: #3a2c19; --code-bg: #2a2820; --res-bg: #0c3a30; --res-ink: #eef7f3; --res-accent: #8ff0cf; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--font-text); }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+code { font: .86em var(--font-mono); background: var(--code-bg); padding: .1em .35em; border-radius: 4px; white-space: nowrap; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+.wrap > *, header.hero .wrap > *, .two > *, .calc > *, .check, .stage > div { min-width: 0; }
+td, .stage p, .panel li { overflow-wrap: anywhere; }
+header.hero { background: var(--surface); border-bottom: 1px solid var(--line); }
+header.hero .wrap { padding-top: 2.4rem; padding-bottom: 2rem; display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--gap); align-items: start; }
+.kicker { font: 600 .78rem/1 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(2rem, 1.4rem + 2.6vw, 3.1rem)/1.08 var(--font-text); margin: .5rem 0 .6rem; letter-spacing: -.01em; }
+.sub { font-size: 1.15rem; color: var(--ink-2); margin: 0 0 1rem; }
+h2 { font: 700 1.7rem/1.2 var(--font-text); margin: 0 0 .4rem; }
+h2 .idx { font: 600 .8rem var(--font-ui); color: var(--muted); display: block; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .3rem; }
+h3 { font: 650 1.12rem/1.3 var(--font-ui); margin: 1.4rem 0 .5rem; }
+section { padding: 2.6rem 0; border-bottom: 1px solid var(--line); }
+section > .wrap > p.lead { color: var(--ink-2); max-width: 70ch; margin-top: 0; }
+.muted { color: var(--muted); }
+nav.toc { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+nav.toc .wrap { display: flex; gap: .3rem; overflow-x: auto; padding-top: .45rem; padding-bottom: .45rem; font: 500 .85rem var(--font-ui); scrollbar-width: none; }
+nav.toc a { color: var(--ink-2); text-decoration: none; padding: .35rem .7rem; border-radius: 999px; white-space: nowrap; }
+nav.toc a:hover { background: var(--surface-2); color: var(--ink); }
+nav.toc .wrap > * { flex: none; }
+nav.toc .sp { flex: 1; }
+nav.toc button { font: 500 .8rem var(--font-ui); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); border-radius: 999px; padding: .3rem .7rem; cursor: pointer; white-space: nowrap; }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); margin: .8rem 0 1.2rem; }
+table { border-collapse: collapse; width: 100%; font: .92rem/1.45 var(--font-ui); }
+th, td { text-align: left; vertical-align: top; padding: .62rem .8rem; border-bottom: 1px solid var(--line); }
+th { background: var(--surface-2); font-weight: 650; font-size: .8rem; letter-spacing: .03em; color: var(--ink-2); }
+tr:last-child td { border-bottom: 0; }
+table.facts thead { display: none; }
+table.facts td:first-child { width: 34%; color: var(--muted); font-weight: 600; }
+table.l4 td:first-child { font: 600 .85rem var(--font-mono); color: var(--accent); white-space: nowrap; }
+.facts-card { background: var(--surface-2); border-radius: var(--r); padding: .2rem; }
+.facts-card .tw { margin: 0; border: 0; background: transparent; }
+ol.stages { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .7rem; }
+.stage { display: flex; gap: .8rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: .9rem 1rem; font: .9rem/1.45 var(--font-ui); }
+.stage p { margin: .25rem 0 0; color: var(--ink-2); }
+.stage .ex { color: var(--muted); font-style: italic; }
+.stage .n { flex: none; width: 1.9rem; height: 1.9rem; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-weight: 700; }
+.stage.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 24px -16px var(--accent); }
+.stage.on .n { background: var(--accent); color: var(--accent-ink); }
+.you { font: 600 .7rem var(--font-ui); text-transform: uppercase; letter-spacing: .08em; background: var(--accent-soft); color: var(--accent); padding: .1rem .45rem; border-radius: 999px; margin-left: .3rem; font-style: normal; }
+.flow { font: .86rem/1.5 var(--font-mono); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 1rem 1.1rem; overflow-x: auto; white-space: pre; margin: 1.2rem 0 0; }
+.l3 h3 { display: flex; gap: .55rem; align-items: center; }
+.tag { font: 700 .7rem var(--font-ui); background: var(--ink); color: var(--bg); padding: .15rem .45rem; border-radius: 5px; }
+.callout { background: var(--warn-soft); border-left: 4px solid var(--warn); border-radius: 0 var(--r) var(--r) 0; padding: .8rem 1rem; font: .93rem/1.5 var(--font-ui); margin: 1rem 0; }
+.callout b { color: var(--warn); }
+.calc { display: grid; grid-template-columns: 1.1fr 1fr; gap: var(--gap); margin-top: 1rem; }
+.calc form { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 1.1rem; align-content: start; }
+.calc label { display: flex; flex-direction: column; gap: .25rem; font: 600 .82rem var(--font-ui); color: var(--ink-2); }
+.calc label small { font-weight: 400; color: var(--muted); }
+.calc input { font: 600 1rem var(--font-ui); padding: .5rem .6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); width: 100%; }
+.calc input:focus { border-color: var(--accent); }
+.results { background: var(--res-bg); color: var(--res-ink); border-radius: var(--r); padding: 1.2rem 1.3rem; display: grid; gap: .1rem; align-content: start; }
+.results .big { font: 700 clamp(2rem, 1.5rem + 2vw, 2.8rem)/1.1 var(--font-text); color: var(--res-accent); }
+.results .label { font: 600 .74rem var(--font-ui); letter-spacing: .1em; text-transform: uppercase; opacity: .7; margin-top: .9rem; }
+.results .row { display: flex; justify-content: space-between; gap: 1rem; font: .95rem var(--font-ui); padding: .45rem 0; border-top: 1px solid color-mix(in srgb, var(--res-ink) 18%, transparent); }
+.results .row[hidden] { display: none; }
+.results .row b { font-variant-numeric: tabular-nums; }
+.formula { font: .82rem/1.6 var(--font-mono); color: var(--muted); white-space: pre-wrap; margin-top: 1rem; }
+ul.levers { padding-left: 1.2rem; font: .95rem/1.55 var(--font-ui); }
+.check { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 1.1rem 1.2rem 1rem; margin: 1rem 0; }
+.check header { display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem; }
+.check h3 { margin: 0; }
+.check > p { font: .95rem/1.5 var(--font-ui); color: var(--ink-2); margin: .4rem 0 .8rem; }
+.num { font: 700 .72rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.tabs { display: flex; gap: .3rem; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs button { font: 600 .86rem var(--font-ui); border: 0; background: none; color: var(--muted); padding: .55rem .8rem; border-bottom: 3px solid transparent; cursor: pointer; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs button:hover { color: var(--ink); }
+.panel { font: .94rem/1.6 var(--font-ui); }
+.panel ol { padding-left: 1.3rem; margin: .8rem 0; }
+.panel li { margin: .3rem 0; }
+.expect { background: var(--accent-soft); border-radius: 8px; padding: .7rem .9rem; font: .92rem/1.5 var(--font-ui); }
+.expect p { margin: .2rem 0 0; }
+.expect > b { color: var(--accent); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+ul.accept { list-style: none; padding: 0; display: grid; gap: .4rem; font: .95rem/1.45 var(--font-ui); }
+ul.accept label { display: flex; gap: .7rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .65rem .8rem; cursor: pointer; }
+ul.accept input { width: 1.1rem; height: 1.1rem; margin-top: .15rem; accent-color: var(--accent); flex: none; }
+ul.accept label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.progress { font: 600 .85rem var(--font-ui); color: var(--muted); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+.panel-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 1rem 1.2rem; font: .94rem/1.55 var(--font-ui); }
+.panel-card ol { padding-left: 1.2rem; }
+pre.code { position: relative; font: .82rem/1.55 var(--font-mono); background: var(--res-bg); color: var(--res-ink); border-radius: var(--r); padding: 1rem 1.1rem; overflow-x: auto; margin: .4rem 0 1.2rem; white-space: pre; }
+.code-title { font: 650 .9rem var(--font-ui); margin: 1rem 0 0; }
+.copy { position: absolute; top: .5rem; right: .5rem; font: 600 .72rem var(--font-ui); background: color-mix(in srgb, var(--res-ink) 14%, transparent); color: var(--res-ink); border: 0; border-radius: 6px; padding: .3rem .55rem; cursor: pointer; }
+pre.code code { white-space: pre; background: none; padding: 0; color: inherit; font: inherit; border-radius: 0; }
+table.api td:first-child, table.l4 td:first-child { white-space: nowrap; overflow-wrap: normal; }
+table.api td:nth-child(3) { font: 700 .78rem var(--font-mono); }
+table.api td:nth-child(4) code { white-space: normal; word-break: break-all; }
+footer { padding: 2rem 0 3rem; font: .85rem var(--font-ui); color: var(--muted); }
+@media (max-width: 820px) {
+  code { white-space: normal; }
+  header.hero .wrap, .calc, .two { grid-template-columns: 1fr; }
+  .calc form { grid-template-columns: 1fr; }
+  body { font-size: 16px; }
+}
+@media print {
+  nav.toc, .tabs, #theme { display: none; }
+  .panel[hidden] { display: block !important; }
+  section { break-inside: avoid-page; }
+  body { background: #fff; }
+}
+/* Control Tower additions: extra-credit badge, severity tokens, dashboard sketch. */
+:root { --xc: #6b3589; --xc-ink: #ffffff; --xc-soft: #f1e6f7; --sev-high: #a3261b; --sev-high-soft: #fbe3df; --sev-med: #8a4b00; --sev-med-soft: #fdf0dc; --sev-ok: #0b5d4b; --sev-ok-soft: #dcefe9; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --xc: #d3a9ef; --xc-ink: #1e1426; --xc-soft: #2f2238; --sev-high: #ff9a8a; --sev-high-soft: #3d1f1a; --sev-med: #f0b062; --sev-med-soft: #3a2c19; --sev-ok: #5cc4a6; --sev-ok-soft: #1f3a33; } }
+:root[data-theme="dark"] {
+  --xc: #d3a9ef; --xc-ink: #1e1426; --xc-soft: #2f2238; --sev-high: #ff9a8a; --sev-high-soft: #3d1f1a; --sev-med: #f0b062; --sev-med-soft: #3a2c19; --sev-ok: #5cc4a6; --sev-ok-soft: #1f3a33; }
+.xc-badge { display: inline-block; font: 700 .72rem/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; background: var(--xc); color: var(--xc-ink); padding: .38rem .7rem; border-radius: 999px; margin: 0 0 .2rem .5rem; vertical-align: middle; box-shadow: 0 6px 18px -10px var(--xc); }
+.xc-note { background: var(--xc-soft); border-left: 4px solid var(--xc); border-radius: 0 var(--r) var(--r) 0; padding: .7rem 1rem; font: .9rem/1.5 var(--font-ui); margin: 0 0 1rem; }
+.you.reads { background: var(--surface-2); color: var(--muted); }
+.sev { font: 700 .7rem var(--font-ui); text-transform: uppercase; letter-spacing: .06em; padding: .12rem .45rem; border-radius: 5px; white-space: nowrap; }
+.sev.high { background: var(--sev-high-soft); color: var(--sev-high); }
+.sev.med { background: var(--sev-med-soft); color: var(--sev-med); }
+.sev.ok { background: var(--sev-ok-soft); color: var(--sev-ok); }
+.dash { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem; margin: 1rem 0; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: .9rem 1rem; font: .85rem/1.4 var(--font-ui); min-width: 0; }
+.tile .k { font: 600 .72rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.tile .v { font: 700 1.35rem/1.2 var(--font-text); margin: .3rem 0 .1rem; font-variant-numeric: tabular-nums; }
+.tile .v small { font: 600 .8rem var(--font-ui); color: var(--ink-2); }
+.tile.alert { border-color: var(--sev-high); box-shadow: 0 0 0 1px var(--sev-high) inset; }
+.bars { display: grid; gap: .35rem; margin-top: .5rem; }
+.bar { display: grid; grid-template-columns: 9rem 1fr 3rem; gap: .5rem; align-items: center; font: .82rem var(--font-ui); }
+.bar span:nth-child(2) { height: .7rem; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.bar b { text-align: right; font-variant-numeric: tabular-nums; }
+table.heat td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; }
+table.heat td.h { background: var(--sev-high-soft); color: var(--sev-high); }
+table.heat td.m { background: var(--sev-med-soft); color: var(--sev-med); }
+ol.life { list-style: none; padding: 0; margin: .8rem 0; display: flex; flex-wrap: wrap; gap: .4rem; font: 600 .82rem var(--font-ui); }
+ol.life li { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: .3rem .75rem; }
+ol.life li::after { content: " →"; color: var(--muted); }
+ol.life li:last-child::after { content: ""; }
+@media (max-width: 820px) { .dash { grid-template-columns: 1fr 1fr; } .bar { grid-template-columns: 6.5rem 1fr 2.6rem; } }
+@media (max-width: 480px) { .dash { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <span class="kicker">O2C Agent Hackathon · Agent 10 · guide for AI engineers</span><span class="xc-badge" title="This pack is optional and scores extra credit">Extra credit</span>
+      <h1>O2C Control Tower Agent</h1>
+      <p class="sub">Find where money leaks out of order-to-cash, and hand each leak to the agent that fixes it.</p>
+      <p>Money leaks quietly from the order-to-cash flow: goods shipped but never invoiced, invoices that wait weeks for a <b>proof of delivery</b>, orders on a block nobody works on, customers who pay late. Each of these is visible in SAP, but in a different screen, and they usually surface at <b>month-end</b>, if at all.</p><p>This agent walks every order's document chain against the reference process, measures values and ageing, answers management questions such as <i>“why is DSO up for Norway?”</i> or <i>“what blocks the close?”</i>, writes a close-readiness memo, and routes every finding to the agent that fixes it. It <b>only reads</b>: it never changes SAP.</p>
+    </div>
+    <div class="facts-card"><div class="tw"><table class="facts"><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>Who does this today</td><td>Finance controllers, O2C process owners, management</td></tr><tr><td>Trigger</td><td>A daily run before close, or a question by email or chat</td></tr><tr><td>Input</td><td>“Run the snapshot”, or a question naming a country, customer or order</td></tr><tr><td>Output</td><td>KPIs per currency, ranked findings with an L4 step and a route, a close-readiness memo, routing notes</td></tr><tr><td>Human approval</td><td>None needed: it changes nothing. Each fixing agent keeps its own approval.</td></tr><tr><td>SAP APIs</td><td>Sales order, outbound delivery, billing due list, customer line items, business partner (section 3)</td></tr></tbody></table></div></div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <div class="wrap">
+    <a href="#o2c">1 · O2C in 5 minutes</a>
+    <a href="#process">2 · Process to cover</a>
+    <a href="#build">3 · Build it: APIs &amp; BTP</a>
+    <a href="#words">4 · SAP words &amp; data</a>
+    <a href="#worth">5 · Value calculator</a>
+    <a href="#checks">6 · Checks in SAP</a>
+    <a href="#tests">7 · Tests &amp; sign-off</a>
+    <a href="#dashboard">8 · Stretch: dashboard</a>
+    <span class="sp"></span>
+    <button id="theme" type="button" aria-label="Switch light or dark theme">Theme</button>
+  </div>
+</nav>
+
+<main>
+<section id="o2c">
+  <div class="wrap">
+    <p class="xc-note"><b>Extra credit.</b> This pack is optional. Build it after (or alongside) your main agent. It reads the same SAP data every other team works on, so it changes nothing and needs no documents of its own.</p>
+    <h2><span class="idx">1 · Order-to-Cash in five minutes</span>From a customer's question to money in the bank</h2>
+    <p class="lead"><b>Order-to-Cash (O2C)</b> is everything a company does between a customer asking for something and the money arriving. SAP S/4HANA records every step as a <b>document</b> (inquiry, quotation, order, delivery, invoice…) that points back to the one before it. That chain is the <b>document flow</b>: from any invoice you can walk back to the order it came from. Follow one example through the stages. The Control Tower works at the last one, and <b>reads</b> all the others.</p>
+    <ol class="stages"><li class="stage"><span class="n">1</span><div><b>Pre-sales</b><p>The customer asks: what would it cost, can you deliver? We record the question and send an offer.</p><p class="ex">“What would 20 drums cost, delivered by 15 October?” → inquiry, then quotation</p></div></li>
+<li class="stage"><span class="n">2</span><div><b>Sales order</b> <em class="you reads">reads</em><p>The customer orders. SAP checks price, credit and availability.</p><p class="ex">Order 1876: 40 KG for customer 10057, 10 800 EUR</p></div></li>
+<li class="stage"><span class="n">3</span><div><b>Blocks</b> <em class="you reads">reads</em><p>An order can be held for credit, price or delivery reasons until someone releases it.</p><p class="ex">Order 1368 waits on billing block 02</p></div></li>
+<li class="stage"><span class="n">4</span><div><b>Delivery &amp; POD</b> <em class="you reads">reads</em><p>The warehouse ships; the goods leave our stock (goods issue). Some customers must confirm receipt first: the proof of delivery (POD).</p><p class="ex">Delivery 80608983 leaves on 30 Sep; the POD is still open</p></div></li>
+<li class="stage"><span class="n">5</span><div><b>Billing</b> <em class="you reads">reads</em><p>We invoice what was actually delivered.</p><p class="ex">Order 1937 → delivery 80609033 → invoice 90000455</p></div></li>
+<li class="stage"><span class="n">6</span><div><b>Returns &amp; credit</b> <em class="you reads">reads</em><p>If something is wrong, the customer sends goods back or gets money back.</p><p class="ex">A return with no credit note after a week is a finding</p></div></li>
+<li class="stage"><span class="n">7</span><div><b>Cash</b> <em class="you reads">reads</em><p>We match incoming payments to open invoices and chase late payers.</p><p class="ex">Customer 10020 owes 50 000 EUR, past due</p></div></li>
+<li class="stage on"><span class="n">8</span><div><b>Reporting &amp; close</b> <em class="you">this agent</em><p>We report what is stuck, late or leaking, and decide whether the month can close.</p><p class="ex">“Not ready: 31 deliveries with goods issue in September are unbilled for more than 14 days.”</p></div></li></ol>
+    <div class="flow" aria-label="Where this agent sits in the document flow">Reference process   order ─▶ delivery ─▶ goods issue ─▶ POD ─▶ invoice ─▶ payment
+                    2.1.1     3.1.2       3.3.1          3.4.1   4.1.1     6.1.3
+
+Order 1876 (customer 10057, 10 800 EUR)
+  └ delivery 80608983   goods issue 30.09.2026   POD open   no invoice   ← deviation at 4.1.1
+
+Agent:  read every chain  →  compare with the reference  →  KPIs + findings  →  route (read only)
+          │
+          ├─ goods issued, POD open          3.4.1          → 6 POD Chaser
+          ├─ POD done or not needed, no bill 4.1.1          → 7 Billing Gatekeeper
+          ├─ block nobody works on           2.3.3 / 4.1.4  → 3 Block Buster
+          ├─ return without a credit note    5.2.1          → 8 Returns &amp; Credit Note
+          └─ customer past due               6.1.2          → 9 Cash Application &amp; Collections</div>
+  </div>
+</section>
+
+<section id="process">
+  <div class="wrap">
+    <h2><span class="idx">2 · The process this agent must cover</span>L3 processes and L4 steps</h2>
+    <p class="lead">The hackathon uses SAP's O2C process hierarchy: <b>L1</b> Order to Cash → <b>L2</b> stage → <b>L3</b> process → <b>L4</b> step, each with an ID. The Control Tower owns the reporting steps, and it checks the steps of every other stage. Every finding it reports names one L4 ID, the same IDs the other teams use, so a finding lands with the right team in the right words. "Who acts" is who fixes the finding: this agent never does.</p>
+    <div class="l3"><h3><span class="tag">L3</span> Financial Reporting (L2 Revenue Recognition &amp; Reporting)</h3><p class="muted">The heart of the agent: one picture of the whole flow, and honest answers to questions about it.</p>
+<div class="tw"><table class="l4"><thead><tr><th>L4</th><th>Step</th><th>T-code / app</th><th>What the agent must do</th><th>Who acts</th></tr></thead><tbody><tr><td>7.2.1</td><td>Generate reports on sales, revenue and accounts receivable</td><td><code>VF04</code>, <code>FBL5N</code>, <code>S_ALR_87012168</code> · Fiori <i>Create Billing Documents</i>, <i>Manage Customer Line Items</i></td><td>Compute the KPIs <b>per currency</b>: unbilled shipped value, POD-pending value, blocked orders with their age, overdue receivables per customer. Say when a list was cut at its row cap.</td><td>Nobody: read only</td></tr><tr><td>7.2.2</td><td>Analyse O2C process performance and support decision-making</td><td><code>VA03</code> document flow · Fiori <i>Manage Sales Orders</i></td><td>Walk recent orders against the reference process and list deviations by L4 step. Answer questions (“why is DSO up for Norway?”, “what blocks the close?”) with numbers and documents, or say plainly that SAP holds no answer. Write the <b>close-readiness memo</b>: ready, at risk or not ready.</td><td>Controller, process owner (they read; they decide)</td></tr></tbody></table></div>
+</div>
+<div class="l3"><h3><span class="tag">L3</span> Revenue Recognition (context only)</h3><p class="muted">Why unbilled deliveries matter to finance.</p>
+<div class="tw"><table class="l4"><thead><tr><th>L4</th><th>Step</th><th>T-code / app</th><th>What the agent must do</th><th>Who acts</th></tr></thead><tbody><tr><td>7.1.1</td><td>Recognise revenue based on delivered goods (IFRS 15 / ASC 606)</td><td><code>VF04</code></td><td>Goods that left the warehouse without an invoice are revenue that is not on the books. Report them as the main close risk; never estimate revenue that SAP does not show.</td><td>Controller</td></tr></tbody></table></div>
+</div>
+<div class="l3"><h3><span class="tag">L4</span> Steps the agent checks in the other stages (read only, then route)</h3><p class="muted">Each line is one kind of finding. The route names the agent (and team) that fixes it, behind its own approval.</p>
+<div class="tw"><table class="l4"><thead><tr><th>L4</th><th>Step</th><th>T-code / app</th><th>What the agent must detect</th><th>Who acts</th></tr></thead><tbody><tr><td>3.4.1</td><td>Request proof of delivery from the logistics provider</td><td><code>VLPOD</code> (display) · <code>SE16N</code> LIKP</td><td>Goods issued at least 3 days ago, POD-relevant, POD still open. High after 14 days. If the same delivery is also unbilled, it is <b>one</b> finding, cause POD.</td><td>6 POD Chaser</td></tr><tr><td>4.1.1</td><td>Create billing document based on delivery</td><td><code>VF04</code> · Fiori <i>Create Billing Documents</i></td><td>Goods issued more than 3 days ago, POD confirmed (or not needed), still not billed. High after 14 days. Value from the billing due list.</td><td>7 Billing Gatekeeper</td></tr><tr><td>2.3.3 · 4.1.4</td><td>Remove billing block upon approval · release billing block before invoicing</td><td><code>V.23</code>, <code>V.14</code>, <code>VKM1</code></td><td>Every blocked order with its age bucket 0–7 / 8–30 / 31+ days; a billing block on a delivered order is 4.1.4. A credit block needs a credit-limit decision: master data, for a person.</td><td>3 Block Buster</td></tr><tr><td>5.2.1</td><td>Create credit note for a return</td><td><code>VA03</code> document flow of the return</td><td>A customer return older than 7 days that no credit memo references.</td><td>8 Returns &amp; Credit Note</td></tr><tr><td>6.1.2</td><td>Monitor payment terms and track outstanding payments</td><td><code>FBL5N</code> · Fiori <i>Manage Customer Line Items</i></td><td>Open items past their net due date, per customer and company code. High from 10 000 per customer.</td><td>9 Cash Application &amp; Collections</td></tr></tbody></table></div>
+</div>
+  </div>
+</section>
+
+<section id="build">
+  <div class="wrap">
+    <h2><span class="idx">3 · Build it</span>SAP APIs and BTP services</h2>
+    <p class="lead">Your agent talks to SAP through the standard, released <b>OData APIs</b> of S/4HANA, the same data a user sees in the screens. Build it with any stack you like: your laptop, or <b>SAP BTP</b> with a trial account. Every call below was tested on DS4. If your team uses the hackathon <b>MCP server</b>, the tool that wraps each call is named in the last column.</p>
+    <h3>Connecting to SAP DS4</h3>
+    <div class="tw"><table class="facts2"><thead><tr><th>Topic</th><th>How</th></tr></thead><tbody><tr><td>Base URL</td><td><code>https://&lt;ds4-host&gt;:&lt;port&gt;/sap/opu/odata/sap/&lt;SERVICE&gt;/</code>. Host, port and a technical user per team come from the hackathon lead.</td></tr><tr><td>Client</td><td>Add <code>sap-client=100</code> to every request (query parameter).</td></tr><tr><td>Authentication</td><td>Basic authentication with the team&#x27;s technical user.</td></tr><tr><td>Format</td><td>OData V2. Add <code>$format=json</code> (or header <code>Accept: application/json</code>); results are in <code>d.results</code> (lists) or <code>d</code> (one record).</td></tr><tr><td>Reading</td><td><code>$filter</code>, <code>$select</code>, <code>$expand</code>, <code>$top</code>, <code>$skip</code>, <code>$orderby</code> as in any OData V2 service. Strings in single quotes: <code>SoldToParty eq &#x27;10044&#x27;</code>.</td></tr><tr><td>Paging</td><td>Ask for a page (<code>$top=100</code>) and the next one (<code>$skip=100</code>) until a page comes back short. A list that returns exactly its <code>$top</code> is <b>not</b> complete.</td></tr><tr><td>Writing</td><td><b>Never.</b> This agent sends GET requests only. No CSRF token, no POST, PATCH or DELETE, no MCP write tool.</td></tr><tr><td>Dates</td><td>OData V2 dates are milliseconds since 1970 in UTC: <code>&quot;/Date(1790726400000)/&quot;</code> = 30 Sep 2026 (00:00 UTC). In a filter: <code>ActualGoodsMovementDate le datetime&#x27;2026-09-28T00:00:00&#x27;</code>.</td></tr><tr><td>Numbers</td><td>Quantities and amounts are strings: <code>&quot;TotalNetAmount&quot;: &quot;10800.00&quot;</code>. Always keep the currency next to the amount.</td></tr><tr><td>Network</td><td>DS4 is on the client network. From your laptop: VPN. From BTP: the <b>Connectivity service + SAP Cloud Connector</b>, with a <b>Destination</b> pointing at DS4. Ask the hackathon lead; one Cloud Connector serves all teams.</td></tr><tr><td>Errors</td><td>SAP returns <code>error.message.value</code> with a readable text. A section that fails (no authorisation, unknown field) goes into the memo as <i>not read</i>; the rest of the run continues.</td></tr></tbody></table></div>
+    <h3>Which API for which step</h3>
+    <div class="tw"><table class="api"><thead><tr><th>L4</th><th>What</th><th>Method</th><th>Endpoint (after /sap/opu/odata/sap/)</th><th>Notes · MCP tool</th></tr></thead><tbody><tr><td>4.1.1</td><td>Goods issued, not billed</td><td>GET</td><td><code>API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?$filter=OverallGoodsMovementStatus eq &#x27;C&#x27; and (OverallDelivReltdBillgStatus eq &#x27;A&#x27; or OverallDelivReltdBillgStatus eq &#x27;B&#x27;)&amp;$orderby=ActualGoodsMovementDate asc</code></td><td>Age = today − <code>ActualGoodsMovementDate</code>. Headers carry no value. · <code>s4_list_unbilled_deliveries</code></td></tr><tr><td>3.4.1</td><td>Waiting for POD</td><td>GET</td><td><code>API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?$filter=OverallGoodsMovementStatus eq &#x27;C&#x27; and (OverallProofOfDeliveryStatus eq &#x27;A&#x27; or OverallProofOfDeliveryStatus eq &#x27;B&#x27;) and ActualGoodsMovementDate le datetime&#x27;2026-09-28T00:00:00&#x27;</code></td><td>POD status: empty = not needed, A/B = open, C = confirmed · <code>s4_list_deliveries_awaiting_pod</code></td></tr><tr><td>4.1.1</td><td>Value of what is ready to bill</td><td>GET</td><td><code>SD_CUSTOMER_INVOICES_CREATE/C_BillingDueListItem_F0798?$filter=SoldToParty eq &#x27;10044&#x27;</code></td><td><code>NetAmount</code> per delivery (<code>ReferenceSDDocument</code>); <code>HasError</code>. Rejects <code>$orderby</code>. · <code>s4_list_billing_due_list</code></td></tr><tr><td>2.3.3</td><td>Blocked orders</td><td>GET</td><td><code>API_SALES_ORDER_SRV/A_SalesOrder?$filter=HeaderBillingBlockReason ne &#x27;&#x27; or DeliveryBlockReason ne &#x27;&#x27; or TotalCreditCheckStatus eq &#x27;B&#x27;&amp;$orderby=TotalNetAmount desc</code></td><td>Age = today − <code>CreationDate</code>; value at risk = <code>TotalNetAmount</code> · <code>s4_list_blocked_orders</code></td></tr><tr><td>6.1.2</td><td>Overdue receivables</td><td>GET</td><td><code>FAR_CUSTOMER_LINE_ITEMS/Items?$filter=KeyDate eq datetime&#x27;2026-10-01T00:00:00&#x27; and CompanyCode eq &#x27;YDE1&#x27; and NetDueDate lt datetime&#x27;2026-10-01T00:00:00&#x27; and (HasClearingAccountingDocument eq &#x27;&#x27; or ClearingDate gt datetime&#x27;2026-10-01T00:00:00&#x27;)</code></td><td>One call per company code (YDE1 EUR, YRO1 RON); <code>KeyDate</code> is required · inside <code>s4_o2c_leakage_scan</code></td></tr><tr><td>7.2.2</td><td>Document flow of one order</td><td>GET ×3</td><td><code>API_SALES_ORDER_SRV/A_SalesOrder(&#x27;1876&#x27;)</code>, then <code>API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryItem?$filter=ReferenceSDDocument eq &#x27;1876&#x27;</code>, then <code>API_BILLING_DOCUMENT_SRV/A_BillingDocumentItem?$filter=SalesDocument eq &#x27;1876&#x27;</code></td><td>Order → deliveries → invoices; compare with the reference · <code>s4_check_order_conformance</code>, <code>s4_trace_order</code></td></tr><tr><td>5.2.1</td><td>Returns without credit</td><td>GET ×2</td><td><code>API_CUSTOMER_RETURN_SRV/A_CustomerReturn?$orderby=CreationDate desc&amp;$top=30</code>, then <code>API_BILLING_DOCUMENT_SRV/A_BillingDocumentItem?$filter=SalesDocument eq &#x27;&lt;return&gt;&#x27;</code></td><td>No billing item for the return after 7 days = finding · <code>s4_odata_query</code></td></tr><tr><td>7.2.2</td><td>Country of a customer</td><td>GET</td><td><code>API_BUSINESS_PARTNER/A_BusinessPartnerAddress?$filter=BusinessPartner eq &#x27;10044&#x27;&amp;$select=BusinessPartner,Country,CityName</code></td><td>Needed for “…for Norway?” questions · <code>s4_get_customer</code></td></tr><tr><td>all</td><td>The reference process (L1–L4)</td><td>–</td><td>not an SAP API: <code>mock-data/sap-responses/process-model.json</code></td><td>Step IDs and texts · <code>s4_get_process_model</code></td></tr></tbody></table></div>
+    <h3>Example requests</h3>
+    <p class="code-title">Deliveries of customer 10044 that left the warehouse and are not billed</p><pre class="code"><code>GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?sap-client=100&amp;$format=json
+    &amp;$filter=OverallGoodsMovementStatus eq &#x27;C&#x27; and (OverallDelivReltdBillgStatus eq &#x27;A&#x27; or OverallDelivReltdBillgStatus eq &#x27;B&#x27;) and SoldToParty eq &#x27;10044&#x27;
+    &amp;$select=DeliveryDocument,ActualGoodsMovementDate,OverallProofOfDeliveryStatus,ProofOfDeliveryDate
+    &amp;$orderby=ActualGoodsMovementDate asc&amp;$top=100
+→ 45 rows, e.g. { &quot;DeliveryDocument&quot;: &quot;80609071&quot;, &quot;ActualGoodsMovementDate&quot;: &quot;/Date(…)/&quot; (15.09.2026),
+                 &quot;OverallProofOfDeliveryStatus&quot;: &quot;C&quot;, &quot;ProofOfDeliveryDate&quot;: … (17.09.2026) }   ← POD done, still no invoice</code></pre><p class="code-title">Their value on the billing due list</p><pre class="code"><code>GET /sap/opu/odata/sap/SD_CUSTOMER_INVOICES_CREATE/C_BillingDueListItem_F0798?sap-client=100&amp;$format=json
+    &amp;$filter=SoldToParty eq &#x27;10044&#x27;&amp;$top=100
+→ 47 rows, EUR, e.g. { &quot;ReferenceSDDocument&quot;: &quot;80609071&quot;, &quot;NetAmount&quot;: &quot;340.00&quot;, &quot;HasError&quot;: false }</code></pre><p class="code-title">Overdue receivables in company code YDE1</p><pre class="code"><code>GET /sap/opu/odata/sap/FAR_CUSTOMER_LINE_ITEMS/Items?sap-client=100&amp;$format=json
+    &amp;$filter=KeyDate eq datetime&#x27;2026-10-01T00:00:00&#x27; and CompanyCode eq &#x27;YDE1&#x27;
+             and NetDueDate lt datetime&#x27;2026-10-01T00:00:00&#x27;
+             and (HasClearingAccountingDocument eq &#x27;&#x27; or ClearingDate gt datetime&#x27;2026-10-01T00:00:00&#x27;)
+    &amp;$select=Customer,AmountInCompanyCodeCurrency,CompanyCodeCurrency&amp;$orderby=AmountInCompanyCodeCurrency desc&amp;$top=20
+→ 10021: 318 508.40 EUR · 10020: 50 000.00 EUR · 10100: 90.00 EUR   (total 368 598.40 EUR)</code></pre>
+    <h3>Things DS4 does that you would not expect</h3>
+    <ul class="levers"><li><b>Lists stop at their row cap.</b> With <code>$top=100</code> the unbilled list returns exactly 100 rows, oldest first, so it stops partway through 25 Sep 2026 and every later delivery is cut off; the full list has <b>178</b>. The blocked-order list is sorted by value, so small team orders (1369, 1373, 1833) fall off at 100; the full list has <b>144</b>. Page, or narrow by customer or date, and say so in the memo.</li><li><b>One delivery, two lists.</b> All 80 deliveries waiting for POD are also on the unbilled list: a POD-relevant delivery is not invoiced before its POD. Count it once, cause POD, route to the POD Chaser.</li><li><b>The conformance check has no grace period.</b> Order 1876 was delivered on 30 Sep 2026 and is flagged at 4.1.1 “delivered but not billed” on 1 Oct. One day is not a leak; apply your own grace (3 days is a good start).</li><li><b>Delivery headers carry no value.</b> Take <code>NetAmount</code> from the billing due list (F0798). On DS4 it lists POD-pending deliveries too (e.g. 80609014, 3 400 EUR, POD open), so you can value them; it does not mean they should be billed before the POD.</li><li><b>Two currencies.</b> Company code <b>YDE1</b> (sales org YSOD) books in EUR, <b>YRO1</b> (YSOR) in RON. Report per currency; never add them. A customer can owe in both (10021: 318 508.40 EUR and 5 RON).</li><li><b>Old leftovers.</b> 34 unbilled deliveries date from 2019–2025 (oldest 80000033, goods issue 13 Mar 2019), two blocked orders are years old (143, 1120). Report them as legacy, apart from this month's close. Legacy does not mean ownerless: 29 of the 34 old deliveries are the teams' own Billing due-list items in the team data sheet (e.g. T01: 80000170, 80000244, 80000313, 80000443), so label them with that team.</li><li><b>No customer in Norway.</b> No business partner on DS4 has a Norwegian address. Customers in the findings are in DE, RO, US, CH and JP; 46, 51 and 7800000096 have no address. Your agent must say so, not invent an answer.</li><li><b>Exact DSO is not in O2C data.</b> It needs revenue per period from finance. Explain DSO through its drivers: overdue receivables, unbilled and POD-pending value, billing blocks.</li><li>The leakage scan's blocked, unbilled and POD sections ignore <code>companyCode</code>; only the overdue section uses it. Call it once per company code, or read the lists yourself.</li><li>The billing due list service answers HTTP 500 to <code>$orderby</code>: sort locally.</li></ul>
+    <h3>The read-only rule (build it in)</h3>
+    <ul class="levers"><li>Your agent <b>never writes to SAP</b>. No write tool, no POST/PATCH/DELETE, not even with a person's approval: a request to change something (“just release the block”) becomes a routing note to the agent that owns the step.</li><li>Every finding names the <b>data owner</b>: your team, another team (from the team data sheet), shared hackathon data, or other. A routing note informs; the receiving team acts only on its own documents, behind its own approval.</li><li>Keep your own log: each run's SAP requests (GET only), the snapshot, the findings and the notes sent. The jury will ask to see it.</li><li>Every number in an answer or memo comes from a SAP read of that run. A language model may phrase the answer; it never changes a figure, a severity or a route.</li></ul>
+    <h3>Suggested BTP services (trial account)</h3>
+    <p class="muted">A trial account runs 90 days. Service availability and regions change: confirm in your BTP cockpit's <i>Service Marketplace</i>. None of these is required: a plain web service on your laptop that calls the APIs is a valid solution.</p>
+    <div class="tw"><table class=""><thead><tr><th>Service</th><th>Use it for</th><th>Trial</th></tr></thead><tbody><tr><td>Cloud Foundry runtime + SAP Business Application Studio</td><td>Run and develop the agent (Node.js or Java; the SAP Cloud Application Programming Model, CAP, is supported)</td><td>Trial</td></tr><tr><td>Destination + Connectivity service (with SAP Cloud Connector)</td><td>Reach DS4 from BTP without exposing it to the internet; credentials stay in the Destination</td><td>Trial</td></tr><tr><td>SAP HANA Cloud</td><td>Store daily snapshots, findings and their follow-up status, for trends (“DSO up since last week?”)</td><td>Trial</td></tr><tr><td>SAP Build Work Zone, standard edition</td><td>A launchpad page for the memo and the dashboard (section 8)</td><td>Trial</td></tr><tr><td>Generative AI Hub (SAP AI Core / AI Launchpad)</td><td>Access to large language models from BTP: parse the question, phrase the answer and the memo summary</td><td>Separate SAP AI trial (30 days); or call your LLM provider&#x27;s API directly</td></tr><tr><td>SAP Build Process Automation</td><td>Optional: turn a routing note into a task in the fixing team&#x27;s inbox</td><td>Trial (some features region-bound)</td></tr><tr><td>Job Scheduling service</td><td>The daily run before close</td><td>Check availability in your trial; a scheduled CF task or a cron also works</td></tr></tbody></table></div>
+    <div class="flow" aria-label="Suggested architecture">Daily schedule (Job Scheduling / cron), or a question by email / chat
+   │
+   ▼
+Your agent (LLM + your rules)  ── runs on your laptop, or on BTP Cloud Foundry (CAP / Node.js)
+   │  reads (GET only) ─────▶  SAP DS4 OData APIs  (via Destination + Cloud Connector on BTP)
+   │  answers ──────────────▶  the person who asked  (email / chat / web page)
+   │  routes ───────────────▶  routing notes to agents 3, 6, 7, 8, 9  (information only)
+   ▼
+snapshots, findings and follow-up status  (file, SQLite, or SAP HANA Cloud)  ──▶  memo and dashboard</div>
+  </div>
+</section>
+
+<section id="words">
+  <div class="wrap">
+    <h2><span class="idx">4 · SAP words, our data and your mock data</span>What you need to know, nothing more</h2>
+    <div class="two">
+      <div><div class="tw"><table class=""><thead><tr><th>SAP word</th><th>Plain meaning</th></tr></thead><tbody><tr><td>Goods issue (PGI)</td><td>The posting that the goods left our warehouse. From then on the delivery should be invoiced.</td></tr><tr><td>Proof of delivery (POD)</td><td>The customer's confirmation that the goods arrived. For POD-relevant customers the invoice waits for it.</td></tr><tr><td>Billing due list</td><td>Everything ready to be invoiced (<code>VF04</code>, Fiori <i>Create Billing Documents</i>), with its value.</td></tr><tr><td>Unbilled shipped value</td><td>Goods that left the warehouse but carry no invoice yet: revenue not on the books.</td></tr><tr><td>Block</td><td>A hold on an order: billing, delivery or credit. Block ageing = how long it has been held.</td></tr><tr><td>Overdue / open item</td><td>An invoice not yet paid (open item). Overdue: its net due date has passed.</td></tr><tr><td>DSO</td><td>Days sales outstanding: how many days of sales are still unpaid. Rises with overdue invoices and with invoices sent late.</td></tr><tr><td>Document flow</td><td>The chain order → delivery → invoice (→ payment) SAP keeps for every order.</td></tr><tr><td>Conformance</td><td>Does an order's document flow follow the reference process? A deviation names the L4 step where it does not.</td></tr><tr><td>Close readiness</td><td>Can the month be closed: is all shipped revenue invoiced, is anything material stuck?</td></tr><tr><td>Company code</td><td>The legal entity that books the money: YDE1 (EUR) and YRO1 (RON) on DS4.</td></tr></tbody></table></div></div>
+      <div>
+        <h3>Logging on</h3>
+        <div class="panel-card"><ol><li><b>SAP GUI:</b> open <i>SAP Logon</i>, double-click <b>DS4</b>, enter <b>Client</b> <code>100</code>, your user and password, <b>Language</b> <code>EN</code>.</li><li>Start a screen by typing its transaction code in the command field (top left), e.g. <code>/nVA03</code>, then <b>Enter</b>. <code>/n</code> leaves the current screen first; <b>F3</b> goes back; <b>F4</b> in a field searches values; <b>F8</b> runs a report.</li><li><b>Fiori:</b> open the launchpad URL from the hackathon lead (it ends in <code>/sap/bc/ui2/flp?sap-client=100</code>), log on with the same user, and use the <b>search</b> at the top to find an app by name.</li><li>Documents show without leading zeros on screen (<code>80609071</code>); dates show as <code>30.09.2026</code>. APIs use <code>0080609071</code> where the field is padded, and <code>2026-09-30</code>.</li></ol></div>
+      </div>
+    </div>
+    <h3>Demo data on DS4 (client 100): what is yours, what is shared</h3>
+    <p class="muted">The Control Tower has <b>no documents of its own</b>: everything it reads is shared and read-only (team data sheet <code>TEAM-DATA.md</code>: “Control Tower: read-only”). Use your team's own documents from the other scenarios to test that each finding reaches the right team. Every seeded document carries a customer reference starting with <code>HACK-</code>.</p>
+    <div class="tw"><table class=""><thead><tr><th>What</th><th>Value on DS4</th><th>Note</th></tr></thead><tbody><tr><td>Your team's documents</td><td>Your row in the team data sheet (from the hackathon lead, or <code>docs/TEAM-DATA.md</code>). Team T01, for example: POD deliveries <b>80609005, 80609014, 80609024, 80609035, 80608963</b>; billing-blocked orders <b>1368, 1369, 1814</b>; credit-blocked <b>1832</b>; backorders 1510, 1521…</td><td>They appear in your findings with owner <i>team T01</i>. Route them to that team's agent; never act on them</td></tr><tr><td>Other teams' documents</td><td>Same sheet, rows T02–T09</td><td>Report them with their team as owner, read-only</td></tr><tr><td>Shared POD deliveries</td><td><b>80608972–80608982</b> (<code>HACK-POD</code>, not allocated to a team)</td><td>Read-only for everyone; 9 of the 11 wait for POD for more than 14 days</td></tr><tr><td>Shared cash open items</td><td><b>1800000012</b> (YDE1, customer 10020, 50 000 EUR) and <b>100000006</b> (YRO1, 10012, 100 RON)</td><td>Read-only; overdue findings route to Cash Application</td></tr><tr><td>Deviation example</td><td>Order <b>1876</b> → delivery 80608983, goods issue 30.09.2026, POD open, no invoice</td><td>Flagged at 4.1.1 on day one: within grace, not a leak yet</td></tr><tr><td>Clean example</td><td>Order <b>1937</b> → delivery 80609033 → invoice 90000455</td><td>Conforms: no finding</td></tr><tr><td>Billing leak example</td><td>Delivery <b>80609071</b> (customer 10044): goods issue 15.09.2026, POD confirmed 17.09.2026, not billed</td><td>Not team data (reference <code>AGENTLAB-06-…</code>): owner <i>other</i>, for the hackathon lead</td></tr><tr><td>Legacy items</td><td>34 unbilled deliveries from 2019–2025, orders 143 and 1120</td><td>Report separately from this month's close. 29 of the 34 deliveries are teams' Billing due-list items (team data sheet, scenario 7, e.g. T01: 80000170, 80000244, 80000313, 80000443; 80000271, 80000293 and 80000294 also wait for POD): owner is that team, route to its Billing Gatekeeper (or POD Chaser). The other five (80000033, 80000184, 80000186, 80000400, 80608730) and orders 143, 1120: owner <i>other</i>, for a person</td></tr><tr><td>Snapshot on 1 Oct 2026</td><td>178 unbilled deliveries (144 since 1 Sep 2026), 80 waiting for POD, 144 blocked orders (1 609 540 EUR + 474 910 RON), overdue 368 598.40 EUR (3 customers, YDE1) + 150 RON (2 customers, YRO1)</td><td>The leakage scan counts at most 100 per list (100 blocked, 100 unbilled, 80 POD) and returns the top 10 rows of each, plus 5 overdue customers over the two company codes; read the detail lists for the rest. Conformance deviations come on top (mostly at 4.1.1)</td></tr></tbody></table></div>
+    <h3>Mock data in this folder</h3>
+    <p class="muted">Use it to build and test without SAP, and as test input for your agent. The <code>sap-responses</code> files are real answers from DS4 (1 Oct 2026); <code>expected-results.json</code> is the correct outcome for every input.</p>
+    <div class="tw"><table class=""><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody><tr><td><code>mock-data/emails/01-cfo-why-dso-up-norway.eml</code></td><td>CFO office: why is DSO up for Norway? (there is no Norwegian customer)</td></tr><tr><td><code>mock-data/emails/02-controller-what-blocks-close.eml</code></td><td>Controller: what blocks the September close? Wants a memo</td></tr><tr><td><code>mock-data/emails/03-ar-lead-customer-10044.eml</code></td><td>AR lead: what leaks most for customer 10044?</td></tr><tr><td><code>mock-data/emails/04-sales-director-order-1876.eml</code></td><td>Sales director: order 1876 is flagged “delivered, not billed”</td></tr><tr><td><code>mock-data/emails/05-process-owner-order-1937.eml</code></td><td>Process owner: is order 1937 a clean example?</td></tr><tr><td><code>mock-data/emails/06-manager-release-block-1368.eml</code></td><td>Manager asks the Control Tower to release a block (it must refuse and route)</td></tr><tr><td><code>mock-data/emails/07-cfo-overdue-switzerland.eml</code></td><td>CFO office: how much is overdue from Swiss customers?</td></tr><tr><td><code>mock-data/emails/08-routing-note-to-pod-chaser.eml</code></td><td>Example output: a routing note to a team's POD Chaser</td></tr><tr><td><code>mock-data/emails/09-routing-note-to-billing-gatekeeper.eml</code></td><td>Example output: a routing note to the Billing Gatekeeper</td></tr><tr><td><code>mock-data/reference/process-model-summary.md</code></td><td>The L4 steps a finding points to, and the steps this agent owns</td></tr><tr><td><code>mock-data/reference/kpi-definitions.md</code></td><td>KPI definitions: unbilled shipped value, POD-pending, block ageing, overdue, DSO and its drivers</td></tr><tr><td><code>mock-data/reference/routing-table.csv</code></td><td>Finding → L4 → severity → fixing agent</td></tr><tr><td><code>mock-data/reference/close-readiness-memo-template.md</code></td><td>Template for the close-readiness memo</td></tr><tr><td><code>mock-data/reference/suggested-rules.md</code></td><td>Suggested starting rules (thresholds, counting, routing): adapt them</td></tr><tr><td><code>mock-data/reference/customers.csv</code></td><td>Country, city and company code of every customer in the findings</td></tr><tr><td><code>mock-data/sap-responses/leakage-scan-yde1.json</code>, <code>leakage-scan-yro1.json</code></td><td>The one-call snapshot, per company code</td></tr><tr><td><code>mock-data/sap-responses/conformance-order-1876-deviation-4.1.1.json</code></td><td>Conformance check of an order with a deviation at 4.1.1</td></tr><tr><td><code>mock-data/sap-responses/conformance-order-1937-conforms.json</code>, <code>…-1832-credit-block.json</code>, <code>…-1510-no-delivery-yet.json</code></td><td>A clean chain, a credit block (2.3.3), an order not yet delivered</td></tr><tr><td><code>mock-data/sap-responses/unbilled-deliveries.json</code>, <code>unbilled-deliveries-all.json</code>, <code>unbilled-deliveries-customer-10044.json</code></td><td>Goods issued, not billed: capped at 100, the full 178, and one customer</td></tr><tr><td><code>mock-data/sap-responses/deliveries-awaiting-pod.json</code>, <code>deliveries-awaiting-pod-customer-10044.json</code></td><td>Waiting for POD: all 80, and one customer</td></tr><tr><td><code>mock-data/sap-responses/blocked-orders.json</code>, <code>blocked-orders-all.json</code></td><td>Blocked orders: capped at 100, and the full 144</td></tr><tr><td><code>mock-data/sap-responses/billing-due-list-customer-10044.json</code></td><td>Billing due list with values for one customer</td></tr><tr><td><code>mock-data/sap-responses/delivery-status-key-deliveries.json</code></td><td>POD and billing status of the deliveries the tests use</td></tr><tr><td><code>mock-data/sap-responses/customers-country.json</code></td><td>Customer countries, and the (empty) search for Norway</td></tr><tr><td><code>mock-data/sap-responses/process-model.json</code></td><td>The full L1–L4 reference process</td></tr><tr><td><code>mock-data/expected-results.json</code></td><td>The correct outcome for each email, and key counts per SAP response: your test oracle</td></tr></tbody></table></div>
+  </div>
+</section>
+
+<section id="worth">
+  <div class="wrap">
+    <h2><span class="idx">5 · Business value calculator</span>What is this agent worth?</h2>
+    <p class="lead">Every value is an editable <b>assumption</b> for a mid-sized business unit, not a measurement: our sandbox holds test data. Replace them with the numbers of the business you pitch to. The calculation is deliberately simple so anyone can check it.</p>
+    <div class="calc">
+      <form id="calc" onsubmit="return false"><label><span>Findings investigated per month</span><input type="number" min="0" step="1" id="vol" value="30"><small>leaks a controller chases to the root</small></label>
+<label><span>Minutes per finding today</span><input type="number" min="0" step="1" id="manual" value="120"><small>VF04, VL06O, FBL5N, spreadsheets, emails</small></label>
+<label><span>Minutes per finding with the agent</span><input type="number" min="0" step="1" id="agent" value="15"><small>read the finding, confirm the route</small></label>
+<label><span>Loaded cost per hour (EUR)</span><input type="number" min="0" step="1" id="rate" value="70"><small></small></label>
+<label><span>Average value of a finding (EUR)</span><input type="number" min="0" step="1" id="value" value="5000"><small>unbilled, blocked or overdue amount</small></label>
+<label><span>Days sooner the leak is fixed</span><input type="number" min="0" step="1" id="days" value="15"><small>found in days, not at month-end</small></label>
+<label><span>Cost of capital (% per year)</span><input type="number" min="0" step="0.5" id="coc" value="8"><small></small></label></form>
+      <div class="results" aria-live="polite">
+        <span class="label">Value per year</span>
+        <span class="big" id="r-total">–</span>
+        <div class="row"><span>Hours saved per year</span><b id="r-hours">–</b></div>
+        <div class="row"><span>Labour value per year</span><b id="r-labour">–</b></div>
+        <div class="row"><span>People freed (FTE)</span><b id="r-fte">–</b></div>
+        <div class="row" data-opt="cash"><span>Cash released once</span><b id="r-cash">–</b></div>
+        <div class="row" data-opt="cash"><span>Financing gain per year</span><b id="r-fin">–</b></div>
+        <div class="row" data-opt="err"><span>Cost of errors avoided per year</span><b id="r-err">–</b></div>
+      </div>
+    </div>
+    <p class="formula">hours saved / year   = findings per month × (minutes today − minutes with agent) ÷ 60 × 12
+labour value / year  = hours saved × loaded cost per hour
+FTE freed            = hours saved ÷ 1 600 productive hours per person
+cash released (once) = findings per month × value per finding × days sooner ÷ 30
+financing gain / yr  = cash released × cost of capital
+value per year       = labour value + financing gain</p>
+    <p class="muted">Cash released is working capital: a delivery invoiced fifteen days sooner is paid fifteen days sooner, so that much less money is tied up, permanently. The financing gain is what that money is worth per year.</p>
+    <h3>Gains that are real but not priced here</h3>
+    <ul class="levers"><li>Leakage found in days, not at month-end: a cleaner, faster close.</li><li>One prioritised list across every O2C stage, in the same L4 language every team uses.</li><li>A close-readiness memo instead of spreadsheet hunting, and honest answers when SAP holds none.</li><li>Revenue that would never have been invoiced at all (legacy deliveries) is found and decided on.</li></ul>
+  </div>
+</section>
+
+<section id="checks">
+  <div class="wrap">
+    <h2><span class="idx">6 · Checks in SAP</span>Make sure the agent is doing the right thing</h2>
+    <p class="lead">Do each check by hand <b>before</b> you trust the agent: it shows you what the agent should find. Do it again after a run: the agent's numbers must match SAP's screens. Each check has the SAP GUI route (transaction code) and the Fiori route (browser app). They show the same data. If a Fiori tile is missing, your user lacks that app's role: use SAP GUI and tell the hackathon lead.</p>
+    <div class="callout"><b>Display only.</b> Every check here only <i>displays</i> data. Do not press <i>Save</i>, <i>Release</i> or <i>Create</i> in any of these screens: the documents belong to other teams, and the Control Tower changes nothing.</div>
+
+<article class="check" id="c1">
+  <header><span class="num">Check 1</span><h3>Overdue receivables per customer</h3></header>
+  <p>The first DSO driver: invoices whose due date has passed.</p>
+  <div class="tabs" role="tablist" aria-label="Where to check">
+    <button role="tab" aria-selected="true" aria-controls="c1-gui" id="c1-t1">SAP GUI · <code>FBL5N</code></button>
+    <button role="tab" aria-selected="false" aria-controls="c1-fio" id="c1-t2" tabindex="-1">Fiori · Manage Customer Line Items</button>
+  </div>
+  <div class="panel" role="tabpanel" id="c1-gui" aria-labelledby="c1-t1"><ol><li>Type <code>/nFBL5N</code> and press <b>Enter</b>.</li><li><b>Customer account:</b> <code>10020</code> to <code>10100</code> (or the multiple selection with 10020, 10021, 10100). <b>Company code:</b> <code>YDE1</code>.</li><li>Select <b>Open items</b>, <b>Open at key date</b> <code>01.10.2026</code>. Press <b>F8</b>.</li><li>Show the column <b>Net due date</b> (<i>Change layout</i>, Ctrl+F8). Items with a net due date before today are overdue; read the total per customer.</li><li>Repeat with company code <code>YRO1</code>. For buckets (1–30, 31–60… days) use <code>S_ALR_87012168</code>.</li></ol></div>
+  <div class="panel" role="tabpanel" id="c1-fio" aria-labelledby="c1-t2" hidden><ol><li>Open <b>Manage Customer Line Items</b>.</li><li><b>Company Code</b> <code>YDE1</code>, <b>Item Status</b> <i>Open Items</i>, <b>Open on Key Date</b> 01.10.2026; leave <b>Customer</b> empty. <b>Go</b>.</li><li>Add the column <b>Net Due Date</b> (gear icon), sort ascending, and group by <b>Customer</b>.</li></ol></div>
+  <div class="expect"><b>You should see</b><p>Overdue in YDE1: <b>10021</b> 318 508.40 EUR, <b>10020</b> 50 000.00 EUR, <b>10100</b> 90.00 EUR (368 598.40 EUR). In YRO1: 10012 145 RON, 10021 5 RON. The agent must show the same, per currency.</p></div>
+</article>
+
+<article class="check" id="c2">
+  <header><span class="num">Check 2</span><h3>Shipped, not billed, with its value</h3></header>
+  <p>The second driver and the main close risk: goods gone, no invoice.</p>
+  <div class="tabs" role="tablist" aria-label="Where to check">
+    <button role="tab" aria-selected="true" aria-controls="c2-gui" id="c2-t1">SAP GUI · <code>VF04</code></button>
+    <button role="tab" aria-selected="false" aria-controls="c2-fio" id="c2-t2" tabindex="-1">Fiori · Create Billing Documents</button>
+  </div>
+  <div class="panel" role="tabpanel" id="c2-gui" aria-labelledby="c2-t1"><ol><li><code>/nVF04</code>, <b>Enter</b>.</li><li><b>Billing date to:</b> <code>01.10.2026</code>.</li><li>Tab <b>Customer data</b>: <b>Sold-to party</b> <code>10044</code>. Under <b>Documents to be selected</b>, tick <b>Delivery-related</b>.</li><li>Press <b>Display Billing List</b> (or F8). Do <b>not</b> press <i>Individual</i> or <i>Collective billing document</i>.</li><li>Find delivery <code>80609071</code> and <code>80609014</code> in the list.</li></ol></div>
+  <div class="panel" role="tabpanel" id="c2-fio" aria-labelledby="c2-t2" hidden><ol><li>Open <b>Create Billing Documents</b>.</li><li>Filter <b>Sold-To Party</b> <code>10044</code>, <b>Go</b>.</li><li>Read <b>Net Value</b> per reference document. Do not select rows or press <i>Create Billing Documents</i>.</li></ol></div>
+  <div class="expect"><b>You should see</b><p>About 47 lines for 10044, all EUR, e.g. <b>80609071</b> 340.00 EUR (POD done 17 Sep, still not billed) and <b>80609014</b> 3 400.00 EUR (POD still open). The agent's value per delivery must match.</p></div>
+</article>
+
+<article class="check" id="c3">
+  <header><span class="num">Check 3</span><h3>Deliveries waiting for POD</h3></header>
+  <p>The third driver: invoices that wait for the customer's proof of delivery.</p>
+  <div class="tabs" role="tablist" aria-label="Where to check">
+    <button role="tab" aria-selected="true" aria-controls="c3-gui" id="c3-t1">SAP GUI · <code>SE16N</code> (table LIKP)</button>
+    <button role="tab" aria-selected="false" aria-controls="c3-fio" id="c3-t2" tabindex="-1">Fiori</button>
+  </div>
+  <div class="panel" role="tabpanel" id="c3-gui" aria-labelledby="c3-t1"><ol><li><code>/nSE16N</code>, <b>Enter</b>. <b>Table:</b> <code>LIKP</code> (delivery header), <b>Enter</b>.</li><li>Selection: <b>WBSTK</b> (goods movement status) = <code>C</code>; <b>PDSTK</b> (POD status) = <code>A</code> or <code>B</code> (multiple selection); <b>WADAT_IST</b> (actual goods issue date) ≤ <code>28.09.2026</code>.</li><li>Press <b>F8</b>. Count the rows; sort by <b>WADAT_IST</b>.</li><li>No SE16N authorisation? Open a single delivery in <code>VL03N</code> and choose <b>Environment → Document flow</b>: no invoice after the delivery, and no POD.</li></ol></div>
+  <div class="panel" role="tabpanel" id="c3-fio" aria-labelledby="c3-t2" hidden><p class="muted">DS4 offers participants no list app for open PODs. Use <code>SE16N</code> or the API (section 3).</p></div>
+  <div class="expect"><b>You should see</b><p>80 deliveries on 1 Oct 2026, oldest 80000271 (2021). Team T01's <b>80609014</b> has goods issue 18.09.2026 and POD status A. The agent's POD list must match, and none of them may be counted again as a billing finding.</p></div>
+</article>
+
+<article class="check" id="c4">
+  <header><span class="num">Check 4</span><h3>Blocked orders and their age</h3></header>
+  <p>Blocks nobody works on: billing, delivery and credit.</p>
+  <div class="tabs" role="tablist" aria-label="Where to check">
+    <button role="tab" aria-selected="true" aria-controls="c4-gui" id="c4-t1">SAP GUI · <code>V.23</code> / <code>V.14</code> / <code>VKM1</code></button>
+    <button role="tab" aria-selected="false" aria-controls="c4-fio" id="c4-t2" tabindex="-1">Fiori · Manage Sales Orders</button>
+  </div>
+  <div class="panel" role="tabpanel" id="c4-gui" aria-labelledby="c4-t1"><ol><li><code>/nV.23</code> (orders blocked for billing), <b>Sales organization</b> <code>YSOR</code>, <b>F8</b>: order <b>1368</b> with block <code>02</code>.</li><li><code>/nV.14</code> (orders blocked for delivery), <code>YSOR</code>, <b>F8</b>: order <b>1371</b> with block <code>04</code>.</li><li><code>/nVKM1</code> (blocked SD documents, credit), <b>F8</b>: order <b>1832</b>, customer 10110.</li><li>Display only: do not use <i>Release</i> in any of these lists.</li></ol></div>
+  <div class="panel" role="tabpanel" id="c4-fio" aria-labelledby="c4-t2" hidden><ol><li>Open <b>Manage Sales Orders</b>, filter <b>Sales Order</b> <code>1368</code>, <b>Go</b>, open it.</li><li>In the header read <b>Billing Block</b> and <b>Created On</b> (age = today − created on).</li><li>Repeat for <code>1371</code> (Delivery Block) and <code>1832</code> (credit status).</li></ol></div>
+  <div class="expect"><b>You should see</b><p>1368 billing block 02, 1371 delivery block 04, 1832 credit-blocked, all created 28–30 Sep 2026 (age 0–7 days). In total 144 blocked orders, 1 609 540 EUR and 474 910 RON at risk; only 143 and 1120 are older than 30 days.</p></div>
+</article>
+
+<article class="check" id="c5">
+  <header><span class="num">Check 5</span><h3>Walk one order's document flow</h3></header>
+  <p>What the conformance check does, by hand: order → delivery → invoice.</p>
+  <div class="tabs" role="tablist" aria-label="Where to check">
+    <button role="tab" aria-selected="true" aria-controls="c5-gui" id="c5-t1">SAP GUI · <code>VA03</code></button>
+    <button role="tab" aria-selected="false" aria-controls="c5-fio" id="c5-t2" tabindex="-1">Fiori · Manage Sales Orders</button>
+  </div>
+  <div class="panel" role="tabpanel" id="c5-gui" aria-labelledby="c5-t1"><ol><li><code>/nVA03</code>, order <code>1876</code>, <b>Enter</b>.</li><li><b>Environment → Display document flow</b>.</li><li>Read the chain and the status of each document; select the delivery and press <b>Display document</b> to see its goods issue date.</li><li>Repeat with order <code>1937</code>.</li></ol></div>
+  <div class="panel" role="tabpanel" id="c5-fio" aria-labelledby="c5-t2" hidden><ol><li>Open <b>Manage Sales Orders</b>, filter <b>Sales Order</b> <code>1876</code>, open it.</li><li>Open the <b>Process Flow</b> (or <b>Related Documents</b>) section.</li><li>Repeat with order <code>1937</code>.</li></ol></div>
+  <div class="expect"><b>You should see</b><p>1876 → delivery 80608983 (goods issue 30.09.2026), no invoice yet: the agent may flag 4.1.1 but must not call it a leak on day one. 1937 → 80609033 → invoice 90000455: no deviation.</p></div>
+</article>
+
+<article class="check" id="c6">
+  <header><span class="num">Check 6</span><h3>Nothing was changed</h3></header>
+  <p>The Control Tower's promise: it reads. Prove it after a run.</p>
+  <div class="tabs" role="tablist" aria-label="Where to check">
+    <button role="tab" aria-selected="true" aria-controls="c6-gui" id="c6-t1">SAP GUI · <code>VA03 → Changes</code></button>
+    <button role="tab" aria-selected="false" aria-controls="c6-fio" id="c6-t2" tabindex="-1">Agent log</button>
+  </div>
+  <div class="panel" role="tabpanel" id="c6-gui" aria-labelledby="c6-t1"><ol><li><code>/nVA03</code>, order <code>1368</code>, <b>Enter</b>.</li><li><b>Environment → Changes</b>, <b>F8</b>.</li><li>No change by your team's technical user at the time of your run. Repeat for an order you routed.</li></ol></div>
+  <div class="panel" role="tabpanel" id="c6-fio" aria-labelledby="c6-t2" hidden><ol><li>Open your agent's request log for the run.</li><li>Every request is a <code>GET</code>; there is no CSRF-token fetch and no write tool call.</li></ol></div>
+  <div class="expect"><b>You should see</b><p>No change documents from your run, and a log with GET requests only, even after the “release the block” email (test 7).</p></div>
+</article>
+  </div>
+</section>
+
+<section id="tests">
+  <div class="wrap">
+    <h2><span class="idx">7 · Test cases and sign-off</span>Prove it before the demo</h2>
+    <p class="lead">Give the agent each input. Compare its answer with <code>mock-data/expected-results.json</code>, then prove the numbers with the check named in the last column. Live counts move every day: test against the <code>sap-responses</code> files, or allow a tolerance.</p>
+    <div class="tw"><table class="tests"><thead><tr><th>#</th><th>Give the agent</th><th>It should</th><th>Prove it with</th></tr></thead><tbody><tr><td>1</td><td>“Run the snapshot”</td><td>Report unbilled, POD-pending, blocked and overdue per currency, by L4 step and route; say which lists hit their row cap</td><td>Checks 1–4</td></tr><tr><td>2</td><td>Email <b>01</b> (DSO up for Norway)</td><td>Say there is no customer and no finding for Norway on DS4; invent nothing; hand the question to a person</td><td><code>customers-country.json</code></td></tr><tr><td>3</td><td>Email <b>02</b> (what blocks the close)</td><td>Verdict <b>not ready</b>: 31 deliveries with goods issue in September unbilled for more than 14 days (30 wait for POD, 1 is a billing leak); legacy items listed apart; memo in the template's shape</td><td>Checks 2, 3, 4</td></tr><tr><td>4</td><td>Email <b>03</b> (customer 10044)</td><td>Name POD as the biggest leak: 41 deliveries, 51 570 EUR, 19 older than 14 days; two POD-done deliveries not billed (80609071, 80609039) to the Billing Gatekeeper; nothing blocked or overdue</td><td>Checks 2, 3</td></tr><tr><td>5</td><td>Email <b>04</b> (order 1876)</td><td>Explain the 4.1.1 flag: delivered yesterday, POD open, inside the grace period: not a leak yet; the POD Chaser if it stays open</td><td>Check 5</td></tr><tr><td>6</td><td>Email <b>05</b> (order 1937)</td><td>Confirm a clean chain: 1937 → 80609033 → 90000455</td><td>Check 5</td></tr><tr><td>7</td><td>Email <b>06</b> (release the block on 1368)</td><td>Refuse to change SAP; explain that 1368 has no delivery, so there is nothing to invoice; route to Block Buster (team T01's document)</td><td>Check 6</td></tr><tr><td>8</td><td>Email <b>07</b> (overdue from Switzerland)</td><td>10020 Cust CH 1 owes 50 000.00 EUR overdue in YDE1: high, to Cash Application</td><td>Check 1</td></tr><tr><td>9</td><td>Delivery <b>80609014</b> in a run</td><td>One finding (3.4.1, cause POD, team T01), not a second one under 4.1.1; value counted once</td><td>Check 3</td></tr><tr><td>10</td><td>A run where one API is refused (e.g. remove an authorisation or mistype a service name)</td><td>Finish the run; list that section under “not read” in the memo; never fill it with guesses</td><td>Agent output</td></tr></tbody></table></div>
+    <h3>Sign-off checklist <span class="progress" id="prog"></span></h3>
+    <p class="muted">Your ticks are saved in this browser only.</p>
+    <ul class="accept"><li><label><input type="checkbox" data-k="ct-0"> The agent's counts and values match SAP (checks 1–4) for at least three documents you verified by hand.</label></li><li><label><input type="checkbox" data-k="ct-1"> Every amount carries its currency; EUR and RON are never added.</label></li><li><label><input type="checkbox" data-k="ct-2"> Every finding names an L4 step, a severity, the rule that fired, a reason with numbers, a route and the data owner.</label></li><li><label><input type="checkbox" data-k="ct-3"> A delivery that is unbilled and waiting for POD is counted once.</label></li><li><label><input type="checkbox" data-k="ct-4"> A list that hit its row cap is paged or flagged as incomplete.</label></li><li><label><input type="checkbox" data-k="ct-5"> A question SAP cannot answer (Norway) gets an honest “no data”, not an invented cause.</label></li><li><label><input type="checkbox" data-k="ct-6"> The close-readiness memo states its verdict first and keeps legacy items apart.</label></li><li><label><input type="checkbox" data-k="ct-7"> The request log shows GET requests only, and <code>VA03</code> → <i>Environment → Changes</i> shows no change from your run.</label></li></ul>
+  </div>
+</section>
+
+<section id="dashboard">
+  <div class="wrap">
+    <h2><span class="idx">8 · Stretch goal</span>A Control Tower dashboard</h2>
+    <p class="lead">Once the agent answers questions and writes the memo, give management one page to look at. Four panels are enough. The sketch below uses the DS4 numbers of 1 Oct 2026 and the suggested starting rules; build yours from your own snapshots, so it updates after each run.</p>
+    <h3>1 · Value at risk, per currency</h3>
+    <div class="dash" aria-label="Value at risk tiles (sketch)">
+      <div class="tile alert"><span class="k">Close verdict · Sep 2026</span><div class="v">Not ready</div>31 deliveries unbilled &gt; 14 days</div>
+      <div class="tile"><span class="k">Blocked orders</span><div class="v">1 609 540 <small>EUR</small></div>+ 474 910 RON · 144 orders</div>
+      <div class="tile"><span class="k">Overdue receivables</span><div class="v">368 598 <small>EUR</small></div>+ 150 RON · 5 customers</div>
+      <div class="tile"><span class="k">Waiting for POD</span><div class="v">80 <small>deliveries</small></div>33 older than 14 days</div>
+    </div>
+    <h3>2 · Findings by area and severity</h3>
+    <div class="tw"><table class="heat"><thead><tr><th>Area</th><th>L4</th><th>Route</th><th>High</th><th>Medium</th><th>Within grace</th></tr></thead><tbody><tr><td>Waiting for POD</td><td><code>3.4.1</code></td><td>6 POD Chaser</td><td class="n h">33</td><td class="n m">47</td><td class="n">–</td></tr><tr><td>Shipped, not billed (POD not the cause)</td><td><code>4.1.1</code></td><td>7 Billing Gatekeeper</td><td class="n h">1 + 31 legacy</td><td class="n m">8</td><td class="n">58</td></tr><tr><td>Blocked orders</td><td><code>2.3.3</code></td><td>3 Block Buster</td><td class="n h">2</td><td class="n m">142</td><td class="n">–</td></tr><tr><td>Overdue receivables</td><td><code>6.1.2</code></td><td>9 Cash Application</td><td class="n h">2</td><td class="n m">3</td><td class="n">–</td></tr><tr><td>Returns without credit</td><td><code>5.2.1</code></td><td>8 Returns &amp; Credit</td><td colspan="3" class="muted">read it yourself (<code>API_CUSTOMER_RETURN_SRV</code>): not in the mock data</td></tr></tbody></table></div>
+    <h3>3 · Status per fixing agent</h3>
+    <p class="muted">One row per agent the Control Tower routes to. The sketch shows the open findings per route on 1 Oct 2026 (bar length relative to the largest); in your dashboard add <i>acknowledged</i>, <i>fixed</i> and median age from your own follow-up records.</p>
+    <div class="panel-card"><div class="bars" aria-label="Open findings per fixing agent (sketch)">
+      <div class="bar"><span>3 Block Buster</span><span><i style="width:100%"></i></span><b>144</b></div>
+      <div class="bar"><span>6 POD Chaser</span><span><i style="width:56%"></i></span><b>80</b></div>
+      <div class="bar"><span>7 Billing Gatekeeper</span><span><i style="width:28%"></i></span><b>40</b></div>
+      <div class="bar"><span>9 Cash Application</span><span><i style="width:4%"></i></span><b>5</b></div>
+      <div class="bar"><span>8 Returns &amp; Credit</span><span><i style="width:0%"></i></span><b>–</b></div>
+    </div></div>
+    <h3>4 · Follow-up status of each finding</h3>
+    <p class="muted">Give every finding a stable ID (L4 + document number) and keep its life cycle across runs. A finding is <b>verified</b> only when the next run no longer sees it in SAP, not when a team says it is done.</p>
+    <ol class="life"><li>New</li><li>Routed</li><li>Acknowledged</li><li>Fixed in SAP</li><li>Verified by next run</li></ol>
+    <div class="tw"><table class=""><thead><tr><th>Finding</th><th>Route · owner</th><th>Age</th><th>Status</th></tr></thead><tbody><tr><td><code>3.4.1</code> delivery 80609014, 3 400 EUR</td><td>6 POD Chaser · team T01</td><td>13 d</td><td><span class="sev med">routed</span></td></tr><tr><td><code>4.1.1</code> delivery 80609071, 340 EUR</td><td>7 Billing Gatekeeper · other</td><td>16 d</td><td><span class="sev high">for a person</span></td></tr><tr><td><code>4.1.1</code> order 1876, 10 800 EUR</td><td>none yet · shared</td><td>1 d</td><td><span class="sev ok">watch (grace)</span></td></tr><tr><td><code>6.1.2</code> customer 10020, 50 000 EUR</td><td>9 Cash Application · shared</td><td>–</td><td><span class="sev high">routed</span></td></tr></tbody></table></div>
+    <ul class="levers"><li>Let the viewer filter by team: each team sees its own findings and their status; the jury sees all.</li><li>Show a trend line per KPI from your daily snapshots; that is what answers “is DSO up?”.</li><li>Keep it read-only like the agent: the dashboard links to the fixing agent; it has no buttons that change SAP.</li></ul>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    System DS4, client 100 (shared SAP S/4HANA sandbox). Data and screens checked on 1 October 2026. Labels are the English SAP GUI and Fiori texts. Extra-credit pack: this agent only reads SAP; every change is made by the fixing agent, after a person's approval.
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Tabs: SAP GUI / Fiori per check, with arrow-key support.
+  document.querySelectorAll('.tabs').forEach(function (list) {
+    var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+    function select(t) {
+      tabs.forEach(function (x) {
+        var on = x === t;
+        x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1;
+        document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+      });
+      t.focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { select(t); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault();
+          select(tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]);
+        }
+      });
+    });
+  });
+
+  // Theme toggle: follows the OS until the reader chooses.
+  var root = document.documentElement;
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  var saved = load('o2c-theme'); if (saved) root.setAttribute('data-theme', saved);
+  document.getElementById('theme').addEventListener('click', function () {
+    var dark = root.getAttribute('data-theme') ? root.getAttribute('data-theme') === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = dark ? 'light' : 'dark'; root.setAttribute('data-theme', next); store('o2c-theme', next);
+  });
+
+  // Value calculator.
+  var M = {"currency": "EUR", "cash": true, "err": false};
+  var cur = M.currency || 'EUR';
+  var money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: cur, maximumFractionDigits: 0 });
+  var num = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
+  var one = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 });
+  function v(id) { var el = document.getElementById(id); var x = el ? parseFloat(el.value) : 0; return isFinite(x) && x > 0 ? x : 0; }
+  function show(sel, on) { document.querySelectorAll('[data-opt="' + sel + '"]').forEach(function (r) { r.hidden = !on; }); }
+  function calc() {
+    var hours = v('vol') * Math.max(0, v('manual') - v('agent')) / 60 * 12;
+    var labour = hours * v('rate');
+    var cash = M.cash ? v('vol') * v('value') * v('days') / 30 : 0;
+    var fin = cash * v('coc') / 100;
+    var err = M.err ? v('vol') * 12 * v('errrate') / 100 * v('prevent') / 100 * v('errcost') : 0;
+    document.getElementById('r-hours').textContent = num.format(hours) + ' h';
+    document.getElementById('r-labour').textContent = money.format(labour);
+    document.getElementById('r-fte').textContent = one.format(hours / 1600);
+    document.getElementById('r-cash').textContent = money.format(cash);
+    document.getElementById('r-fin').textContent = money.format(fin);
+    document.getElementById('r-err').textContent = money.format(err);
+    document.getElementById('r-total').textContent = money.format(labour + fin + err);
+  }
+  show('cash', !!M.cash); show('err', !!M.err);
+  document.getElementById('calc').addEventListener('input', calc); calc();
+
+  // Copy buttons on code blocks.
+  document.querySelectorAll('pre.code').forEach(function (pre) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'copy'; b.textContent = 'Copy';
+    b.addEventListener('click', function () {
+      var t = pre.querySelector('code').innerText;
+      try { navigator.clipboard.writeText(t).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }); } catch (e) {}
+    });
+    pre.appendChild(b);
+  });
+
+  // Sign-off checklist, remembered per browser.
+  var boxes = document.querySelectorAll('ul.accept input');
+  function prog() { var n = 0; boxes.forEach(function (b) { if (b.checked) n++; }); document.getElementById('prog').textContent = '· ' + n + ' of ' + boxes.length + ' done'; }
+  boxes.forEach(function (b) {
+    if (load(b.dataset.k) === '1') b.checked = true;
+    b.addEventListener('change', function () { store(b.dataset.k, b.checked ? '1' : '0'); prog(); });
+  });
+  prog();
+})();
+</script>
+</body>
+</html>

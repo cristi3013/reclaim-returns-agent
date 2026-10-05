@@ -19,6 +19,7 @@ import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import { SupabasePersistence } from './persistence'
 import { supabaseVerifier, type Principal, type Verifier } from './auth'
+import { ControlTower } from './control-tower'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -225,6 +226,19 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     const r = await service.release(req.params.id, who(req))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
+  })
+
+  // Control Tower (extra credit, agent 10): reads, computes, answers, routes. No write to SAP anywhere in it.
+  const tower = new ControlTower({ store, ai, ingest: (m) => service.ingestInbound(m), log })
+  app.get('/api/control-tower/snapshot', async () => tower.current())
+  app.post('/api/control-tower/run', async (req) => tower.run(req.principal.name))
+  app.post('/api/control-tower/ask', async (req) => tower.ask(z.object({ question: z.string().min(3) }).parse(req.body).question, req.principal.name))
+  app.get('/api/control-tower/memo', async (_req, reply) => reply.type('text/markdown; charset=utf-8').send(tower.memo()))
+  app.get('/api/control-tower/notes', async () => tower.notes())
+  app.post<{ Params: { id: string } }>('/api/control-tower/handover/:id', async (req, reply) => {
+    const r = await tower.handover(req.params.id, req.principal.name)
+    if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
+    return r
   })
 
   // Analytics, eval, status, settings

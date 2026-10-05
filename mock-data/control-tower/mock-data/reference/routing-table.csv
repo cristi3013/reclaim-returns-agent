@@ -1,0 +1,13 @@
+finding,l4,condition,severity_suggested,route_to_agent,mcp_toolset,note
+shipped_not_billed,4.1.1,"goods issued, not billed, POD confirmed or not POD-relevant, more than 3 days",high after 14 days,7 Billing Gatekeeper,billing,value from billing due list or order pro rata
+pod_pending,3.4.1,"goods issued, POD-relevant, POD open, 3 days or more",high after 14 days,6 POD Chaser,pod,also unbilled: count once with cause POD
+due_list_error,4.1.1,billing due list row with HasError = true,medium,7 Billing Gatekeeper,billing,merge into the unbilled finding of the same delivery
+billing_block_after_delivery,4.1.4,"delivered, order still has a header billing block",high after 30 days,3 Block Buster,blocks,
+order_block,2.3.3,billing or delivery block on the order,high after 30 days,3 Block Buster,blocks,ageing buckets 0-7 / 8-30 / 31+
+delivery_block_no_delivery,3.1.4,"delivery block set, no delivery",medium,3 Block Buster,orderdesk,the MCP conformance tool names orderdesk; send to 4 Customer Order Desk if the block waits on the customer
+credit_block,2.3.3,TotalCreditCheckStatus = B,high after 30 days,3 Block Buster,blocks,a credit-limit change is master data: for a person
+return_without_credit,5.2.1,customer return older than 7 days with no credit memo,medium,8 Returns & Credit Note,returns,
+overdue_receivable,6.1.2,open item past net due date,high from 10000 per customer,9 Cash Application & Collections,cash,per company code and currency
+partially_delivered,2.2.3,OverallTotalDeliveryStatus = B,info,2 ATP Rescue,atp,information only
+billed_without_delivery,3.1.2,invoice exists but no delivery,info,none,controltower,expected for order-related billing (services)
+no_finding_for_subject,,question names a country or customer with no finding,info,person,,"say so; do not invent a cause"

@@ -1,0 +1,64 @@
+{
+  "about": "POD and billing status of the deliveries the test cases use. POD status: '' not POD-relevant, A/B open, C confirmed. Billing status A = not billed. 80609071 and 80609039 have their POD but no invoice: a billing leak, not a POD problem.",
+  "tool": "s4_odata_query",
+  "arguments": {
+    "service": "API_OUTBOUND_DELIVERY_SRV;v=0002",
+    "entitySet": "A_OutbDeliveryHeader"
+  },
+  "underlyingRequests": [
+    "GET /sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader?$filter=DeliveryDocument eq '80609071' or DeliveryDocument eq '80609039' or DeliveryDocument eq '80608955' or DeliveryDocument eq '80609023' or DeliveryDocument eq '80608983' or DeliveryDocument eq '80609014'&$select=DeliveryDocument,SoldToParty,ActualGoodsMovementDate,OverallProofOfDeliveryStatus,OverallDelivReltdBillgStatus,ProofOfDeliveryDate"
+  ],
+  "capturedOn": "2026-10-01",
+  "status": 200,
+  "note": "Answer of the hackathon MCP server tool (shaped JSON, not the raw OData envelope). 'underlyingRequests' are the OData calls the tool makes, so you can reproduce it with any HTTP client (add sap-client=100&$format=json).",
+  "response": [
+    {
+      "ActualGoodsMovementDate": "2026-09-30",
+      "DeliveryDocument": "80608955",
+      "OverallDelivReltdBillgStatus": "A",
+      "OverallProofOfDeliveryStatus": "C",
+      "ProofOfDeliveryDate": "2026-09-30",
+      "SoldToParty": "10044"
+    },
+    {
+      "ActualGoodsMovementDate": "2026-09-30",
+      "DeliveryDocument": "80608983",
+      "OverallDelivReltdBillgStatus": "A",
+      "OverallProofOfDeliveryStatus": "A",
+      "ProofOfDeliveryDate": null,
+      "SoldToParty": "10057"
+    },
+    {
+      "ActualGoodsMovementDate": "2026-09-18",
+      "DeliveryDocument": "80609014",
+      "OverallDelivReltdBillgStatus": "A",
+      "OverallProofOfDeliveryStatus": "A",
+      "ProofOfDeliveryDate": null,
+      "SoldToParty": "10044"
+    },
+    {
+      "ActualGoodsMovementDate": "2026-09-29",
+      "DeliveryDocument": "80609023",
+      "OverallDelivReltdBillgStatus": "A",
+      "OverallProofOfDeliveryStatus": "A",
+      "ProofOfDeliveryDate": null,
+      "SoldToParty": "10044"
+    },
+    {
+      "ActualGoodsMovementDate": "2026-09-25",
+      "DeliveryDocument": "80609039",
+      "OverallDelivReltdBillgStatus": "A",
+      "OverallProofOfDeliveryStatus": "C",
+      "ProofOfDeliveryDate": "2026-09-27",
+      "SoldToParty": "10044"
+    },
+    {
+      "ActualGoodsMovementDate": "2026-09-15",
+      "DeliveryDocument": "80609071",
+      "OverallDelivReltdBillgStatus": "A",
+      "OverallProofOfDeliveryStatus": "C",
+      "ProofOfDeliveryDate": "2026-09-17",
+      "SoldToParty": "10044"
+    }
+  ]
+}

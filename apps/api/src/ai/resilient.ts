@@ -60,4 +60,9 @@ export class ResilientAi implements Ai {
   narrate(...args: Parameters<Ai['narrate']>) {
     return this.withFallback((ai) => ai.narrate(...args))
   }
+
+  async phrase(question: Parameters<NonNullable<Ai['phrase']>>[0], answer: Parameters<NonNullable<Ai['phrase']>>[1]) {
+    const run = (ai: Ai) => (ai.phrase ? ai.phrase(question, answer) : Promise.resolve({ text: answer.text }))
+    return this.withFallback(run)
+  }
 }
