@@ -214,8 +214,12 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
 
   const ready = async () => {
     if (persistence) {
-      const n = await persistence.load(store)
-      log(`Supabase: loaded ${n} cases`)
+      try {
+        const n = await persistence.load(store)
+        log(`Supabase: loaded ${n} cases`)
+      } catch (e) {
+        log((e as Error).message)
+      }
     }
     poller?.start()
   }
