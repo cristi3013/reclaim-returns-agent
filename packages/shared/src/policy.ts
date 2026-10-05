@@ -149,6 +149,13 @@ export const L4_STEPS: Record<L4Step, { name: string; decides: string }> = {
 export const BILLING_BLOCK = '08'
 
 /** Mock invoices from the hackathon folder. Never to be posted to a real SAP system. */
+/**
+ * Team 8's own DS4 invoices (HACK-T08, customer 10021, material 54, 270 EUR/KG, billed 29 Sep 2026). These are the only
+ * invoices a real write may target. Quantities in KG: 373:5, 374:12, 375:20, 376:8, 377:15, 378:30, 379:10, 380:25,
+ * 381:6, 382:18, 383:5, 384:12, 385:20, 386:8, 387:15.
+ */
+export const TEAM_INVOICES = Array.from({ length: 15 }, (_, i) => String(90000373 + i))
+
 export const DEMO_INVOICES = [
   '90000353',
   '90000354',

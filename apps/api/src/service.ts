@@ -346,7 +346,11 @@ export class Service {
       const doc: SapDocument = { id: uid('sap'), caseId: c.id, type, number: r.number, payload: p.sapPayload, response: r.response, createdAt: new Date().toISOString(), released: false, etag: r.etag, gatewayLogId: log.id }
       c.sapDocuments.push(doc)
       c.status = 'written_to_sap'
-      ev(c, 'sap_write', `${type} ${r.number} created${blockConfirmed === false ? '' : ' with billing block 08'}`, { payload: p.sapPayload, response: r.response, ifMatch: inv?.etag, blockConfirmed }, step, Date.now() - t)
+      const customerReference = (r.response.PurchaseOrderByCustomer as string | undefined) ?? null
+      ev(c, 'sap_write', `${type} ${r.number} created${blockConfirmed === false ? '' : ' with billing block 08'}${customerReference ? `, reference ${customerReference}` : ''}`, { payload: p.sapPayload, response: r.response, ifMatch: inv?.etag, blockConfirmed, customerReference, versionStamp: r.etag ?? null }, step, Date.now() - t)
+      if (!r.etag) {
+        ev(c, 'error', `${type} ${r.number} came back without a version stamp: it cannot be released from here until the gateway returns one. Check the document in SAP.`, { response: r.response }, step, null)
+      }
       if (blockConfirmed === false) {
         ev(c, 'error', `${type} ${r.number} was created WITHOUT billing block 08. Do not release; check the document in SAP and inform the gateway owner.`, { HeaderBillingBlockReason: block }, step, null)
       }

@@ -115,7 +115,9 @@ Base path `/odata/v4/returns`. Reads are OData v4 functions (GET, parameters in 
 
 **Still to confirm with Alex:** that the create response includes `__metadata.etag` and `HeaderBillingBlockReason`; the customer reference (`PurchaseOrderByCustomer = COMPLAINT-<invoice>`) on the creates, which he is deploying.
 
-Reads are safe to call any time. **Writes only against the team's own four invoices on DS4** (guarded in the service and again in `RealGateway`).
+Reads are safe to call any time. **Writes only against the team's own invoices on DS4**, `TEAM_INVOICES` in shared: 90000373–90000387 (HACK-T08, customer 10021, material 54, 270 EUR/KG, one line each, billed 29 Sep 2026). The shared demo invoices are guarded in the service and again in `RealGateway`. The "New complaint" dialog in the UI starts from ready-made complaints against 90000377 (R5 credit request), 90000378 (R1 return) and 90000379 (R2 return).
+
+**First real write, what to look at.** After the create, the `sap_write` event records `customerReference` (the `PurchaseOrderByCustomer` the response carries, expected `COMPLAINT-<invoice>`) and `versionStamp`. If the response carries no stamp, an error event says the document cannot be released from here; the gateway's result types (`CreditMemoResult`, `CreateReturnResult`) list neither field, so whether they come through depends on how the gateway serialises its answer. That is the first thing to check on the first write.
 
 **Live findings, 5 Oct 2026 evening (reads against the deployed gateway):**
 - `getInvoice`: raw OData v2 document with `to_Item.results` and `__metadata.etag`; our `toSnapshot` maps it. Real 90000358 is 30 KG (the fixture now says so too); real 90000359 ships from plant YGLG, so case 08 is intercompany only on the mock.

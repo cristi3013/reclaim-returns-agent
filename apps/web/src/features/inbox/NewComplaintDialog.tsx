@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { useIngest } from '@/api'
 import { Button } from '@/components/ui/button'
+import { COMPLAINT_EXAMPLES } from './examples'
 
 /**
  * Writes a complaint by hand and ingests it as an .eml, so a case can be created for any invoice,
@@ -9,11 +10,20 @@ import { Button } from '@/components/ui/button'
  */
 export function NewComplaintDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ingest = useIngest()
-  const [from, setFrom] = useState('Quality, Cust DE 1 <quality@cust-de-1.example>')
-  const [subject, setSubject] = useState('Complaint on invoice 90000363 – damaged drums')
-  const [body, setBody] = useState(
-    'Hello,\n\nTwo of the drums delivered with invoice 90000363 (item 10, material 54) arrived damaged and leaking: 2 KG are lost. Please credit.\n\nRegards,\nQuality department, Cust DE 1',
-  )
+  const first = COMPLAINT_EXAMPLES[0]!
+  const [example, setExample] = useState(first.id)
+  const [from, setFrom] = useState(first.from)
+  const [subject, setSubject] = useState(first.subject)
+  const [body, setBody] = useState(first.body)
+  const chosen = COMPLAINT_EXAMPLES.find((e) => e.id === example)
+  const pick = (id: string) => {
+    const e = COMPLAINT_EXAMPLES.find((x) => x.id === id)
+    setExample(id)
+    if (!e) return
+    setFrom(e.from)
+    setSubject(e.subject)
+    setBody(e.body)
+  }
   if (!open) return null
   const submit = () => {
     const date = new Date().toUTCString()
@@ -35,6 +45,18 @@ export function NewComplaintDialog({ open, onClose }: { open: boolean; onClose: 
           Write the email a customer would send. It is ingested like an .eml from the returns mailbox. Use one of the team's DS4 invoices to see a real write.
         </p>
         <div className="mt-4 grid gap-3">
+          <label className="text-sm">
+            Start from an example (team invoices on DS4)
+            <select value={example} onChange={(e) => pick(e.target.value)} className="mt-1 h-9 w-full rounded-md border border-line bg-surface px-2">
+              {COMPLAINT_EXAMPLES.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.label}
+                </option>
+              ))}
+              <option value="">Blank</option>
+            </select>
+            {chosen && <span className="mt-1 block text-xs text-muted">Expected: {chosen.expect}</span>}
+          </label>
           <label className="text-sm">
             From
             <input value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1 h-9 w-full rounded-md border border-line bg-surface px-3" />
