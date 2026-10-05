@@ -5,6 +5,7 @@ import {
   CaseSchema,
   CaseSummarySchema,
   EvalResultSchema,
+  ReturnStatusSchema,
   SapDocumentSchema,
   SettingsSchema,
   type Settings,
@@ -92,6 +93,9 @@ export class HttpApiClient implements ApiClient {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 500, message: err.message }
     }
+  }
+  getReturnStatus(id: string) {
+    return this.call('returnStatus', { id }, undefined, ReturnStatusSchema)
   }
   getAnalytics() {
     return this.call('analytics', {}, undefined, AnalyticsSchema)

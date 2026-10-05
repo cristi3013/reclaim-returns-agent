@@ -14,6 +14,7 @@ import {
   type CaseSummary,
   type EvalResult,
   type Settings,
+  type ReturnStatus,
 } from '@reclaim/shared'
 import {
   CONFLICT_MESSAGE,
@@ -315,9 +316,20 @@ export class MockApiClient implements ApiClient {
         return { ok: false, status: 412, message: CONFLICT_MESSAGE }
       }
       d.released = true
-      ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})`, { HeaderBillingBlockReason: '', goodsReceived: !!input.goodsReceived }, step, 500)
+      const goodsReceipt = d.type === 'YRE' ? 'confirmed manually' : 'not required'
+      ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})${d.type === 'YRE' ? '; goods receipt confirmed manually' : ''}`, { HeaderBillingBlockReason: '', goodsReceipt, warehouseStatus: null, goodsReceived: !!input.goodsReceived }, step, 500)
       this.touch(c.id)
       return { ok: true, document: d }
+    }
+    throw Object.assign(new Error('Document not found'), { status: 404 })
+  }
+
+  /** The in-browser mock has no warehouse: the receipt is always unknown and is confirmed by hand. */
+  async getReturnStatus(id: string): Promise<ReturnStatus> {
+    for (const c of this.store.cases.values()) {
+      const d = c.sapDocuments.find((x) => x.id === id)
+      if (!d) continue
+      return { documentId: id, type: d.type, status: d.type === 'YRE' ? 'UNKNOWN' : 'not applicable', received: d.type !== 'YRE', source: 'none', checkedAt: new Date().toISOString() }
     }
     throw Object.assign(new Error('Document not found'), { status: 404 })
   }

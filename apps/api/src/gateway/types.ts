@@ -19,22 +19,44 @@ export interface Gateway {
   /** Warehouse receipt status of a return (step 5.1.3). Live shape: { warehouseReceiptStatus, received }. */
   getReturnStatus?(returnNumber: string): Promise<{ status: string; received: boolean }>
   /** POST a customer return (YRE). Returns the new document number. */
-  createReturn(payload: Record<string, unknown>): Promise<WriteResult>
+  createReturn(payload: Record<string, unknown>, ctx: WriteContext): Promise<WriteResult>
   /** POST a credit memo request (YCR) with billing block 08. Returns the new document number. */
-  createCreditMemoRequest(payload: Record<string, unknown>): Promise<WriteResult>
+  createCreditMemoRequest(payload: Record<string, unknown>, ctx: WriteContext): Promise<WriteResult>
   /**
    * Remove billing block 08. `etag` is the version stamp of the document itself (from the create response),
-   * sent as If-Match: a change since then is refused with 412. The gateway releases only credit memo requests,
-   * and only after setApprovalStatus(APPROVED).
+   * sent back as the version stamp: a change since then is refused with 412. The gateway releases a credit
+   * memo request only after setApprovalStatus(APPROVED); a return is released after the goods receipt.
    */
   release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult>
-  /** Open an approval record on the gateway (status PENDING). Required before a release. */
-  logRequest(args: { invoiceNumber: string; proposedAction: GatewayAction }): Promise<LogResult>
+  /** Open an approval record on the gateway (status PENDING). Required before a write. */
+  logRequest(args: LogRequestArgs): Promise<LogResult>
   /** Record the person's decision on that approval record. */
-  setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED' }): Promise<LogResult>
+  setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED'; approvedBy: string; approverRole: string }): Promise<LogResult>
 }
 
-export type GatewayAction = 'RETURN' | 'CREDIT' | 'REPLACEMENT' | 'REJECT'
+export type GatewayAction = 'RETURN' | 'CREDIT' | 'REPLACEMENT' | 'REJECT' | 'PENDING'
+
+/**
+ * What a write carries besides the SAP payload. The gateway maps the policy rule to the SAP order reason itself
+ * (R1→102, R2→101, R3→104, R4→101, R5→103) and stores the rest on its approval record.
+ */
+export interface WriteContext {
+  rule: string
+  gatewayLogId: string
+  creditValue: number
+  evidenceUrl?: string | null
+}
+
+export interface LogRequestArgs {
+  invoiceNumber: string
+  proposedAction: GatewayAction
+  rule: string
+  reason: string
+  claimedQuantity?: number | null
+  claimedAmount?: number | null
+  creditValue?: number | null
+  evidenceUrl?: string | null
+}
 
 export type WriteResult =
   | { ok: true; number: string; response: Record<string, unknown>; etag?: string }

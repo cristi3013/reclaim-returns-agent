@@ -4,6 +4,7 @@ import type {
   Case,
   CaseSummary,
   EvalResult,
+  ReturnStatus,
   Role,
   SapDocument,
   Settings,
@@ -35,7 +36,7 @@ export interface RejectInput {
 export interface ReleaseInput {
   actor: string
   role: Role
-  /** A return (YRE) is credited only after the warehouse received the goods. */
+  /** Manual confirmation that the warehouse received the goods, for when SAP cannot say so (step 5.1.3). */
   goodsReceived?: boolean
 }
 
@@ -54,6 +55,8 @@ export interface ApiClient {
   approve(proposalId: string, input: ApproveInput): Promise<ApproveResult>
   reject(proposalId: string, input: RejectInput): Promise<void>
   release(sapDocumentId: string, input: ReleaseInput): Promise<ReleaseResult>
+  /** Goods receipt of a return as SAP reports it (step 5.1.3). */
+  getReturnStatus(sapDocumentId: string): Promise<ReturnStatus>
   getAnalytics(): Promise<Analytics>
   runEval(): Promise<EvalResult[]>
   getLatestEval(): Promise<EvalResult[] | null>

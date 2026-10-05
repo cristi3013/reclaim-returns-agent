@@ -23,7 +23,7 @@ Deloitte AI Agentic Enterprise Hackathon entry. Presentation Tuesday 6 Oct 2026,
 npm install                      # once, at the root (npm workspaces, not pnpm)
 npm run dev                      # frontend on :5173 (mock backend)
 npm run dev --workspace apps/api # backend on :3000
-npm test                         # all tests (shared 27, web 44, api 31)
+npm test                         # all tests (shared 33, web 44, api 32)
 npm run build --workspace apps/web && npm run start --workspace apps/web   # what Railway runs (railway.json)
 npm run typecheck && npm run lint
 ```

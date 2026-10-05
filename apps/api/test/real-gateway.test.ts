@@ -18,6 +18,7 @@ function stub(answer: (url: string) => unknown) {
 afterEach(() => vi.unstubAllGlobals())
 
 const gw = () => new RealGateway(BASE)
+const ctx = (rule: string) => ({ rule, gatewayLogId: 'log-1', creditValue: 540, evidenceUrl: 'https://api.example/uploads/photo.jpg' })
 const ycr = (reason: string, invoice = '90001234') => ({
   ReferenceSDDocument: invoice,
   SDDocumentReason: reason,
@@ -53,50 +54,68 @@ describe('RealGateway', () => {
     expect(await gw().getAgreedPrice({ customer: '10021', material: '54', salesOrg: 'YSOD', channel: 'Y1' })).toBeNull()
   })
 
-  it('createCreditMemoRequest sends the reason name and keeps the version stamp', async () => {
+  it('createCreditMemoRequest sends the rule, the approval record and the credit value, and keeps the version stamp', async () => {
     stub(() => ({ CreditMemoRequest: '60000200', HeaderBillingBlockReason: '08', __metadata: { etag: 'W/"x1"' } }))
-    const r = await gw().createCreditMemoRequest(ycr('101'))
+    const r = await gw().createCreditMemoRequest(ycr('101'), ctx('R4'))
     expect(calls[0]).toMatchObject({ method: 'POST', url: `${BASE}/createCreditMemoRequest` })
-    expect(calls[0]?.body).toEqual({ invoiceNumber: '90001234', material: 'MAT-1', quantity: '5', unit: 'KG', reason: 'PRICE_COMPLAINT', soldToParty: '1000123' })
+    expect(calls[0]?.body).toEqual({ auditLogID: 'log-1', invoiceNumber: '90001234', material: 'MAT-1', quantity: '5', unit: 'KG', rule: 'R4', soldToParty: '1000123', creditValue: 540, evidenceUrl: 'https://api.example/uploads/photo.jpg' })
     expect(r).toMatchObject({ ok: true, number: '60000200', etag: 'W/"x1"' })
   })
 
-  it('refuses a reason with no agreed gateway name, without calling the gateway', async () => {
+  it('createReturn sends the rule and the approval record', async () => {
+    stub(() => ({ CustomerReturn: '60000300', __metadata: { etag: 'W/"r1"' } }))
+    const yre = { SoldToParty: '1000123', SDDocumentReason: '102', to_Item: [{ ReferenceSDDocument: '90001234', ReferenceSDDocumentItem: '10', Material: 'MAT-1', RequestedQuantity: '2', RequestedQuantityUnit: 'KG' }] }
+    const r = await gw().createReturn(yre, ctx('R1'))
+    expect(calls[0]?.body).toEqual({ auditLogID: 'log-1', invoiceNumber: '90001234', invoiceItem: '10', material: 'MAT-1', quantity: '2', unit: 'KG', rule: 'R1', soldToParty: '1000123', creditValue: 540 })
+    expect(r).toMatchObject({ ok: true, number: '60000300', etag: 'W/"r1"' })
+  })
+
+  it('refuses a rule whose document or reason does not match, without calling the gateway', async () => {
     stub(() => ({}))
-    const r = await gw().createCreditMemoRequest(ycr('104'))
-    expect(r).toMatchObject({ ok: false, status: 400 })
+    expect(await gw().createCreditMemoRequest(ycr('104'), ctx('R5'))).toMatchObject({ ok: false, status: 400 }) // R5 is 103
+    expect(await gw().createCreditMemoRequest(ycr('101'), ctx('R2'))).toMatchObject({ ok: false, status: 400 }) // R2 creates a YRE
+    expect(await gw().createCreditMemoRequest(ycr('101'), ctx('R8'))).toMatchObject({ ok: false, status: 400 }) // no document
+    expect(await gw().createCreditMemoRequest(ycr('101'), { ...ctx('R4'), gatewayLogId: '' })).toMatchObject({ ok: false, status: 400 })
     expect(calls).toHaveLength(0)
   })
 
   it('refuses demo invoices before any call', async () => {
     stub(() => ({}))
-    const r = await gw().createCreditMemoRequest(ycr('101', '90000355'))
+    const r = await gw().createCreditMemoRequest(ycr('101', '90000355'), ctx('R4'))
     expect(r).toMatchObject({ ok: false, status: 400 })
     expect(calls).toHaveLength(0)
   })
 
-  it('release sends creditMemoNumber and versionStamp; refuses without a stamp or for a YRE', async () => {
-    stub(() => ({ CreditMemoRequest: '60000200', HeaderBillingBlockReason: '' }))
+  it('release sends the document number and versionStamp to the action for its type; refuses without a stamp', async () => {
+    stub(() => ({ status: 'RELEASED' }))
     expect(await gw().release({ type: 'YCR', number: '60000200', etag: 'W/"x1"' })).toMatchObject({ ok: true })
-    expect(calls[0]?.body).toEqual({ creditMemoNumber: '60000200', versionStamp: 'W/"x1"' })
+    expect(calls[0]).toMatchObject({ url: `${BASE}/releaseCreditMemoRequest`, body: { creditMemoNumber: '60000200', versionStamp: 'W/"x1"' } })
+    expect(await gw().release({ type: 'YRE', number: '60000201', etag: 'W/"x2"' })).toMatchObject({ ok: true })
+    expect(calls[1]).toMatchObject({ url: `${BASE}/releaseCustomerReturn`, body: { returnDocumentNumber: '60000201', versionStamp: 'W/"x2"' } })
     expect(await gw().release({ type: 'YCR', number: '60000200', etag: '' })).toMatchObject({ ok: false, status: 409 })
-    expect(await gw().release({ type: 'YRE', number: '60000201', etag: 'W/"x2"' })).toMatchObject({ ok: false, status: 501 })
-    expect(calls).toHaveLength(1)
+    expect(calls).toHaveLength(2)
+  })
+
+  it('getReturnStatus reads the warehouse receipt', async () => {
+    stub(() => ({ returnDocumentNumber: '60000300', overallProcessingStatus: 'A', warehouseReceiptStatus: 'C', received: true }))
+    expect(await gw().getReturnStatus('60000300')).toEqual({ status: 'C', received: true })
+    expect(calls[0]?.url).toBe(`${BASE}/getReturnStatus(returnDocumentNumber='60000300')`)
   })
 
   it('a Cloud Foundry "unknown route" 404 is reported as gateway unavailable, not as a missing invoice', async () => {
     calls.length = 0
     vi.stubGlobal('fetch', async () => new Response('404 Not Found: Requested route does not exist.', { status: 404, headers: { 'x-cf-routererror': 'unknown_route' } }))
     await expect(gw().getInvoice('90000353')).rejects.toMatchObject({ status: 503 })
-    const w = await gw().createCreditMemoRequest(ycr('101'))
+    const w = await gw().createCreditMemoRequest(ycr('101'), ctx('R4'))
     expect(w).toMatchObject({ ok: false, status: 503 })
   })
 
-  it('logRequest and setApprovalStatus read the record ID', async () => {
-    stub((url) => (url.endsWith('logRequest') ? { ID: 'abc', status: 'PENDING' } : { ID: 'abc', status: 'APPROVED' }))
-    const log = await gw().logRequest({ invoiceNumber: '90001234', proposedAction: 'CREDIT' })
+  it('logRequest and setApprovalStatus carry the rule, the claim, the approver, and read the record ID', async () => {
+    stub((url) => (url.endsWith('logRequest') ? { ID: 'abc', approvalStatus: 'PENDING' } : { ID: 'abc', approvalStatus: 'APPROVED' }))
+    const log = await gw().logRequest({ invoiceNumber: '90001234', proposedAction: 'CREDIT', rule: 'R5', reason: 'Short delivery', claimedQuantity: 2, claimedAmount: 540, creditValue: 540 })
     expect(log).toMatchObject({ ok: true, id: 'abc' })
-    await gw().setApprovalStatus({ id: 'abc', status: 'APPROVED' })
-    expect(calls[1]?.body).toEqual({ ID: 'abc', status: 'APPROVED' })
+    expect(calls[0]?.body).toEqual({ invoiceNumber: '90001234', proposedAction: 'CREDIT', rule: 'R5', reason: 'Short delivery', claimedQuantity: 2, claimedAmount: 540, creditValue: 540, evidenceUrl: null })
+    await gw().setApprovalStatus({ id: 'abc', status: 'APPROVED', approvedBy: 'Demo', approverRole: 'credit_manager' })
+    expect(calls[1]?.body).toEqual({ ID: 'abc', status: 'APPROVED', approvedBy: 'Demo', approverRole: 'credit_manager' })
   })
 })

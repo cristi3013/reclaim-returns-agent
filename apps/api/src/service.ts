@@ -8,12 +8,14 @@ import {
   EXPECTED,
   FIXTURES,
   primaryProposal,
+  RULES,
   toSummary,
   type AgentStatus,
   type Analytics,
   type Case,
   type CaseSummary,
   type EvalResult,
+  type ReturnStatus,
   type Role,
   type SapDocument,
   type Settings,
@@ -259,6 +261,31 @@ export class Service {
       if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
         return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4. Switch SAP mode to Mock.` }
       }
+      const gw = this.deps.gateway(this.store.settings)
+      // Read again right before the write: the investigation may be hours old and someone else may have credited
+      // the invoice since. A document that exists now sends the case back to the person with what was found.
+      if (decision.documentType !== 'NONE' && c.invoiceNumber) {
+        let found: Awaited<ReturnType<Gateway['checkExistingCredits']>>
+        const t0 = Date.now()
+        try {
+          found = await gw.checkExistingCredits(c.invoiceNumber)
+        } catch (e) {
+          const err = e as Error & { status?: number }
+          return { ok: false, status: err.status ?? 503, message: `Could not confirm that no credit exists yet for invoice ${c.invoiceNumber} (${err.message}). Nothing was written; try again.` }
+        }
+        const existing = [...found.existingReturns, ...found.existingCredits]
+        if (c.findings) {
+          c.findings.existingReturns = found.existingReturns
+          c.findings.existingCredits = found.existingCredits
+          c.findings.lookups.push({ name: 'checkExistingCredits', args: { invoiceNumber: c.invoiceNumber, when: 'before write' }, durationMs: Date.now() - t0, ok: true })
+        }
+        if (existing.length) {
+          const list = existing.map((d) => `${d.type} ${d.number}`).join(', ')
+          ev(c, 'error', `A document for invoice ${c.invoiceNumber} already exists in SAP (${list}); checked again right before writing. Nothing was written.`, { existing, checkedAt: new Date().toISOString() }, '5.1.1', Date.now() - t0)
+          this.touch(c.id)
+          return { ok: false, status: 409, message: `Invoice ${c.invoiceNumber} already has ${list} in SAP, created since this case was investigated. Nothing was written. Review the case; approving again would create a second credit (rule R8).` }
+        }
+      }
 
       // 3. Now save.
       if (edited) {
@@ -281,7 +308,6 @@ export class Service {
 
       const type = p.decision.documentType as 'YRE' | 'YCR'
       const step = type === 'YRE' ? '5.1.2' : '5.2.1'
-      const gw = this.deps.gateway(this.store.settings)
       // The gateway keeps its own approval record: log the request, mark it APPROVED, then write.
       // Its release refuses a credit memo whose request was not APPROVED there.
       const fail = (status: number, message: string, what: string) => {
@@ -290,14 +316,25 @@ export class Service {
         this.touch(c.id)
         return { ok: false as const, status, message }
       }
-      const log = await gw.logRequest({ invoiceNumber: c.invoiceNumber ?? String(p.sapPayload.ReferenceSDDocument ?? ''), proposedAction: type === 'YRE' ? 'RETURN' : 'CREDIT' })
+      const evidenceUrl = c.attachments[0]?.url ?? null
+      const log = await gw.logRequest({
+        invoiceNumber: c.invoiceNumber ?? String(p.sapPayload.ReferenceSDDocument ?? ''),
+        proposedAction: type === 'YRE' ? 'RETURN' : 'CREDIT',
+        rule: p.decision.ruleId,
+        reason: RULES[p.decision.ruleId].situation,
+        claimedQuantity: c.facts?.claimedQuantity ?? null,
+        claimedAmount: c.facts?.claimedQuantity != null && c.facts.claimedUnitPrice != null ? Math.round(c.facts.claimedQuantity * c.facts.claimedUnitPrice * 100) / 100 : null,
+        creditValue: p.decision.amount,
+        evidenceUrl,
+      })
       if (!log.ok) return fail(log.status, log.message, 'Logging the request with the gateway')
-      const set = await gw.setApprovalStatus({ id: log.id, status: 'APPROVED' })
+      const set = await gw.setApprovalStatus({ id: log.id, status: 'APPROVED', approvedBy: input.actor, approverRole: input.role })
       if (!set.ok) return fail(set.status, set.message, 'Recording the approval with the gateway')
-      ev(c, 'approval', `Approval recorded with the gateway (record ${log.id})`, { gatewayLogId: log.id, status: 'APPROVED', actor: input.actor }, step, null)
+      ev(c, 'approval', `Approval recorded with the gateway (record ${log.id})`, { gatewayLogId: log.id, status: 'APPROVED', actor: input.actor, role: input.role }, step, null)
 
       const t = Date.now()
-      const r = type === 'YRE' ? await gw.createReturn(p.sapPayload) : await gw.createCreditMemoRequest(p.sapPayload)
+      const ctx = { rule: p.decision.ruleId, gatewayLogId: log.id, creditValue: p.decision.amount, evidenceUrl }
+      const r = type === 'YRE' ? await gw.createReturn(p.sapPayload, ctx) : await gw.createCreditMemoRequest(p.sapPayload, ctx)
       if (!r.ok) {
         c.status = 'sap_write_failed'
         ev(c, 'error', r.status === 412 ? 'SAP refused the write: 412 Precondition Failed' : `SAP refused the write: ${r.status}`, { status: r.status, message: r.message, ifMatch: inv?.etag }, step, Date.now() - t)
@@ -329,6 +366,23 @@ export class Service {
     this.touch(c.id)
   }
 
+  /**
+   * Goods receipt of a return (step 5.1.3), asked from SAP when the gateway can answer. Without that function the
+   * answer is "unknown" and the person confirms the receipt by hand.
+   */
+  async returnStatus(documentId: string): Promise<ReturnStatus> {
+    const { d } = this.store.locateDocument(documentId)
+    if (d.type !== 'YRE') return { documentId, type: d.type, status: 'not applicable', received: true, source: 'none', checkedAt: new Date().toISOString() }
+    const gw = this.deps.gateway(this.store.settings)
+    if (!gw.getReturnStatus) return { documentId, type: d.type, status: 'UNKNOWN', received: false, source: 'none', checkedAt: new Date().toISOString() }
+    try {
+      const s = await gw.getReturnStatus(d.number)
+      return { documentId, type: d.type, status: s.status, received: s.received, source: 'sap', checkedAt: new Date().toISOString() }
+    } catch (e) {
+      return { documentId, type: d.type, status: `unavailable: ${(e as Error).message}`, received: false, source: 'none', checkedAt: new Date().toISOString() }
+    }
+  }
+
   /** Removing billing block 08 is the credit decision itself: same role as the approval, once, and for a return only after the goods arrived. */
   async release(documentId: string, input: ReleaseInput): Promise<Outcome<SapDocument>> {
     const { c, d } = this.store.locateDocument(documentId)
@@ -340,8 +394,17 @@ export class Service {
     }
     const blockEvent = c.events.find((e) => e.kind === 'sap_write' && e.detail.blockConfirmed === false)
     if (blockEvent) return { ok: false, status: 409, message: `${d.type} ${d.number} was created without billing block 08; check it in SAP before anything else.` }
-    if (d.type === 'YRE' && !input.goodsReceived) {
-      return { ok: false, status: 409, message: 'A return is credited only after the warehouse has received the goods (step 5.1.3). Confirm the goods receipt to release.' }
+    // Step 5.1.3: SAP's word on the goods receipt first; a manual confirmation stands in only where SAP has none.
+    let goodsReceipt: 'not required' | 'confirmed by SAP' | 'confirmed manually' = 'not required'
+    let warehouse: ReturnStatus | null = null
+    if (d.type === 'YRE') {
+      warehouse = await this.returnStatus(documentId)
+      if (warehouse.received && warehouse.source === 'sap') goodsReceipt = 'confirmed by SAP'
+      else if (input.goodsReceived) goodsReceipt = 'confirmed manually'
+      else {
+        const why = warehouse.source === 'sap' ? `SAP reports the warehouse receipt status "${warehouse.status}": the goods have not been received.` : 'The goods receipt is not known to this system.'
+        return { ok: false, status: 409, message: `A return is credited only after the warehouse has received the goods (step 5.1.3). ${why} Confirm the goods receipt by hand to release anyway.` }
+      }
     }
     if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
       return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4.` }
@@ -354,7 +417,7 @@ export class Service {
       return { ok: false, status: r.status, message: r.message }
     }
     d.released = true
-    ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})`, { HeaderBillingBlockReason: '', goodsReceived: !!input.goodsReceived }, step, Date.now() - t)
+    ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})${goodsReceipt === 'not required' ? '' : `; goods receipt ${goodsReceipt}`}`, { HeaderBillingBlockReason: '', goodsReceipt, warehouseStatus: warehouse?.status ?? null, goodsReceived: goodsReceipt !== 'not required' }, step, Date.now() - t)
     this.touch(c.id)
     return { ok: true, value: d }
   }

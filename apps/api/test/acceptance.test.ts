@@ -97,7 +97,7 @@ describe('Reclaim API acceptance', () => {
 })
 
 import { MockGateway } from '../src/gateway/mock'
-import type { Gateway } from '../src/gateway/types'
+import type { Gateway, WriteContext } from '../src/gateway/types'
 import { INVOICES } from '@reclaim/shared'
 
 
@@ -117,9 +117,9 @@ describe('audit fixes', () => {
 
   it('a case cannot be re-run from approved, written or closed, nor while a write is in flight', async () => {
     const slow: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), {
-      createCreditMemoRequest: async (p: Record<string, unknown>) => {
+      createCreditMemoRequest: async (p: Record<string, unknown>, c: WriteContext) => {
         await new Promise((r) => setTimeout(r, 80))
-        return new MockGateway({ simulateConflict: () => false, delayMs: 0 }).createCreditMemoRequest(p)
+        return new MockGateway({ simulateConflict: () => false, delayMs: 0 }).createCreditMemoRequest(p, c)
       },
     })
     await ctx.app.close()
@@ -288,5 +288,64 @@ describe('mailbox config', () => {
     expect(senderAllowed('Someone <a@gmail.com>', ['gmail.com'])).toBe(true)
     expect(senderAllowed('Someone <a@mail.gmail.com>', ['gmail.com'])).toBe(true)
     expect(senderAllowed('Someone <a@evil.example>', ['gmail.com'])).toBe(false)
+  })
+})
+
+describe('read again right before the write, and goods receipt before releasing a return', () => {
+  it('approval is refused when a credit for the invoice appeared since the investigation', async () => {
+    let existing: { type: 'YCR'; number: string; reasonCode: string; amount: number; billingBlock: string }[] = []
+    const gw: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), {
+      checkExistingCredits: async () => ({ existingReturns: [], existingCredits: existing }),
+    })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    await run('case-03')
+    const p = primaryProposal(await theCase('case-03'))!
+    // Someone else credits the invoice between the investigation and the approval.
+    existing = [{ type: 'YCR', number: '60000900', reasonCode: '103', amount: 540, billingBlock: '08' }]
+    const res = await post(`/api/proposals/${p.id}/approve`, cm)
+    expect(res.statusCode).toBe(409)
+    expect(res.json().message).toMatch(/60000900/)
+    const k = await theCase('case-03')
+    expect(k.status).toBe('awaiting_approval')
+    expect(k.sapDocuments).toHaveLength(0)
+    expect(k.events.some((e) => e.kind === 'error' && /already exists/i.test(e.title))).toBe(true)
+    expect(k.findings?.existingCredits.map((d) => d.number)).toEqual(['60000900'])
+  })
+
+  it('a return is released when SAP reports the goods receipt, or with an explicit manual confirmation', async () => {
+    let received = false
+    const gw: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), {
+      getReturnStatus: async () => ({ status: received ? 'C' : 'A', received }),
+    })
+    await ctx.app.close()
+    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    await ctx.app.ready()
+    await post('/api/cases/seed')
+    await run('case-08')
+    const p = primaryProposal(await theCase('case-08'))!
+    const doc = (await post(`/api/proposals/${p.id}/approve`, cm)).json() as SapDocument
+    expect(doc.type).toBe('YRE')
+    const st = await get<{ status: string; received: boolean }>(`/api/sap/${doc.id}/status`)
+    expect(st).toMatchObject({ received: false })
+    expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(409)
+    received = true
+    expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(200)
+    const k = await theCase('case-08')
+    const rel = k.events.find((e) => e.kind === 'sap_release')!
+    expect(rel.detail.goodsReceipt).toBe('confirmed by SAP')
+  })
+
+  it('without a status function, a manual confirmation releases the return and is recorded as manual', async () => {
+    await post('/api/cases/seed')
+    await run('case-08')
+    const p = primaryProposal(await theCase('case-08'))!
+    const doc = (await post(`/api/proposals/${p.id}/approve`, cm)).json() as SapDocument
+    expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(409)
+    expect((await post(`/api/sap/${doc.id}/release`, { ...cm, goodsReceived: true })).statusCode).toBe(200)
+    const rel = (await theCase('case-08')).events.find((e) => e.kind === 'sap_release')!
+    expect(rel.detail.goodsReceipt).toBe('confirmed manually')
   })
 })

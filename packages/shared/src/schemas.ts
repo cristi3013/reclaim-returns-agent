@@ -146,6 +146,16 @@ export const SapDocumentSchema = z.object({
   gatewayLogId: z.string().optional(),
 })
 
+/** Goods receipt of a return (step 5.1.3): what SAP says, or "unknown" when the system cannot ask. */
+export const ReturnStatusSchema = z.object({
+  documentId: z.string(),
+  type: z.enum(['YRE', 'YCR']),
+  status: z.string(),
+  received: z.boolean(),
+  source: z.enum(['sap', 'none']),
+  checkedAt: z.string(),
+})
+
 export const CaseEventSchema = z.object({
   id: z.string(),
   caseId: z.string(),
@@ -258,6 +268,7 @@ export type Briefing = z.infer<typeof BriefingSchema>
 export type Proposal = z.infer<typeof ProposalSchema>
 export type Approval = z.infer<typeof ApprovalSchema>
 export type SapDocument = z.infer<typeof SapDocumentSchema>
+export type ReturnStatus = z.infer<typeof ReturnStatusSchema>
 export type CaseEvent = z.infer<typeof CaseEventSchema>
 export type Attachment = z.infer<typeof AttachmentSchema>
 export type Case = z.infer<typeof CaseSchema>

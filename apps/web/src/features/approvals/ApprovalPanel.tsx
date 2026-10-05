@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { approverFor, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
-import { useApprove, useReject, useRelease, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
+import { useApprove, useReject, useRelease, useReturnStatus, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
 import { PayloadView } from '@/components/domain/PayloadView'
 import { RuleBadge } from '@/components/domain/RuleBadge'
@@ -32,6 +32,9 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
   const demoBlocked = settings?.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')
   const canApprove = c.status === 'awaiting_approval' && allowed && !demoBlocked && !approve.isPending && (!edit || edit.valid)
   const doc = c.sapDocuments[c.sapDocuments.length - 1]
+  const warehouse = useReturnStatus(doc && doc.type === 'YRE' && !doc.released && c.status === 'written_to_sap' ? doc.id : null)
+  const receivedInSap = warehouse.data?.source === 'sap' && warehouse.data.received
+  const canRelease = !doc || doc.type !== 'YRE' || receivedInSap || goodsReceived
   const lastApproval = c.approvals[c.approvals.length - 1]
   const lastError = [...c.events].reverse().find((e) => e.kind === 'error')
   const failure = result && !result.ok ? result : c.status === 'sap_write_failed' && lastError ? { status: Number(lastError.detail.status ?? 0), message: String(lastError.detail.message ?? lastError.title) } : null
@@ -190,18 +193,35 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
               : 'Releasing removes the block so billing can create the credit memo.'}
           </div>
           {!doc.released && doc.type === 'YRE' && (
-            <label className="mt-2 flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={goodsReceived} onChange={(e) => setGoodsReceived(e.target.checked)} />
-              The warehouse has posted the goods receipt (step 5.1.3)
-            </label>
+            <div className="mt-2 rounded-md border border-line bg-surface p-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className={`inline-block size-2 rounded-full ${receivedInSap ? 'bg-ok' : warehouse.data?.source === 'sap' ? 'bg-warn' : 'bg-muted'}`} aria-hidden />
+                <span className="font-semibold">Goods receipt, step 5.1.3:</span>
+                <span className="text-muted">
+                  {warehouse.isLoading
+                    ? 'asking SAP…'
+                    : receivedInSap
+                      ? `received by the warehouse (SAP status ${warehouse.data?.status})`
+                      : warehouse.data?.source === 'sap'
+                        ? `not received yet (SAP status ${warehouse.data.status}); checked ${new Date(warehouse.data.checkedAt).toLocaleTimeString()}`
+                        : 'not known to this system'}
+                </span>
+              </div>
+              {!receivedInSap && (
+                <label className="mt-2 flex items-center gap-2">
+                  <input type="checkbox" checked={goodsReceived} onChange={(e) => setGoodsReceived(e.target.checked)} />
+                  I confirm the goods receipt by hand (recorded as a manual confirmation in the audit trail)
+                </label>
+              )}
+            </div>
           )}
           {!doc.released && (
             <Button
               size="sm"
               className="mt-2"
-              disabled={release.isPending || demoBlocked || (doc.type === 'YRE' && !goodsReceived)}
+              disabled={release.isPending || demoBlocked || !canRelease}
               onClick={() =>
-                release.mutate({ id: doc.id, input: { actor, role, goodsReceived } }, {
+                release.mutate({ id: doc.id, input: { actor, role, goodsReceived: goodsReceived && !receivedInSap } }, {
                   onSuccess: (r) => {
                     setRel(r)
                     if (r.ok) toast.success('Billing block removed')

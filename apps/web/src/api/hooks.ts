@@ -96,7 +96,19 @@ export const useReject = () => {
 
 export const useRelease = () => {
   const api = useApi()
-  return useMutation({ mutationFn: (v: { id: string; input: ReleaseInput }) => api.release(v.id, v.input) })
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: (v: { id: string; input: ReleaseInput }) => api.release(v.id, v.input), onSettled: () => inv('cases', 'analytics') })
+}
+
+/** Goods receipt of a return, asked again every 15 s while the panel is open: the warehouse posts it, not the user. */
+export const useReturnStatus = (sapDocumentId: string | null) => {
+  const api = useApi()
+  return useQuery({
+    queryKey: ['returnStatus', sapDocumentId],
+    queryFn: () => api.getReturnStatus(sapDocumentId!),
+    enabled: sapDocumentId != null,
+    refetchInterval: 15000,
+  })
 }
 
 export const useRunEval = () => {

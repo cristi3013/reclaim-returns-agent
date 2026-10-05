@@ -164,6 +164,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     service.reject(req.params.id, RejectBody.parse(req.body))
     reply.status(204)
   })
+  app.get<{ Params: { id: string } }>('/api/sap/:id/status', async (req) => service.returnStatus(req.params.id))
   app.post<{ Params: { id: string } }>('/api/sap/:id/release', async (req, reply) => {
     const r = await service.release(req.params.id, ReleaseBody.parse(req.body ?? {}))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })

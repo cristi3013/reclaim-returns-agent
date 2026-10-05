@@ -1,5 +1,5 @@
 import { DEMO_INVOICES, type ExistingDoc, type InvoiceSnapshot } from '@reclaim/shared'
-import type { Gateway, GatewayAction, LogResult, WriteResult } from './types'
+import type { Gateway, LogRequestArgs, LogResult, WriteContext, WriteResult } from './types'
 
 /**
  * Calls the CAP gateway on BTP (Alex's service). The gateway is the only thing that talks to DS4.
@@ -9,7 +9,7 @@ import type { Gateway, GatewayAction, LogResult, WriteResult } from './types'
  *   GET  checkExistingCredits(invoiceNumber)
  *   GET  findInvoices(soldToParty, material, fromDate, toDate)                            dates YYYY-MM-DD
  *   GET  getAgreedPrice(soldToParty, material, salesOrganization, distributionChannel)    PR00 valid today
- *   GET  getReturnStatus(returnDocumentNumber)                                            not used yet (5.1.3)
+ *   GET  getReturnStatus(returnDocumentNumber)                                            goods receipt (5.1.3)
  *   POST logRequest {invoiceNumber, proposedAction}                                       → record, status PENDING
  *   POST setApprovalStatus {ID, status}                                                   APPROVED | REJECTED
  *   POST createReturn {invoiceNumber, invoiceItem, material, quantity, unit, reason, soldToParty}
@@ -17,7 +17,8 @@ import type { Gateway, GatewayAction, LogResult, WriteResult } from './types'
  *   POST releaseCreditMemoRequest {creditMemoNumber, versionStamp}                        only after APPROVED
  *
  * Every function returns a JSON *string* inside `{ "value": "..." }`. `unwrap()` hides that.
- * The gateway takes reason names (DEFECTIVE, PRICE_COMPLAINT…) instead of SAP order reason codes; see GATEWAY_REASONS.
+ * Writes take the policy rule id (R1–R5), not the SAP order reason: the gateway maps the rule to the reason itself
+ * (R1→102, R2→101, R3→104, R4→101, R5→103, confirmed by the gateway owner on 5 Oct 2026).
  *
  * Plant → company code is NOT a gateway call; it is our own reference table.
  */
@@ -206,13 +207,17 @@ export class RealGateway implements Gateway {
     return { ok: true, number, response: o, etag }
   }
 
-  /** The gateway takes a reason name, not the SAP code. 101 means R2 quality on a YRE but R4 price on a YCR, so key by type. */
-  private reason(type: 'YRE' | 'YCR', code: unknown): string | null {
-    return GATEWAY_REASONS[`${type}:${String(code ?? '')}`] ?? null
-  }
-
-  private unmappedReason(type: 'YRE' | 'YCR', code: unknown): WriteResult {
-    return { ok: false, status: 400, message: `Order reason ${String(code)} on a ${type} has no agreed gateway reason name yet. Nothing was written. Add it to GATEWAY_REASONS in gateway/real.ts once the gateway owner confirms it.` }
+  /**
+   * The gateway derives the SAP order reason from the rule, so the rule must be one that creates this document type
+   * and its reason must match ours. Anything else is refused here, before any call: a wrong reason never reaches SAP.
+   */
+  private ruleGuard(type: 'YRE' | 'YCR', ctx: WriteContext, reasonCode: unknown): WriteResult | null {
+    const expected = GATEWAY_RULES[ctx.rule]
+    if (!expected || expected.type !== type || expected.reason !== String(reasonCode ?? '')) {
+      return { ok: false, status: 400, message: `Rule ${ctx.rule} with order reason ${String(reasonCode)} does not create a ${type} on the gateway. Nothing was written.` }
+    }
+    if (!ctx.gatewayLogId) return { ok: false, status: 400, message: 'The gateway needs the approval record (auditLogID) before it writes. Nothing was written.' }
+    return null
   }
 
   private logResult(r: unknown): LogResult {
@@ -222,18 +227,18 @@ export class RealGateway implements Gateway {
     return { ok: true, id, response: o }
   }
 
-  async logRequest(args: { invoiceNumber: string; proposedAction: GatewayAction }): Promise<LogResult> {
+  async logRequest(args: LogRequestArgs): Promise<LogResult> {
     try {
-      return this.logResult(await this.action('logRequest', args))
+      return this.logResult(await this.action('logRequest', { ...args, evidenceUrl: args.evidenceUrl ?? null }))
     } catch (e) {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 502, message: err.message }
     }
   }
 
-  async setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED' }): Promise<LogResult> {
+  async setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED'; approvedBy: string; approverRole: string }): Promise<LogResult> {
     try {
-      return this.logResult(await this.action('setApprovalStatus', { ID: args.id, status: args.status }))
+      return this.logResult(await this.action('setApprovalStatus', { ID: args.id, status: args.status, approvedBy: args.approvedBy, approverRole: args.approverRole }))
     } catch (e) {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 502, message: err.message }
@@ -252,21 +257,21 @@ export class RealGateway implements Gateway {
       : null
   }
 
-  async createReturn(payload: Record<string, unknown>) {
+  async createReturn(payload: Record<string, unknown>, ctx: WriteContext) {
     const item = (payload.to_Item as Record<string, string>[] | undefined)?.[0] ?? {}
-    const blocked = this.demoGuard(item.ReferenceSDDocument)
+    const blocked = this.demoGuard(item.ReferenceSDDocument) ?? this.ruleGuard('YRE', ctx, payload.SDDocumentReason)
     if (blocked) return blocked
-    const reason = this.reason('YRE', payload.SDDocumentReason)
-    if (!reason) return this.unmappedReason('YRE', payload.SDDocumentReason)
     try {
       const r = await this.action('createReturn', {
+        auditLogID: ctx.gatewayLogId,
         invoiceNumber: item.ReferenceSDDocument,
         invoiceItem: item.ReferenceSDDocumentItem,
         material: item.Material,
         quantity: item.RequestedQuantity,
         unit: item.RequestedQuantityUnit,
-        reason,
+        rule: ctx.rule,
         soldToParty: payload.SoldToParty,
+        creditValue: ctx.creditValue,
       })
       return this.writeResult('YRE', r)
     } catch (e) {
@@ -274,20 +279,21 @@ export class RealGateway implements Gateway {
     }
   }
 
-  async createCreditMemoRequest(payload: Record<string, unknown>) {
+  async createCreditMemoRequest(payload: Record<string, unknown>, ctx: WriteContext) {
     const item = (payload.to_Item as Record<string, string>[] | undefined)?.[0] ?? {}
-    const blocked = this.demoGuard(payload.ReferenceSDDocument)
+    const blocked = this.demoGuard(payload.ReferenceSDDocument) ?? this.ruleGuard('YCR', ctx, payload.SDDocumentReason)
     if (blocked) return blocked
-    const reason = this.reason('YCR', payload.SDDocumentReason)
-    if (!reason) return this.unmappedReason('YCR', payload.SDDocumentReason)
     try {
       const r = await this.action('createCreditMemoRequest', {
+        auditLogID: ctx.gatewayLogId,
         invoiceNumber: payload.ReferenceSDDocument,
         material: item.Material,
         quantity: item.RequestedQuantity,
         unit: item.RequestedQuantityUnit,
-        reason,
+        rule: ctx.rule,
         soldToParty: payload.SoldToParty,
+        creditValue: ctx.creditValue,
+        evidenceUrl: ctx.evidenceUrl ?? null,
       })
       return this.writeResult('YCR', r)
     } catch (e) {
@@ -296,14 +302,14 @@ export class RealGateway implements Gateway {
   }
 
   async release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult> {
-    if (args.type !== 'YCR') {
-      return { ok: false, status: 501, message: `The gateway releases credit memo requests only. Release return ${args.number} in SAP after the goods receipt.` }
-    }
     if (!args.etag) {
       return { ok: false, status: 409, message: `SAP returned no version stamp when ${args.number} was created, so it cannot be released safely. Check the document in SAP.` }
     }
     try {
-      const r = await this.action('releaseCreditMemoRequest', { creditMemoNumber: args.number, versionStamp: args.etag })
+      const r =
+        args.type === 'YCR'
+          ? await this.action('releaseCreditMemoRequest', { creditMemoNumber: args.number, versionStamp: args.etag })
+          : await this.action('releaseCustomerReturn', { returnDocumentNumber: args.number, versionStamp: args.etag })
       return { ok: true, number: args.number, response: (r ?? {}) as Record<string, unknown> }
     } catch (e) {
       return this.catchWrite(e)
@@ -314,14 +320,13 @@ export class RealGateway implements Gateway {
 const READ_TIMEOUT_MS = 15_000
 const WRITE_TIMEOUT_MS = 30_000
 
-/**
- * SAP order reason code, keyed by document type → reason name the gateway expects.
- * Only the two names the gateway owner has shown are filled in. Any other reason is refused, so a wrong one never
- * reaches SAP. Still to confirm: YRE:102 (R1 damaged), YCR:103 (R5 short delivery), YCR:104 (R3 ruined).
- */
-const GATEWAY_REASONS: Record<string, string> = {
-  'YRE:101': 'DEFECTIVE',
-  'YCR:101': 'PRICE_COMPLAINT',
+/** The gateway's own rule table (from its owner, 5 Oct 2026): which document and SAP order reason each rule creates. */
+const GATEWAY_RULES: Record<string, { type: 'YRE' | 'YCR'; reason: string }> = {
+  R1: { type: 'YRE', reason: '102' },
+  R2: { type: 'YRE', reason: '101' },
+  R3: { type: 'YCR', reason: '104' },
+  R4: { type: 'YCR', reason: '101' },
+  R5: { type: 'YCR', reason: '103' },
 }
 
 /** "/Date(1790640000000)/" → "2026-09-29" */

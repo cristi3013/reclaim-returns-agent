@@ -1,5 +1,5 @@
 import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, type ExistingDoc } from '@reclaim/shared'
-import type { Gateway, GatewayAction, LogResult, WriteResult } from './types'
+import type { Gateway, LogRequestArgs, LogResult, WriteContext, WriteResult } from './types'
 
 /**
  * Replays the DS4 answers captured on 1 Oct 2026 and simulates writes.
@@ -68,25 +68,25 @@ export class MockGateway implements Gateway {
     return { ok: true, number, etag, response: { status: 201, [type === 'YRE' ? 'CustomerReturn' : 'CreditMemoRequest']: number, HeaderBillingBlockReason: '08', __metadata: { etag } } }
   }
 
-  async createReturn(payload: Record<string, unknown>) {
+  async createReturn(payload: Record<string, unknown>, _ctx: WriteContext) {
     await this.delay(600)
     return this.write('YRE', payload)
   }
 
-  async createCreditMemoRequest(payload: Record<string, unknown>) {
+  async createCreditMemoRequest(payload: Record<string, unknown>, _ctx: WriteContext) {
     await this.delay(600)
     return this.write('YCR', payload)
   }
 
-  async logRequest(args: { invoiceNumber: string; proposedAction: GatewayAction }): Promise<LogResult> {
+  async logRequest(args: LogRequestArgs): Promise<LogResult> {
     await this.delay(150)
     const id = `mock-log-${this.nextLog++}`
-    return { ok: true, id, response: { ID: id, ...args, status: 'PENDING' } }
+    return { ok: true, id, response: { ID: id, ...args, approvalStatus: 'PENDING' } }
   }
 
-  async setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED' }): Promise<LogResult> {
+  async setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED'; approvedBy: string; approverRole: string }): Promise<LogResult> {
     await this.delay(150)
-    return { ok: true, id: args.id, response: { ID: args.id, status: args.status, decidedAt: new Date().toISOString() } }
+    return { ok: true, id: args.id, response: { ID: args.id, approvalStatus: args.status, approvedBy: args.approvedBy, approverRole: args.approverRole, decidedAt: new Date().toISOString() } }
   }
 
   async release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult> {
