@@ -216,6 +216,9 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
       )
     : null
 
+  // Several instances (laptop + Railway) share one database: each pulls the others' changes every few seconds.
+  const syncMs = Number(process.env.SYNC_INTERVAL_MS ?? 10000)
+  let syncTimer: NodeJS.Timeout | null = null
   const ready = async () => {
     if (persistence) {
       try {
@@ -224,11 +227,25 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
       } catch (e) {
         log((e as Error).message)
       }
+      if (syncMs > 0) {
+        let failures = 0
+        syncTimer = setInterval(() => {
+          service.syncFromPersistence().then(
+            () => (failures = 0),
+            (e) => failures++ === 0 && log((e as Error).message),
+          )
+        }, syncMs)
+        syncTimer.unref()
+        log(`Supabase: syncing with other instances every ${syncMs / 1000}s`)
+      }
     }
     poller?.start()
   }
   pollerRef = poller
-  const stop = () => poller?.stop()
+  const stop = () => {
+    poller?.stop()
+    if (syncTimer) clearInterval(syncTimer)
+  }
 
   return { app, service, store, ready, stop }
 }

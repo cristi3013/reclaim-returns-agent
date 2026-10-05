@@ -66,6 +66,7 @@ export interface ServiceDeps {
     saveSettings: (s: Settings, lastRunAt: string | null) => void
     saveEval: (r: EvalResult[]) => void
     deleteAll: () => Promise<void>
+    refresh?: (store: Store, busy: (id: string) => boolean) => Promise<{ changed: string[]; removed: string[] }>
   }
 }
 
@@ -89,6 +90,19 @@ export class Service {
       this.deps.persistence?.saveCase(c)
     }
     this.deps.hub.emit({ type: 'case_changed', id })
+  }
+
+  /** True while this instance is investigating or writing the case: another instance's copy must not replace it. */
+  isBusy(id: string) {
+    return this.running.has(id) || this.writing.has(id)
+  }
+
+  /** Pulls changes made by other instances sharing the database and tells the UI. */
+  async syncFromPersistence() {
+    if (!this.deps.persistence?.refresh) return
+    const { changed, removed } = await this.deps.persistence.refresh(this.store, (id) => this.isBusy(id))
+    for (const id of [...changed, ...removed]) this.deps.hub.emit({ type: 'case_changed', id })
+    if (changed.length || removed.length) this.deps.hub.emit({ type: 'status_changed' })
   }
 
   listCases(): CaseSummary[] {
