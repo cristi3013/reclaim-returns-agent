@@ -39,9 +39,9 @@ export class MockGateway implements Gateway {
 
   async findInvoices(args: { customer: string; material: string; dateFrom: string; dateTo: string }) {
     await this.delay(620)
-    // The captured data has one invoice without a complaint email naming it: 90000357 (15 KG, 29 Sep 2026).
+    // Like the live gateway: every invoice of the customer with that material in the range. The pipeline ranks them.
     return Object.values(INVOICES).filter(
-      (i) => i.customer === args.customer && i.items[0]?.material === args.material && i.date >= args.dateFrom && i.date <= args.dateTo && i.number === '90000357',
+      (i) => i.customer === args.customer && i.items.some((it) => it.material === args.material) && i.date >= args.dateFrom && i.date <= args.dateTo,
     )
   }
 

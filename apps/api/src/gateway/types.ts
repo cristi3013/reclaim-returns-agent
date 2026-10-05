@@ -16,6 +16,8 @@ export interface Gateway {
   getAgreedPrice(args: { customer: string; material: string; salesOrg: string; channel: string }): Promise<number | null>
   /** Company code that owns a plant, for the intercompany check. */
   getPlantCompanyCode(plant: string): Promise<string | null>
+  /** Warehouse receipt status of a return (step 5.1.3). Live shape: { warehouseReceiptStatus, received }. */
+  getReturnStatus?(returnNumber: string): Promise<{ status: string; received: boolean }>
   /** POST a customer return (YRE). Returns the new document number. */
   createReturn(payload: Record<string, unknown>): Promise<WriteResult>
   /** POST a credit memo request (YCR) with billing block 08. Returns the new document number. */

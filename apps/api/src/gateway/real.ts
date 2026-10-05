@@ -38,8 +38,20 @@ export class RealGateway implements Gateway {
     } catch (e) {
       throw Object.assign(new Error(`${name}: gateway not reachable (${(e as Error).message})`), { status: 504 })
     }
+    await this.throwIfUnavailable(res, name)
     if (!res.ok) throw Object.assign(new Error(await res.text()), { status: res.status })
     return this.unwrap<T>(await res.json())
+  }
+
+  /**
+   * A 404 from the Cloud Foundry router (header x-cf-routererror: unknown_route) means the gateway app is down or
+   * being redeployed. That is "gateway unavailable" (503), never "record not found".
+   */
+  private async throwIfUnavailable(res: Response, name: string) {
+    const routerError = res.headers.get('x-cf-routererror')
+    if (res.status === 404 && routerError) {
+      throw Object.assign(new Error(`${name}: the gateway is not reachable right now (Cloud Foundry: ${routerError}). It may be redeploying; try again in a minute.`), { status: 503 })
+    }
   }
 
   private async action<T>(name: string, body: Record<string, unknown>): Promise<T> {
@@ -55,6 +67,7 @@ export class RealGateway implements Gateway {
       // A write that timed out may still have happened in SAP: say so, never retry it blindly.
       throw Object.assign(new Error(`${name}: no answer from the gateway (${(e as Error).message}). The outcome in SAP is unknown; check SAP before trying again.`), { status: 504 })
     }
+    await this.throwIfUnavailable(res, name)
     if (!res.ok) throw Object.assign(new Error(await res.text()), { status: res.status })
     return this.unwrap<T>(await res.json())
   }
@@ -129,30 +142,46 @@ export class RealGateway implements Gateway {
     return { existingReturns: map('YRE', r.existingReturns), existingCredits: map('YCR', r.existingCredits) }
   }
 
-  /** The search result shape is not fixed, so each hit is re-read with getInvoice: full lines and version stamp. */
+  /**
+   * Live shape (5 Oct 2026): `{ soldToParty, material, fromDate, toDate, invoices: [<raw OData v2 billing document with to_Item and __metadata>] }`.
+   * For customer 10021 that is every hackathon invoice (100+, about 1 MB), so the caller ranks them (rankCandidates) and keeps a few.
+   * Older or bare-list shapes are still accepted; hits without lines are re-read with getInvoice.
+   */
   async findInvoices(args: { customer: string; material: string; dateFrom: string; dateTo: string }) {
-    const raw = await this.fn<RawFound[] | { results?: RawFound[] } | null>('findInvoices', {
+    const raw = await this.fn<{ invoices?: RawInvoice[]; results?: RawInvoice[] } | RawInvoice[] | null>('findInvoices', {
       soldToParty: args.customer,
       material: args.material,
       fromDate: args.dateFrom,
       toDate: args.dateTo,
     })
-    const list = Array.isArray(raw) ? raw : (raw?.results ?? [])
-    const numbers = [...new Set(list.map((r) => String(r.BillingDocument ?? r.invoiceNumber ?? r.number ?? '')).filter(Boolean))].slice(0, 5)
-    const invoices = await Promise.all(numbers.map((n) => this.getInvoice(n)))
-    return invoices.filter((i): i is InvoiceSnapshot => !!i && i.items.length > 0)
+    const list: RawInvoice[] = Array.isArray(raw) ? raw : (raw?.invoices ?? raw?.results ?? [])
+    const full = list.filter((r) => r.BillingDocument && r.to_Item?.results?.length)
+    const bare = list.filter((r) => r.BillingDocument && !r.to_Item?.results?.length).slice(0, 5)
+    const reread = await Promise.all(bare.map((r) => this.getInvoice(r.BillingDocument)))
+    return [...full.map((r) => this.toSnapshot(r)), ...reread.filter((i): i is InvoiceSnapshot => !!i)]
   }
 
-  /** PR00 rate per unit. SAP gives the rate per condition quantity (e.g. per 100 KG), so divide by it. */
+  /**
+   * PR00 rate per unit. Live shape (5 Oct 2026): `{ soldToParty, material, salesOrganization, distributionChannel, today, agreedPrices: [...] }`.
+   * `agreedPrices` was empty for every customer we tried, so the gateway probably reads a customer-specific condition
+   * table while the hackathon price (270 EUR/KG) sits on the material level. Until that is fixed on the gateway, a price
+   * complaint goes to a person. SAP gives the rate per condition quantity (e.g. per 100 KG), so divide by it.
+   */
   async getAgreedPrice(args: { customer: string; material: string; salesOrg: string; channel: string }) {
-    const raw = await this.fn<RawPrice | RawPrice[] | { results?: RawPrice[] } | null>('getAgreedPrice', {
+    const raw = await this.fn<RawPrice | RawPrice[] | { results?: RawPrice[]; agreedPrices?: RawPrice[] } | null>('getAgreedPrice', {
       soldToParty: args.customer,
       material: args.material,
       salesOrganization: args.salesOrg,
       distributionChannel: args.channel,
     })
-    const r = Array.isArray(raw) ? raw[0] : raw && 'results' in raw ? raw.results?.[0] : (raw as RawPrice | null)
-    const v = r?.unitPrice ?? r?.price ?? r?.ConditionRateValue
+    const r = Array.isArray(raw)
+      ? raw[0]
+      : raw && 'agreedPrices' in raw
+        ? raw.agreedPrices?.[0]
+        : raw && 'results' in raw
+          ? raw.results?.[0]
+          : (raw as RawPrice | null)
+    const v = r?.unitPrice ?? r?.price ?? r?.ConditionRateValue ?? r?.ConditionRateAmount ?? r?.amount ?? r?.rate
     if (v == null || v === '') return null
     const per = Number(r?.ConditionQuantity ?? 1) || 1
     const price = Number(v) / per
@@ -161,6 +190,11 @@ export class RealGateway implements Gateway {
 
   async getPlantCompanyCode(plant: string) {
     return this.plantCompany[plant] ?? null
+  }
+
+  async getReturnStatus(returnNumber: string) {
+    const r = await this.fn<{ warehouseReceiptStatus?: string; received?: boolean } | null>('getReturnStatus', { returnDocumentNumber: returnNumber })
+    return { status: r?.warehouseReceiptStatus ?? 'UNKNOWN', received: !!r?.received }
   }
 
   private writeResult(type: 'YRE' | 'YCR', r: unknown): WriteResult {
@@ -324,16 +358,13 @@ interface RawInvoice {
   }
 }
 
-interface RawFound {
-  BillingDocument?: string
-  invoiceNumber?: string
-  number?: string
-}
-
 interface RawPrice {
   unitPrice?: string | number
   price?: string | number
+  amount?: string | number
+  rate?: string | number
   ConditionRateValue?: string | number
+  ConditionRateAmount?: string | number
   ConditionQuantity?: string | number
 }
 

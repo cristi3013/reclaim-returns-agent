@@ -1,4 +1,4 @@
-import { buildSapPayload, decide, preferItem, type CaseStatus, type Findings, type Proposal } from '@reclaim/shared'
+import { buildSapPayload, decide, preferItem, rankCandidates, type CaseStatus, type Findings, type Proposal } from '@reclaim/shared'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import type { Store } from './store'
@@ -99,8 +99,9 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   } else if (facts.material && c.customer) {
     const args = { customer: c.customer, material: facts.material, dateFrom: daysAgo(c.receivedAt, 21), dateTo: c.receivedAt.slice(0, 10) }
     await lookup('findInvoices', args, async () => {
-      findings.candidateInvoices = (await gateway.findInvoices(args)).map((i) => preferItem(i, facts.material))
-      return { candidates: findings.candidateInvoices.map((i) => i.number) }
+      const found = (await gateway.findInvoices(args)).map((i) => preferItem(i, facts.material))
+      findings.candidateInvoices = rankCandidates(found, facts, c.receivedAt)
+      return { found: found.length, candidates: findings.candidateInvoices.map((i) => `${i.number} (${i.items[0]?.quantity} ${i.items[0]?.unit}, ${i.date})`) }
     }, true)
   } else {
     ev(c, 'lookup', 'findInvoices skipped: no invoice number and no material to search with', {}, '5.1.1', 0)

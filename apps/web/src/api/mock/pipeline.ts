@@ -10,7 +10,7 @@ import {
   type Findings,
   type Proposal,
 } from '@reclaim/shared'
-import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, regexFacts } from '@reclaim/shared'
+import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, rankCandidates, regexFacts } from '@reclaim/shared'
 import { ev, uid } from './events'
 
 export interface PipelineHost {
@@ -143,7 +143,8 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
       'findInvoices',
       { customer: c.customer, material: facts.material, dateFrom: '2026-09-21', dateTo: '2026-10-05' },
       () => {
-        findings.candidateInvoices = (fx?.candidateInvoices ?? []).map((n) => INVOICES[n]!).filter(Boolean)
+        const found = Object.values(INVOICES).filter((i) => i.customer === c.customer && i.items.some((it) => it.material === facts.material))
+        findings.candidateInvoices = rankCandidates(found, facts, c.receivedAt)
       },
       620,
     )

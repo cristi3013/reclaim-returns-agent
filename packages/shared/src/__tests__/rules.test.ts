@@ -39,3 +39,17 @@ describe('audit fixes', () => {
     expect(r.notes).toMatch(/No agreed price/)
   })
 })
+
+import { rankCandidates } from '../candidates'
+describe('rankCandidates', () => {
+  const mk = (number: string, quantity: number, date: string) => ({ ...inv(number, quantity), date })
+  it('prefers the quantity match, then recent invoices, then the lowest number', () => {
+    const list = [mk('90000353', 5, '2026-09-29'), mk('90000367', 15, '2026-09-30'), mk('90000357', 15, '2026-09-29'), mk('90000377', 15, '2026-08-28'), mk('90000360', 25, '2026-09-29')]
+    const f = facts({ invoiceNumber: null, claimedQuantity: 15, complaintType: 'quality' })
+    expect(rankCandidates(list, f, '2026-10-05T08:10:00Z').map((i) => i.number)).toEqual(['90000357', '90000367', '90000377', '90000353', '90000360'])
+  })
+  it('limits the list and drops invoices without the material', () => {
+    const list = [mk('1', 15, '2026-09-29'), { ...mk('2', 15, '2026-09-29'), items: [{ ...inv('2', 15).items[0]!, material: '99' }] }]
+    expect(rankCandidates(list, facts({ invoiceNumber: null, claimedQuantity: 15 }), '2026-10-05T08:10:00Z', 1).map((i) => i.number)).toEqual(['1'])
+  })
+})

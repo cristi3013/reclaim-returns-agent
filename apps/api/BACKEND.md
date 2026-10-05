@@ -113,6 +113,15 @@ Base path `/odata/v4/returns`. Reads are OData v4 functions (GET, parameters in 
 
 Reads are safe to call any time. **Writes only against the team's own four invoices on DS4** (guarded in the service and again in `RealGateway`).
 
+**Live findings, 5 Oct 2026 evening (reads against the deployed gateway):**
+- `getInvoice`: raw OData v2 document with `to_Item.results` and `__metadata.etag`; our `toSnapshot` maps it. Real 90000358 is 30 KG (the fixture now says so too); real 90000359 ships from plant YGLG, so case 08 is intercompany only on the mock.
+- `checkExistingCredits`: `{existingReturns: [], existingCredits: []}` as expected.
+- `findInvoices`: `{…, invoices: [full documents]}`. For customer 10021 and material 54 it returns **all 102 hackathon invoices (~1 MB)**, five of them multi-line, ten with 15 KG. The pipeline ranks them with `rankCandidates` (quantity match, then last 14 days, then lowest number) and keeps five; 90000357 comes out first, which is the oracle's answer.
+- `getAgreedPrice`: `{…, today, agreedPrices: []}` — **empty for every customer tried** (10021, 10044). The hackathon PR00 (270 EUR/KG) is on the material level, the gateway seems to read a customer-specific table. Until Alex changes it, case 02 ends as "no agreed price, a person decides" in real mode (correct behaviour, but not the oracle's answer). Field names inside `agreedPrices[]` are still unknown; `RealGateway` tries `unitPrice`, `price`, `ConditionRateValue`, `ConditionRateAmount`, `amount`, `rate`, divided by `ConditionQuantity`.
+- `getReturnStatus`: `{returnDocumentNumber, warehouseReceiptStatus: 'UNKNOWN', received: false}`. Wired as `RealGateway.getReturnStatus`, not yet used by the release flow.
+
+**Open with Alex (in this order):** reason names for YRE:102, YCR:103, YCR:104; `getAgreedPrice` reading the material-level PR00 and the field names it returns; whether the creates set `PurchaseOrderByCustomer` (the complaint reference the SAP GUI check looks for); whether the create response carries `__metadata.etag` and `HeaderBillingBlockReason`.
+
 Lookups that may be missing on the gateway (`findInvoices`, `getAgreedPrice`, the plant table) are **optional**: a failure is recorded as an error event and the rules decide with what is known. A price complaint without an agreed price goes to the credit manager as "no automatic decision". `getInvoice` failing aborts the run.
 
 The creates take flat parameters, so `RealGateway` maps `sapPayload` onto his parameters, so "sent unchanged" holds up to the gateway, and billing block 08 depends on his service. The response check above is the safety net.
