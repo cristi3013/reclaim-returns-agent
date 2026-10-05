@@ -12,6 +12,7 @@ export const API_ROUTES = {
   approve: { method: 'POST', path: '/api/proposals/:id/approve' },
   reject: { method: 'POST', path: '/api/proposals/:id/reject' },
   release: { method: 'POST', path: '/api/sap/:id/release' },
+  confirmGoodsReceipt: { method: 'POST', path: '/api/sap/:id/goods-receipt' },
   returnStatus: { method: 'GET', path: '/api/sap/:id/status' },
   analytics: { method: 'GET', path: '/api/analytics/summary' },
   runEval: { method: 'POST', path: '/api/eval/run' },

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useAnalytics, useCases, useSettings, useStatus } from '@/api'
 import { useUi } from '@/store/ui'
+import { useSignedInUser } from '@/auth'
 import { KpiTile } from '@/components/domain/KpiTile'
 import { PageHeader } from '@/components/domain/PageHeader'
 import { ErrorState } from '@/components/domain/ErrorState'
@@ -26,6 +27,7 @@ export function DashboardPage() {
   const { data: agent } = useStatus()
   const { data: settings } = useSettings()
   const { role } = useUi()
+  const user = useSignedInUser()
   const all = cases.data ?? []
   const d = analytics.data
   const waiting = all.filter((c) => c.status === 'awaiting_approval').length
@@ -37,7 +39,7 @@ export function DashboardPage() {
     <div>
       <PageHeader
         eyebrow={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-        title={`${greeting()}, ${ROLE_LABELS[role]}`}
+        title={`${greeting()}, ${user?.name.split(' ')[0] || ROLE_LABELS[role]}`}
         description={<>
             {all.length === 0
               ? 'No complaints yet. Seed the demo cases or send an email to the mailbox.'
@@ -68,9 +70,10 @@ export function DashboardPage() {
           <Link to="/approvals"><KpiTile label="Waiting for approval" value={String(waiting)} hint={d.timing.oldestPendingMinutes != null ? `oldest waiting ${minutes(d.timing.oldestPendingMinutes)}` : 'queue is empty'} tone={waiting ? 'warn' : 'neutral'} /></Link>
           <Link to="/inbox"><KpiTile label="New in the last 24 h" value={String(d.totals.last24h)} hint={`${d.totals.cases} in total`} /></Link>
           <Link to="/analytics"><KpiTile label="Credit approved" value={formatMoney(d.value.approved, d.currency)} hint={`${formatMoney(d.value.released, d.currency)} released`} tone="ok" /></Link>
-          <Link to="/analytics"><KpiTile label="Time to decision" value={minutes(d.timing.medianMinutesToDecision)} hint={d.timing.medianAgentSeconds != null ? `agent ${Math.round(d.timing.medianAgentSeconds)} s of it` : 'median'} /></Link>
-          <Link to="/analytics"><KpiTile label="Duplicates stopped" value={String(d.control.duplicatesPrevented)} hint={`${d.control.intercompanyFlagged} intercompany flagged`} tone={d.control.duplicatesPrevented ? 'ok' : 'neutral'} /></Link>
+          <Link to="/analytics"><KpiTile label="Email to decision" value={minutes(d.timing.medianMinutesToDecision)} hint={d.timing.medianAgentSeconds != null ? `agent ${Math.round(d.timing.medianAgentSeconds)} s of it` : 'median'} /></Link>
+          <Link to="/analytics"><KpiTile label="Duplicates prevented" value={String(d.control.duplicatesPrevented)} hint={d.model.calls ? `model cost $${d.model.estimatedCostUsd.toFixed(2)} so far` : 'rule R8, no second credit'} tone={d.control.duplicatesPrevented ? 'ok' : 'neutral'} /></Link>
           <Link to="/analytics"><KpiTile label="AI cost" value={`$${d.model.estimatedCostUsd.toFixed(2)}`} hint={d.model.avgCostPerCaseUsd != null ? `$${d.model.avgCostPerCaseUsd.toFixed(3)} per case` : 'no model calls yet'} /></Link>
+          <Link to="/inbox" search={{ filter: 'intercompany' }}><KpiTile label="Intercompany flagged" value={String(d.control.intercompanyFlagged)} hint="for finance, step 5.2.2" tone={d.control.intercompanyFlagged ? 'warn' : 'neutral'} /></Link>
         </div>
       )}
 

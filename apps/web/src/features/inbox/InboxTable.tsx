@@ -98,6 +98,11 @@ export function InboxTable({
                     />
                   )}
                   <span className="truncate">{r.subject}</span>
+                  {r.intercompany && (
+                    <span className="shrink-0 rounded bg-warn-soft px-1 text-[10px] font-semibold uppercase text-warn" title="Intercompany: flag for finance (step 5.2.2)">
+                      IC
+                    </span>
+                  )}
                 </div>
                 <div className="max-w-[17rem] truncate text-xs text-muted">{r.from}</div>
               </td>

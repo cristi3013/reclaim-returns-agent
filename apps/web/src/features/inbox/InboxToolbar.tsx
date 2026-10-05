@@ -11,12 +11,16 @@ export function InboxToolbar({
   onQuery,
   sort,
   onSort,
+  intercompany,
+  onIntercompany,
   hasCases,
 }: {
   query: string
   onQuery: (q: string) => void
   sort: InboxSort
   onSort: (s: InboxSort) => void
+  intercompany: boolean
+  onIntercompany: (v: boolean) => void
   hasCases: boolean
 }) {
   const seed = useSeed()
@@ -72,6 +76,15 @@ export function InboxToolbar({
           </option>
         ))}
       </select>
+      <button
+        type="button"
+        aria-pressed={intercompany}
+        onClick={() => onIntercompany(!intercompany)}
+        title="Only credits where the shipping plant belongs to another company (step 5.2.2, for finance)"
+        className={`h-9 rounded-md border px-3 text-sm ${intercompany ? 'border-warn bg-warn-soft text-warn' : 'border-line bg-surface text-muted hover:text-fg'}`}
+      >
+        Intercompany
+      </button>
       <div className="flex flex-wrap gap-2 sm:ml-auto">
         <input
           ref={file}

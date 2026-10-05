@@ -40,6 +40,7 @@ const Empty = ({ text }: { text: string }) => <p className="px-2 py-6 text-cente
 
 /** Cases the current role can decide, oldest first. Others' are counted, not listed: the queue is per role. */
 export function ApprovalsWidget({ cases, role }: { cases: CaseSummary[]; role: Role }) {
+  if (role === 'returns_desk') return <ReturnsDeskWidget cases={cases} />
   const waiting = cases.filter((c) => c.status === 'awaiting_approval').sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
   const mine = waiting.filter((c) => !c.approverRole || RANK[role] >= RANK[c.approverRole])
   const higher = waiting.length - mine.length
@@ -79,13 +80,48 @@ export function ApprovalsWidget({ cases, role }: { cases: CaseSummary[]; role: R
   )
 }
 
+/** The Returns desk's queue: returns written to SAP whose goods receipt it confirms (step 5.1.3). */
+function ReturnsDeskWidget({ cases }: { cases: CaseSummary[] }) {
+  const waiting = cases.filter((c) => c.status === 'written_to_sap' && c.documentType === 'YRE').sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+  return (
+    <Widget
+      title="Returns waiting for goods"
+      hint={waiting.length ? `${waiting.length} return(s) to confirm once the warehouse has the goods` : 'No return is waiting for its goods'}
+      action={
+        <Link to="/approvals" className="flex items-center gap-1 text-xs text-muted hover:text-fg">
+          Open queue <ArrowRight className="size-3" />
+        </Link>
+      }
+    >
+      {waiting.length === 0 ? (
+        <Empty text="When an approver creates a customer return, it appears here until you confirm the goods receipt." />
+      ) : (
+        <ul>
+          {waiting.slice(0, 5).map((c) => (
+            <li key={c.id}>
+              <Row to="/approvals" search={{ case: c.id }}>
+                <Unlock className="size-4 shrink-0 text-warn" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{c.subject}</span>
+                  <span className="block truncate text-xs text-muted">{c.customerName ?? c.customer} · invoice {c.invoiceNumber ?? 'none'} · return created {formatRelative(c.updatedAt)}</span>
+                </span>
+                <RuleBadge ruleId={c.ruleId} />
+              </Row>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Widget>
+  )
+}
+
 /** Things a person has to unblock: failed writes, blocks waiting for release, complaints never run, customer input. */
 export function AttentionWidget({ cases }: { cases: CaseSummary[] }) {
   const run = useRunCase()
   const items: { c: CaseSummary; why: string; tone: 'bad' | 'warn' | 'info'; action?: React.ReactNode }[] = []
   for (const c of cases) {
     if (c.status === 'sap_write_failed') items.push({ c, why: 'SAP refused the write; nothing was written', tone: 'bad' })
-    else if (c.status === 'written_to_sap') items.push({ c, why: `${c.documentType} created with billing block 08, waiting for release`, tone: 'warn', action: <Link to="/approvals" search={{ case: c.id }} className="flex items-center gap-1 text-xs text-accent hover:underline"><Unlock className="size-3" /> Release</Link> })
+    else if (c.status === 'written_to_sap') items.push({ c, why: c.documentType === 'YRE' ? 'Return created; waiting for the Returns desk to confirm the goods, then for release' : `${c.documentType} created with billing block 08, waiting for release`, tone: 'warn', action: <Link to="/approvals" search={{ case: c.id }} className="flex items-center gap-1 text-xs text-accent hover:underline"><Unlock className="size-3" /> Release</Link> })
     else if (c.status === 'needs_customer_input') items.push({ c, why: 'Waiting for the customer to confirm', tone: 'info' })
     else if (c.status === 'received') items.push({ c, why: `Received ${formatRelative(c.receivedAt)}, not investigated yet`, tone: 'info', action: <Button size="sm" variant="outline" className="h-7" disabled={run.isPending} onClick={(e) => { e.preventDefault(); run.mutate(c.id, { onError: (err) => toast.error(err instanceof Error ? err.message : 'Run failed') }) }}><Play className="size-3" /> Run</Button> })
   }

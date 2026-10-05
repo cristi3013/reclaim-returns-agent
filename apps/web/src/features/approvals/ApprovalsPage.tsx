@@ -39,7 +39,10 @@ export function ApprovalsPage() {
   // On a phone the queue and the case are two steps: tap a row to open the case, go back for the queue.
   const mobile = useIsMobile()
   const [opened, setOpened] = useState(false)
-  const mine = (r: CaseSummary) => all || r.id === search.case || !r.approverRole || RANK[role] >= RANK[r.approverRole]
+  // The Returns desk has its own queue: returns written to SAP whose goods receipt it must confirm (step 5.1.3).
+  const returnsDesk = role === 'returns_desk'
+  const mine = (r: CaseSummary) =>
+    returnsDesk ? r.status === 'written_to_sap' && r.documentType === 'YRE' : all || r.id === search.case || !r.approverRole || RANK[role] >= RANK[r.approverRole]
   const rows = (q.data ?? [])
     .filter((r) => QUEUE_STATUSES.includes(r.status) && mine(r))
     .sort((a, b) => (a.status === 'awaiting_approval' ? 0 : 1) - (b.status === 'awaiting_approval' ? 0 : 1))
@@ -66,34 +69,44 @@ export function ApprovalsPage() {
   return (
     <div>
       <PageHeader
-        title="To approve"
+        title={returnsDesk ? 'Returns waiting for goods' : 'To approve'}
         description={
-          waiting
-            ? `${waiting} proposal${waiting > 1 ? 's' : ''} waiting for ${all ? 'a decision' : `you as ${ROLE_LABELS[role]}`}. Check the briefing, then approve or reject.`
-            : `Nothing is waiting for ${all ? 'a decision' : `you as ${ROLE_LABELS[role]}`}.`
+          returnsDesk
+            ? `${rows.length} return${rows.length === 1 ? '' : 's'} to confirm once the warehouse has the goods.`
+            : waiting
+              ? `${waiting} proposal${waiting > 1 ? 's' : ''} waiting for ${all ? 'a decision' : `you as ${ROLE_LABELS[role]}`}. Check the briefing, then approve or reject.`
+              : `Nothing is waiting for ${all ? 'a decision' : `you as ${ROLE_LABELS[role]}`}.`
         }
         extra={
-          <details className="text-xs text-muted">
-            <summary className="cursor-pointer select-none hover:text-fg">Who approves what?</summary>
-            <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-              {APPROVAL_THRESHOLDS.map((t) => (
-                <li key={t.role}>
-                  {t.upTo === Infinity ? 'Above 5 000' : `Up to ${t.upTo.toLocaleString('en-GB').replace(',', ' ')}`}:{' '}
-                  <span className="text-fg">{ROLE_LABELS[t.role]}</span>
-                </li>
-              ))}
-              <li>No goods coming back: at least the <span className="text-fg">Credit manager</span></li>
-            </ul>
-          </details>
+          !returnsDesk && (
+            <details className="text-xs text-muted">
+              <summary className="cursor-pointer select-none hover:text-fg">Who approves what?</summary>
+              <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                {APPROVAL_THRESHOLDS.map((t) => (
+                  <li key={t.role}>
+                    {t.upTo === Infinity ? 'Above 5 000' : `Up to ${t.upTo.toLocaleString('en-GB').replace(',', ' ')}`}:{' '}
+                    <span className="text-fg">{ROLE_LABELS[t.role]}</span>
+                  </li>
+                ))}
+                <li>No goods coming back: at least the <span className="text-fg">Credit manager</span></li>
+              </ul>
+            </details>
+          )
         }
         actions={
-          <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm">
-            <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show every role
-          </label>
+          !returnsDesk && (
+            <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm">
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show all roles
+            </label>
+          )
         }
       />
       {rows.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="All caught up" description="Nothing needs your approval right now. New proposals for your role appear here as soon as the agent has investigated a complaint." />
+        returnsDesk ? (
+          <EmptyState icon={CheckCircle2} title="No returns waiting" description="When an approver creates a customer return, it appears here until you confirm the goods receipt." />
+        ) : (
+          <EmptyState icon={CheckCircle2} title="Nothing to approve" description="You're all caught up. New proposals for your role appear here as soon as the agent has investigated a complaint." />
+        )
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <ul className="space-y-2">

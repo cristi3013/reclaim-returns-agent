@@ -34,5 +34,7 @@ npm run typecheck && npm run lint
 - Business decisions live in `packages/shared/src/rules.ts`, never in prompts or UI code.
 - Every SAP-related step appends an audit event with its L4 process step id.
 - Tests: `apps/api/test/acceptance.test.ts` and `apps/web/src/api/mock/__tests__/pipeline.test.ts` are the acceptance tests against `expected-results.json`. They must stay green.
+- Sign-in is Supabase Auth, always on: the backend takes actor and role from the session token (`apps/api/src/auth.ts`), the web app shows a login page. Demo accounts: `cs.lead@`, `credit.manager@`, `finance.director@`, `returns.desk@reclaim.demo`, created by `apps/api/scripts/create-demo-users.mts`.
 - Never write hackathon demo invoices (90000353–90000359) to the real DS4. Guarded in code; keep it that way.
 - Conventional commit messages (`feat(api): …`, `fix(web): …`).
+- Never hand-edit or regenerate `package-lock.json` on its own. Run `npm install` at the root (npm 10 or newer) and commit the result. A lockfile written any other way loses the Linux optional packages (`@rollup/rollup-linux-x64-gnu`) and every Railway build fails with "Cannot find module @rollup/rollup-linux-x64-gnu".

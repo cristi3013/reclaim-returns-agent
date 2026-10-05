@@ -144,6 +144,9 @@ export const SapDocumentSchema = z.object({
   etag: z.string().optional(),
   /** Gateway approval record (logRequest → setApprovalStatus) that authorises this document. */
   gatewayLogId: z.string().optional(),
+  /** Step 5.1.3 for a return: when and by whom the Returns desk confirmed the goods receipt. */
+  goodsReceivedAt: z.string().optional(),
+  goodsReceivedBy: z.string().optional(),
 })
 
 /** Goods receipt of a return (step 5.1.3): what SAP says, or "unknown" when the system cannot ask. */
@@ -219,6 +222,8 @@ export const CaseSummarySchema = z.object({
   amount: z.number().nullable(),
   currency: z.string(),
   approverRole: z.enum(APPROVER_ROLES).nullable(),
+  /** Plant company differs from the invoicing company: finance must see it (step 5.2.2). */
+  intercompany: z.boolean(),
   updatedAt: z.string(),
 })
 
@@ -336,6 +341,7 @@ export function toSummary(c: Case): CaseSummary {
     amount: p ? p.decision.amount : null,
     currency: p?.decision.currency ?? 'EUR',
     approverRole: p?.decision.approverRole ?? null,
+    intercompany: p?.decision.intercompany ?? false,
     updatedAt: c.updatedAt,
   }
 }

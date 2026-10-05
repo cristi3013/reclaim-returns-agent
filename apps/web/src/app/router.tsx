@@ -10,7 +10,13 @@ import { ReportsPage } from '@/features/reports/ReportsPage'
 
 const rootRoute = createRootRoute({ component: AppShell })
 const dashboard = createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage })
-const inbox = createRoute({ getParentRoute: () => rootRoute, path: '/inbox', component: InboxPage })
+/** `?filter=intercompany` shows only credits flagged for finance (step 5.2.2). */
+const inbox = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/inbox',
+  component: InboxPage,
+  validateSearch: (s: Record<string, unknown>): { filter?: 'intercompany' } => (s.filter === 'intercompany' ? { filter: 'intercompany' } : {}),
+})
 const caseRoute = createRoute({ getParentRoute: () => rootRoute, path: '/cases/$id', component: CasePage })
 /** `?case=<id>` opens the approvals page on that case (links from the dashboard). */
 const approvals = createRoute({

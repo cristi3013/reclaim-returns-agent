@@ -1,8 +1,14 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { caseOutcome, primaryProposal, type Case, type CaseSummary } from '@reclaim/shared'
 import { buildApp } from '../src/app'
+import { headerVerifier } from '../src/auth'
 import type { Mailer } from '../src/intake/mailer'
 
+/** The test verifier reads `<role>:<name>` from the bearer token, so a body's actor and role become the caller. */
+const auth = (body?: unknown) => {
+  const b = (body ?? {}) as { role?: string; actor?: string }
+  return b.role ? { authorization: `Bearer ${b.role}:${b.actor ?? 'Demo'}` } : {}
+}
 let ctx: ReturnType<typeof buildApp>
 afterEach(async () => ctx.app.close())
 
@@ -12,14 +18,14 @@ const mailer: Mailer = { from: 'reclaim@test', send: async () => ({ messageId: '
 
 function setup() {
   process.env.INBOUND_AUTORUN = 'false'
-  ctx = buildApp({
+  ctx = buildApp({ verifier: headerVerifier(), 
     mockDelayMs: 0,
     noSideCars: true,
     mailer,
     initialSettings: { aiMode: 'rules_only' },
   })
   const post = (url: string, body?: unknown) =>
-    ctx.app.inject({ method: 'POST', url, ...(body ? { payload: body } : {}) })
+    ctx.app.inject({ method: 'POST', url, headers: auth(body), ...(body ? { payload: body } : {}) })
   const theCase = async (id: string) =>
     (await ctx.app.inject({ method: 'GET', url: `/api/cases/${id}` })).json() as Case
   return { post, theCase }

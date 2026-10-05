@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useCases, useSeed, useStatus } from '@/api'
 import { InboxToolbar } from './InboxToolbar'
 import { InboxTable } from './InboxTable'
@@ -15,26 +15,30 @@ import { formatRelative } from '@/lib/format'
 
 export function InboxPage() {
   const nav = useNavigate()
-  return <InboxView onOpen={(id) => nav({ to: '/cases/$id', params: { id } })} />
+  const search = useSearch({ strict: false }) as { filter?: 'intercompany' }
+  return <InboxView onOpen={(id) => nav({ to: '/cases/$id', params: { id } })} initialIntercompany={search.filter === 'intercompany'} />
 }
 
 /** Hooks, toolbar and table without a router dependency, so it can be tested on its own. */
-export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
+export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id: string) => void; initialIntercompany?: boolean }) {
   const q = useCases()
   const seed = useSeed()
   const { data: agent } = useStatus()
   const [query, setQuery] = useState('')
+  // Intercompany (step 5.2.2): the finance view, reachable from the dashboard tile.
+  const [intercompany, setIntercompany] = useState(initialIntercompany)
   const { inboxSort: sort, setInboxSort, inboxStatus: status, setInboxStatus } = useUi()
   const all = useMemo(() => q.data ?? [], [q.data])
-  const searched = all.filter((r) => matchesQuery(r, query))
+  const searched = all.filter((r) => matchesQuery(r, query) && (!intercompany || r.intercompany))
   const rows = sortRows(
     searched.filter((r) => matchesStatus(r, status)),
     sort,
   )
-  const filtered = Boolean(query.trim() || status)
+  const filtered = Boolean(query.trim() || status || intercompany)
   const clear = () => {
     setQuery('')
     setInboxStatus('')
+    setIntercompany(false)
   }
   const pending = all.filter((r) => r.status === 'awaiting_approval').length
   return (
@@ -75,6 +79,8 @@ export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
         onQuery={setQuery}
         sort={sort}
         onSort={setInboxSort}
+        intercompany={intercompany}
+        onIntercompany={setIntercompany}
         hasCases={all.length > 0}
       />
       {all.length > 0 && <StatusFilters rows={searched} value={status} onChange={setInboxStatus} />}

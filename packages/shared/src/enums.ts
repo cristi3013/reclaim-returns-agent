@@ -59,6 +59,7 @@ export const EVENT_KINDS = [
   'approval',
   'sap_write',
   'sap_release',
+  'goods_receipt',
   'status',
   'error',
 ] as const

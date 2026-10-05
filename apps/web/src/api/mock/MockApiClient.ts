@@ -287,8 +287,11 @@ export class MockApiClient implements ApiClient {
   }
 
   async reject(proposalId: string, input: RejectInput) {
-    const { c } = this.locate(proposalId)
+    const { c, p } = this.locate(proposalId)
     if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) throw Object.assign(new Error('This case is not awaiting approval.'), { status: 409 })
+    const required = p.decision.approverRole ?? 'customer_service_lead'
+    if (ROLE_RANK[input.role] < ROLE_RANK[required]) throw Object.assign(new Error(`Rejecting this claim needs the ${required.replace(/_/g, ' ')}. Your role cannot decide it.`), { status: 403 })
+    if (input.comment.trim().length < 3) throw Object.assign(new Error('A reason is required to reject: it goes to the customer and into the audit trail.'), { status: 400 })
     c.approvals.push({
       id: uid('appr'),
       proposalId,
@@ -326,8 +329,8 @@ export class MockApiClient implements ApiClient {
       if (d.released) return { ok: false, status: 409, message: `${d.type} ${d.number} is already released.` }
       const required = primaryProposal(c)?.decision.approverRole ?? 'credit_manager'
       if (ROLE_RANK[input.role] < ROLE_RANK[required]) return { ok: false, status: 403, message: `Releasing this credit needs the ${required.replace(/_/g, ' ')}.` }
-      if (d.type === 'YRE' && !input.goodsReceived) {
-        return { ok: false, status: 409, message: 'A return is credited only after the warehouse has received the goods (step 5.1.3). Confirm the goods receipt to release.' }
+      if (d.type === 'YRE' && !d.goodsReceivedAt) {
+        return { ok: false, status: 409, message: 'A return is credited only after the warehouse has received the goods (step 5.1.3). The Returns desk confirms the receipt; then the credit can be released.' }
       }
       await this.delay(500)
       if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
@@ -339,15 +342,33 @@ export class MockApiClient implements ApiClient {
         return { ok: false, status: 412, message: CONFLICT_MESSAGE }
       }
       d.released = true
-      const goodsReceipt = d.type === 'YRE' ? 'confirmed manually' : 'not required'
-      ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})${d.type === 'YRE' ? '; goods receipt confirmed manually' : ''}`, { HeaderBillingBlockReason: '', goodsReceipt, warehouseStatus: null, goodsReceived: !!input.goodsReceived }, step, 500)
+      const goodsReceipt = d.type === 'YRE' ? 'confirmed by the Returns desk' : 'not required'
+      ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})${d.type === 'YRE' ? '; goods receipt confirmed by the Returns desk' : ''}`, { HeaderBillingBlockReason: '', goodsReceipt, warehouseStatus: null, goodsReceivedBy: d.goodsReceivedBy ?? null, goodsReceivedAt: d.goodsReceivedAt ?? null }, step, 500)
       this.touch(c.id)
       return { ok: true, document: d }
     }
     throw Object.assign(new Error('Document not found'), { status: 404 })
   }
 
-  /** The in-browser mock has no warehouse: the receipt is always unknown and is confirmed by hand. */
+  /** Step 5.1.3 by hand: only the Returns desk, once, for an unreleased return. */
+  async confirmGoodsReceipt(id: string, input: ReleaseInput): Promise<ReleaseResult> {
+    for (const c of this.store.cases.values()) {
+      const d = c.sapDocuments.find((x) => x.id === id)
+      if (!d) continue
+      if (d.type !== 'YRE') return { ok: false, status: 400, message: `${d.type} ${d.number} is a credit memo request; there are no goods to receive.` }
+      if (d.released) return { ok: false, status: 409, message: `${d.type} ${d.number} is already released.` }
+      if (d.goodsReceivedAt) return { ok: false, status: 409, message: `The goods receipt for ${d.number} was already confirmed by ${d.goodsReceivedBy}.` }
+      if (input.role !== 'returns_desk') return { ok: false, status: 403, message: 'Only the Returns desk confirms the goods receipt (step 5.1.3). The approver releases the credit afterwards.' }
+      d.goodsReceivedAt = new Date().toISOString()
+      d.goodsReceivedBy = input.actor
+      ev(c, 'goods_receipt', `Goods receipt confirmed for ${d.type} ${d.number} by ${input.actor} (Returns desk)`, { number: d.number, actor: input.actor, role: input.role }, '5.1.3', null)
+      this.touch(c.id)
+      return { ok: true, document: d }
+    }
+    throw Object.assign(new Error('Document not found'), { status: 404 })
+  }
+
+  /** The in-browser mock has no warehouse: the receipt is always unknown and is confirmed by the Returns desk. */
   async getReturnStatus(id: string): Promise<ReturnStatus> {
     for (const c of this.store.cases.values()) {
       const d = c.sapDocuments.find((x) => x.id === id)

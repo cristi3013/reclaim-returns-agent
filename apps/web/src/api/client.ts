@@ -56,8 +56,6 @@ export interface ChangeStatusInput {
 export interface ReleaseInput {
   actor: string
   role: Role
-  /** Manual confirmation that the warehouse received the goods, for when SAP cannot say so (step 5.1.3). */
-  goodsReceived?: boolean
 }
 
 /**
@@ -81,6 +79,8 @@ export interface ApiClient {
   release(sapDocumentId: string, input: ReleaseInput): Promise<ReleaseResult>
   /** Goods receipt of a return as SAP reports it (step 5.1.3). */
   getReturnStatus(sapDocumentId: string): Promise<ReturnStatus>
+  /** The Returns desk confirms the goods receipt of a return by hand (step 5.1.3). */
+  confirmGoodsReceipt(sapDocumentId: string, input: ReleaseInput): Promise<ReleaseResult>
   getAnalytics(): Promise<Analytics>
   runEval(): Promise<EvalResult[]>
   getLatestEval(): Promise<EvalResult[] | null>

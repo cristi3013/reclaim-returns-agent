@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { approverFor, caseOutcome, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
-import { useApprove, useReject, useRelease, useReturnStatus, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
+import { useApprove, useConfirmGoodsReceipt, useReject, useRelease, useReturnStatus, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
 import { ReplyPanel } from '@/features/case/ReplyPanel'
 import { PayloadView } from '@/components/domain/PayloadView'
@@ -85,12 +85,12 @@ export function ApprovalActions({
   const approve = useApprove()
   const reject = useReject()
   const release = useRelease()
+  const confirmReceipt = useConfirmGoodsReceipt()
   const { data: settings } = useSettings()
   const [edit, setEdit] = useState<{ quantity: number; valid: boolean } | null>(null)
   const [comment, setComment] = useState('')
   const [result, setResult] = useState<ApproveResult | null>(null)
   const [rel, setRel] = useState<ReleaseResult | null>(null)
-  const [goodsReceived, setGoodsReceived] = useState(false)
   const d = p.decision
   const max = c.findings?.invoice?.items[0]?.quantity ?? d.quantity
   // For a difference credit (R4) the unit price is the difference, not the invoice price.
@@ -103,7 +103,9 @@ export function ApprovalActions({
   const doc = c.sapDocuments[c.sapDocuments.length - 1]
   const warehouse = useReturnStatus(doc && doc.type === 'YRE' && !doc.released && c.status === 'written_to_sap' ? doc.id : null)
   const receivedInSap = warehouse.data?.source === 'sap' && warehouse.data.received
-  const canRelease = !doc || doc.type !== 'YRE' || receivedInSap || goodsReceived
+  const receiptConfirmed = !!doc?.goodsReceivedAt
+  const canRelease = !doc || doc.type !== 'YRE' || receivedInSap || receiptConfirmed
+  const releaseRole = RANK[role] >= RANK[d.approverRole ?? 'credit_manager']
   const lastApproval = c.approvals[c.approvals.length - 1]
   const lastError = [...c.events].reverse().find((e) => e.kind === 'error')
   const failure = result && !result.ok ? result : c.status === 'sap_write_failed' && lastError ? { status: Number(lastError.detail.status ?? 0), message: String(lastError.detail.message ?? lastError.title) } : null
@@ -248,34 +250,49 @@ export function ApprovalActions({
           </div>
           {!doc.released && doc.type === 'YRE' && (
             <div className="mt-2 rounded-md border border-line bg-surface p-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className={`inline-block size-2 rounded-full ${receivedInSap ? 'bg-ok' : warehouse.data?.source === 'sap' ? 'bg-warn' : 'bg-muted'}`} aria-hidden />
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-block size-2 rounded-full ${receivedInSap || receiptConfirmed ? 'bg-ok' : warehouse.data?.source === 'sap' ? 'bg-warn' : 'bg-muted'}`} aria-hidden />
                 <span className="font-semibold">Goods receipt, step 5.1.3:</span>
                 <span className="text-muted">
-                  {warehouse.isLoading
-                    ? 'asking SAP…'
-                    : receivedInSap
-                      ? `received by the warehouse (SAP status ${warehouse.data?.status})`
-                      : warehouse.data?.source === 'sap'
-                        ? `not received yet (SAP status ${warehouse.data.status}); checked ${new Date(warehouse.data.checkedAt).toLocaleTimeString()}`
-                        : 'not known to this system'}
+                  {receiptConfirmed
+                    ? `confirmed by ${doc.goodsReceivedBy} (Returns desk) at ${new Date(doc.goodsReceivedAt!).toLocaleTimeString()}`
+                    : warehouse.isLoading
+                      ? 'asking SAP…'
+                      : receivedInSap
+                        ? `received by the warehouse (SAP status ${warehouse.data?.status})`
+                        : warehouse.data?.source === 'sap'
+                          ? `not received yet (SAP status ${warehouse.data.status}); waiting for the Returns desk`
+                          : 'not known to this system; waiting for the Returns desk to confirm it'}
                 </span>
               </div>
-              {!receivedInSap && (
-                <label className="mt-2 flex items-center gap-2">
-                  <input type="checkbox" checked={goodsReceived} onChange={(e) => setGoodsReceived(e.target.checked)} />
-                  I confirm the goods receipt by hand (recorded as a manual confirmation in the audit trail)
-                </label>
+              {!receivedInSap && !receiptConfirmed && role === 'returns_desk' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  disabled={confirmReceipt.isPending}
+                  onClick={() =>
+                    confirmReceipt.mutate({ id: doc.id, input: { actor, role } }, {
+                      onSuccess: (r) => (r.ok ? toast.success('Goods receipt confirmed; the approver can now release the credit') : toast.error(r.message)),
+                    })
+                  }
+                >
+                  {confirmReceipt.isPending ? 'Confirming…' : 'Confirm goods receipt'}
+                </Button>
+              )}
+              {!receivedInSap && !receiptConfirmed && role !== 'returns_desk' && (
+                <p className="mt-1 text-xs text-muted">The Returns desk confirms the receipt under its own name; the person who releases the money never confirms the goods.</p>
               )}
             </div>
           )}
-          {!doc.released && (
+          {!doc.released && role !== 'returns_desk' && (
             <Button
               size="sm"
               className="mt-2"
-              disabled={release.isPending || demoBlocked || !canRelease}
+              disabled={release.isPending || demoBlocked || !canRelease || !releaseRole}
+              title={!releaseRole ? `Releasing needs the ${ROLE_LABELS[d.approverRole ?? 'credit_manager']}` : undefined}
               onClick={() =>
-                release.mutate({ id: doc.id, input: { actor, role, goodsReceived: goodsReceived && !receivedInSap } }, {
+                release.mutate({ id: doc.id, input: { actor, role } }, {
                   onSuccess: (r) => {
                     setRel(r)
                     if (r.ok) toast.success('Billing block removed')
