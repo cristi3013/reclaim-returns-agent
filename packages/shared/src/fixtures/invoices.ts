@@ -1,4 +1,4 @@
-import type { InvoiceSnapshot } from '@reclaim/shared'
+import type { InvoiceSnapshot } from '../schemas'
 
 /**
  * Invoices as DS4 returned them on 1 Oct 2026 (90000353 and 354 are captured; the others follow

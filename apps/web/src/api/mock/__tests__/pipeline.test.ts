@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { primaryProposal } from '@reclaim/shared'
+import { EXPECTED, primaryProposal } from '@reclaim/shared'
 import { MockApiClient } from '../MockApiClient'
-import { EXPECTED } from '../fixtures/expected'
 
 const mk = async () => {
   const c = new MockApiClient({ fast: true })

@@ -1,6 +1,11 @@
 import {
   approverFor,
+  buildFixtureCases,
   buildSapPayload,
+  EXPECTED,
+  FIXTURES,
+  HISTORY_TOTALS,
+  HISTORY_WEEKS,
   capQuantity,
   DEMO_INVOICES,
   primaryProposal,
@@ -23,9 +28,6 @@ import {
 import { MockStore } from './store'
 import { ev, uid } from './events'
 import { runPipeline } from './pipeline'
-import { buildFixtureCases, FIXTURES } from './fixtures/cases'
-import { EXPECTED } from './fixtures/expected'
-import { HISTORY_TOTALS, HISTORY_WEEKS } from './fixtures/history'
 
 const ROLE_RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 

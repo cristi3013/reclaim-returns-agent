@@ -1,4 +1,4 @@
-import type { Attachment, Case, ExistingDoc, Facts } from '@reclaim/shared'
+import type { Attachment, Case, ExistingDoc, Facts } from '../schemas'
 
 export interface FixtureCase {
   id: string

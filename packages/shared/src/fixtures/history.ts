@@ -1,4 +1,4 @@
-import type { WeekPoint } from '@reclaim/shared'
+import type { WeekPoint } from '../schemas'
 
 /** Twelve weeks of demo history for the analytics charts. Deterministic, labelled as demo data in the UI. */
 export const HISTORY_WEEKS: WeekPoint[] = Array.from({ length: 12 }, (_, i) => {
