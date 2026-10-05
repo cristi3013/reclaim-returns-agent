@@ -59,6 +59,8 @@ export interface ServiceDeps {
   onReset?: () => void
   /** Whether a real gateway is configured. Without one, SAP mode cannot be switched to real. */
   hasRealGateway: boolean
+  /** Backend log line. */
+  log?: (msg: string) => void
   /** Mailbox listener status for the UI, when one is configured. */
   mailboxStatus?: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } | null
   /** Optional write-through persistence (Supabase). Never blocks a request. */
@@ -66,7 +68,6 @@ export interface ServiceDeps {
     saveCase: (c: Case) => void
     saveSettings: (s: Settings, lastRunAt: string | null) => void
     saveEval: (r: EvalResult[]) => void
-    deleteAll: () => Promise<void>
     insertCase?: (c: Case) => Promise<boolean>
     deleteCase?: (id: string) => Promise<void>
     refresh?: (store: Store, busy: (id: string) => boolean) => Promise<{ changed: string[]; removed: string[] }>
@@ -547,10 +548,13 @@ export class Service {
     return { ok: true, value: { ...this.store.settings } }
   }
 
-  reset() {
-    this.store.reset()
+  /** Removes the demo cases only; real complaints survive (see Store.reset). */
+  async reset(by = 'unknown') {
+    const removed = this.store.reset()
     this.deps.onReset?.()
-    void this.deps.persistence?.deleteAll()
+    for (const id of removed) await this.deps.persistence?.deleteCase?.(id)
+    this.deps.log?.(`Demo reset by ${by}: removed ${removed.length} demo case(s); ${this.store.cases.size} real case(s) kept`)
+    for (const id of removed) this.deps.hub.emit({ type: 'case_changed', id })
     this.deps.hub.emit({ type: 'status_changed' })
   }
 }

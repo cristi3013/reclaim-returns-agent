@@ -82,6 +82,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     hasRealGateway: !!real || !!opts.gateway,
     onReset: () => mock.reset(),
     persistence: persistence ?? undefined,
+    log,
     readAttachment: async (url) => {
       try {
         const rel = url.startsWith(publicBase) ? url.slice(publicBase.length) : url
@@ -182,8 +183,8 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
   })
-  app.post('/api/demo/reset', async (_req, reply) => {
-    service.reset()
+  app.post('/api/demo/reset', async (req, reply) => {
+    await service.reset(req.ip)
     reply.status(204)
   })
 

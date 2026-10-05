@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { EXPECTED, primaryProposal, type Case, type CaseSummary, type EvalResult, type SapDocument } from '@reclaim/shared'
 import { buildApp } from '../src/app'
 import { detectProvider } from '../src/ai/claude'
+import { caseIdForMessage } from '../src/service'
 
 /**
  * The acceptance test: the backend must produce the organizers' expected decision for every demo case,
@@ -347,5 +348,17 @@ describe('read again right before the write, and goods receipt before releasing 
     expect((await post(`/api/sap/${doc.id}/release`, { ...cm, goodsReceived: true })).statusCode).toBe(200)
     const rel = (await theCase('case-08')).events.find((e) => e.kind === 'sap_release')!
     expect(rel.detail.goodsReceipt).toBe('confirmed manually')
+  })
+})
+
+describe('demo reset', () => {
+  it('removes the demo cases and keeps complaints that came from emails or uploads', async () => {
+    await post('/api/cases/seed')
+    const res = await post('/api/inbound', { from: 'Quality, Cust DE 1 <quality@cust-de-1.example>', subject: 'Short delivery – invoice 90000377', text: 'Invoice 90000377 charges 15 KG but 13 KG arrived.', messageId: '<keep-me@test>' })
+    expect(res.statusCode).toBe(201)
+    expect(await get<CaseSummary[]>('/api/cases')).toHaveLength(9)
+    expect((await post('/api/demo/reset')).statusCode).toBe(204)
+    const left = await get<CaseSummary[]>('/api/cases')
+    expect(left.map((c) => c.id)).toEqual([caseIdForMessage('<keep-me@test>')])
   })
 })

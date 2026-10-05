@@ -55,7 +55,11 @@ export function TopBar() {
       <Button
         variant="outline"
         size="sm"
-        onClick={() => reset.mutate(undefined, { onSuccess: () => toast.success('Demo reset') })}
+        onClick={() => {
+          if (window.confirm('Reset the demo? The eight demo cases are removed and settings go back to defaults. Complaints from emails, uploads and typed complaints are kept.')) {
+            reset.mutate(undefined, { onSuccess: () => toast.success('Demo reset: demo cases removed, real complaints kept') })
+          }
+        }}
       >
         Reset demo
       </Button>

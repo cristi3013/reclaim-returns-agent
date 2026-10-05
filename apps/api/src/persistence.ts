@@ -104,11 +104,6 @@ export class SupabasePersistence {
     if (error) this.log(`Supabase delete of ${id} failed: ${error.message}`)
   }
 
-  async deleteAll() {
-    const { error } = await this.db.from('cases').delete().neq('id', '')
-    if (error) this.log(`Supabase reset failed: ${error.message}`)
-  }
-
   /**
    * Pulls what other instances wrote: rows newer than the local copy are reloaded, rows that disappeared
    * (a reset elsewhere) are dropped. Cases this instance is working on are left alone. Returns the ids that
