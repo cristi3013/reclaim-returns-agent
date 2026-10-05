@@ -37,7 +37,7 @@ describe('DashboardPage', () => {
     const attention = screen.getByRole('region', { name: 'Needs attention' })
     expect(attention).toHaveTextContent(/not investigated yet/)
     expect(screen.getByRole('button', { name: /Run 7 unprocessed/ })).toBeInTheDocument()
-    expect(screen.getByText('Awaiting approval').closest('a')?.getAttribute('href')).toBe('/approvals')
+    expect(screen.getAllByText('Awaiting approval')[0]!.closest('a')?.getAttribute('href')).toBe('/approvals')
   })
 
   it('tells a lower role that the case waits for someone else', async () => {
