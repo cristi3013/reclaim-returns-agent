@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import type { Analytics } from '@reclaim/shared'
 import { RULES, type RuleId } from '@reclaim/shared'
 import { useUi } from '@/store/ui'
+import { useIsMobile } from '@/lib/useIsMobile'
 import { formatMoney } from '@/lib/format'
 
 /** Categorical colours validated for colour-vision deficiency and contrast on both surfaces (dataviz validator). */
@@ -108,25 +109,27 @@ export function DecisionsByRule({ data }: { data: Analytics }) {
 
 export function ValueFunnel({ data }: { data: Analytics }) {
   const t = useChartTokens()
+  const mobile = useIsMobile()
   const v = data.value
   const rows = [
     { step: 'Proposed', value: v.proposed },
-    { step: 'Awaiting approval', value: v.pending },
+    { step: mobile ? 'Awaiting' : 'Awaiting approval', value: v.pending },
     { step: 'Approved', value: v.approved },
-    { step: 'Released to billing', value: v.released },
+    { step: mobile ? 'Released' : 'Released to billing', value: v.released },
     { step: 'Rejected', value: v.rejected },
   ]
+  const money = (x: number) => (mobile ? `${Math.round(x / 1000)}k` : formatMoney(x, data.currency))
   return (
     <Card title="Credit value through the process" reading={v.proposed ? `${formatMoney(v.proposed, data.currency)} proposed by the agent; ${formatMoney(v.approved, data.currency)} approved by a person; ${formatMoney(v.released, data.currency)} released to billing.` : 'No credit proposed yet.'}>
       <div className="h-60">
         {v.proposed > 0 && (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 90, left: 8, bottom: 0 }} barCategoryGap="25%">
+            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: mobile ? 36 : 90, left: mobile ? 0 : 8, bottom: 0 }} barCategoryGap="25%">
               <CartesianGrid horizontal={false} stroke={t.grid} />
               <XAxis type="number" tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(x: number) => (x >= 1000 ? `${Math.round(x / 1000)}k` : String(x))} />
-              <YAxis type="category" dataKey="step" width={130} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="step" width={mobile ? 70 : 130} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip {...tooltipStyle(t)} formatter={(x: number) => formatMoney(x, data.currency)} />
-              <Bar dataKey="value" name="Value" fill={t.palette[0]} radius={[0, 3, 3, 0]} isAnimationActive={false} label={{ position: 'right', fill: t.ink, fontSize: 11, formatter: (x: number) => formatMoney(x, data.currency) }} />
+              <Bar dataKey="value" name="Value" fill={t.palette[0]} radius={[0, 3, 3, 0]} isAnimationActive={false} label={{ position: 'right', fill: t.ink, fontSize: 11, formatter: money }} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -137,16 +140,18 @@ export function ValueFunnel({ data }: { data: Analytics }) {
 
 export function Outcomes({ data }: { data: Analytics }) {
   const t = useChartTokens()
+  const mobile = useIsMobile()
   const rows = Object.entries(data.totals.byOutcome).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value)
+  const short = (s: string) => (mobile && s.length > 16 ? `${s.slice(0, 15)}…` : s)
   return (
     <Card title="What happened to each complaint" reading={rows.length ? 'Documents created versus cases that correctly ended without one.' : 'No outcomes yet.'}>
       <div className="h-60">
         {rows.length > 0 && (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }} barCategoryGap="25%">
+            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 24, left: mobile ? 0 : 8, bottom: 0 }} barCategoryGap="25%">
               <CartesianGrid horizontal={false} stroke={t.grid} />
               <XAxis type="number" tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="label" width={210} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="label" width={mobile ? 110 : 210} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={short} />
               <Tooltip {...tooltipStyle(t)} />
               <Bar dataKey="value" name="Cases" fill={t.palette[1]} radius={[0, 3, 3, 0]} isAnimationActive={false} label={{ position: 'right', fill: t.ink, fontSize: 11 }} />
             </BarChart>

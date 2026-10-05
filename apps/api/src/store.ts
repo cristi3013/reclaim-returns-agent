@@ -1,4 +1,8 @@
 import type { Case, EvalResult, Settings } from '@reclaim/shared'
+import { FIXTURES } from '@reclaim/shared'
+
+/** Ids of the organizers' demo cases, the only ones a reset removes. */
+const DEMO_CASE_IDS = new Set(FIXTURES.map((f) => f.id))
 
 /**
  * In-memory state. Enough for the demo; swap for Supabase/Postgres by implementing the same methods.
@@ -40,12 +44,20 @@ export class Store {
     throw Object.assign(new Error('Document not found'), { status: 404 })
   }
 
-  reset(keepSettings = false) {
+  /**
+   * Back to a clean demo: the seeded demo cases go, settings and the evaluation go back to their defaults.
+   * Cases that came from real emails, uploads or typed complaints stay: the database is shared by every
+   * instance and every teammate, and a reset on one laptop must not wipe the others' work.
+   * Returns the ids that were removed.
+   */
+  reset(keepSettings = false): string[] {
     const s = this.settings
-    this.cases.clear()
+    const removed = [...this.cases.keys()].filter((id) => DEMO_CASE_IDS.has(id))
+    for (const id of removed) this.cases.delete(id)
     this.lastRunAt = null
     this.evalResults = null
     if (!keepSettings) this.settings = { sapMode: 'mock', aiMode: 'assisted', simulateConflict: false }
     else this.settings = s
+    return removed
   }
 }

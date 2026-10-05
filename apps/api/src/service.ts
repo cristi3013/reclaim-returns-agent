@@ -27,6 +27,7 @@ import { EventHub, ev, uid } from './events'
 import { runPipeline } from './pipeline'
 import type { InboundEmail } from './intake/mailbox'
 import type { Mailer } from './intake/mailer'
+import { createHash } from 'node:crypto'
 
 const ROLE_RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
@@ -67,6 +68,8 @@ export interface ServiceDeps {
   onReset?: () => void
   /** Whether a real gateway is configured. Without one, SAP mode cannot be switched to real. */
   hasRealGateway: boolean
+  /** Backend log line. */
+  log?: (msg: string) => void
   /** Mailbox listener status for the UI, when one is configured. */
   mailboxStatus?: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } | null
   /** Sends the customer reply (SendGrid or SMTP). Without one, the UI offers copy to clipboard. */
@@ -76,7 +79,9 @@ export interface ServiceDeps {
     saveCase: (c: Case) => void
     saveSettings: (s: Settings, lastRunAt: string | null) => void
     saveEval: (r: EvalResult[]) => void
-    deleteAll: () => Promise<void>
+    insertCase?: (c: Case) => Promise<boolean>
+    deleteCase?: (id: string) => Promise<void>
+    refresh?: (store: Store, busy: (id: string) => boolean) => Promise<{ changed: string[]; removed: string[] }>
   }
 }
 
@@ -103,6 +108,44 @@ export class Service {
     this.deps.hub.emit({ type: 'case_changed', id })
   }
 
+  /** True while this instance is investigating or writing the case: another instance's copy must not replace it. */
+  isBusy(id: string) {
+    return this.running.has(id) || this.writing.has(id)
+  }
+
+  /** Pulls changes made by other instances sharing the database and tells the UI. */
+  async syncFromPersistence() {
+    if (!this.deps.persistence?.refresh) return
+    const { changed, removed } = await this.deps.persistence.refresh(this.store, (id) => this.isBusy(id))
+    const dropped = await this.dropStrayCopies(changed)
+    for (const id of [...changed, ...removed, ...dropped]) this.deps.hub.emit({ type: 'case_changed', id })
+    if (changed.length || removed.length || dropped.length) this.deps.hub.emit({ type: 'status_changed' })
+  }
+
+  /**
+   * An instance running older code may have ingested the same email under a random id. Of two cases with the
+   * same Message-ID, the one with the stable id (or, failing that, the older one) stays; the other is deleted.
+   */
+  private async dropStrayCopies(ids: string[]): Promise<string[]> {
+    const dropped: string[] = []
+    const messageIdOf = (c: Case) => c.events.find((e) => e.kind === 'intake')?.detail.messageId as string | undefined
+    for (const id of ids) {
+      const c = this.store.cases.get(id)
+      const mid = c && messageIdOf(c)
+      if (!c || !mid) continue
+      const twins = this.store.list().filter((x) => x.id !== c.id && messageIdOf(x) === mid)
+      for (const t of twins) {
+        const keep = [c, t].find((x) => x.id === caseIdForMessage(mid)) ?? [c, t].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]!
+        const stray = keep.id === c.id ? t : c
+        if (this.isBusy(stray.id)) continue
+        this.store.cases.delete(stray.id)
+        await this.deps.persistence?.deleteCase?.(stray.id)
+        dropped.push(stray.id)
+      }
+    }
+    return dropped
+  }
+
   listCases(): CaseSummary[] {
     return this.store.list().map(toSummary)
   }
@@ -121,14 +164,18 @@ export class Service {
   }
 
   /** Creates a case from an email that arrived by mailbox or webhook. Duplicate message ids are ignored. */
-  ingestInbound(mail: InboundEmail): CaseSummary | null {
+  async ingestInbound(mail: InboundEmail): Promise<CaseSummary | null> {
     if (mail.messageId) {
       const dup = this.store.list().find((c) => c.events.some((e) => e.kind === 'intake' && e.detail.messageId === mail.messageId))
       if (dup) return null
     }
     const fx = mail.sourceFile ? FIXTURES.find((x) => x.emailFile === mail.sourceFile) : undefined
     const now = new Date().toISOString()
-    const id = fx && !this.store.cases.has(fx.id) ? fx.id : uid('case')
+    // An email from the mailbox gets an id derived from its Message-ID, so every instance listening on the same
+    // mailbox lands on the same case and the database decides who ingests it.
+    const fromMailbox = !!mail.messageId && !mail.sourceFile
+    const id = fx && !this.store.cases.has(fx.id) ? fx.id : fromMailbox ? caseIdForMessage(mail.messageId!) : uid('case')
+    if (this.store.cases.has(id)) return null
     const base = fx ? buildFixtureCases().find((x) => x.id === fx.id)! : null
     const c: Case = base
       ? { ...base, id, createdAt: now, updatedAt: now }
@@ -157,8 +204,12 @@ export class Service {
           updatedAt: now,
         }
     ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: c.attachments.length, messageId: mail.messageId, channel: mail.sourceFile ? 'file' : 'mailbox' }, '5.1.1')
+    if (fromMailbox && this.deps.persistence?.insertCase) {
+      if (!(await this.deps.persistence.insertCase(c))) return null
+    } else {
+      this.deps.persistence?.saveCase(c)
+    }
     this.store.cases.set(id, c)
-    this.deps.persistence?.saveCase(c)
     this.deps.hub.emit({ type: 'status_changed' })
     this.deps.hub.emit({ type: 'case_changed', id })
     return toSummary(c)
@@ -554,12 +605,20 @@ export class Service {
     return { ok: true, value: { ...this.store.settings } }
   }
 
-  reset() {
-    this.store.reset()
+  /** Removes the demo cases only; real complaints survive (see Store.reset). */
+  async reset(by = 'unknown') {
+    const removed = this.store.reset()
     this.deps.onReset?.()
-    void this.deps.persistence?.deleteAll()
+    for (const id of removed) await this.deps.persistence?.deleteCase?.(id)
+    this.deps.log?.(`Demo reset by ${by}: removed ${removed.length} demo case(s); ${this.store.cases.size} real case(s) kept`)
+    for (const id of removed) this.deps.hub.emit({ type: 'case_changed', id })
     this.deps.hub.emit({ type: 'status_changed' })
   }
+}
+
+/** Stable case id for an email: the same Message-ID gives the same id on every instance. */
+export function caseIdForMessage(messageId: string): string {
+  return `case-m${createHash('sha1').update(messageId.trim()).digest('hex').slice(0, 10)}`
 }
 
 function header(text: string, name: string): string | undefined {

@@ -31,7 +31,7 @@ describe('BottomTabs', () => {
     wrap(routed(<BottomTabs />, '/approvals'))
     const nav = await screen.findByRole('navigation', { name: /primary/i })
     const links = nav.querySelectorAll('a')
-    expect([...links].map((a) => a.textContent)).toEqual(['Inbox', 'Approvals', 'Analytics', 'Evaluation'])
+    expect([...links].map((a) => a.textContent)).toEqual(['Dashboard', 'Inbox', 'Approvals', 'Analytics', 'Evaluation'])
     expect(nav.querySelector('a[aria-current="page"]')?.textContent).toBe('Approvals')
   })
 })

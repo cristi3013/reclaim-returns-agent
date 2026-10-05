@@ -88,6 +88,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     onReset: () => mock.reset(),
     persistence: persistence ?? undefined,
     mailer,
+    log,
     readAttachment: async (url) => {
       try {
         const rel = url.startsWith(publicBase) ? url.slice(publicBase.length) : url
@@ -123,7 +124,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     const out = []
     for await (const part of req.files()) {
       const mail = await parseEml(await part.toBuffer(), UPLOADS_DIR, publicBase, part.filename)
-      const s = service.ingestInbound(mail)
+      const s = await service.ingestInbound(mail)
       if (s) out.push(s)
     }
     return out
@@ -138,10 +139,10 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     let s
     if (ct.includes('application/json')) {
       const b = InboundBody.parse(req.body)
-      s = service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, sourceFile: null })
+      s = await service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, sourceFile: null })
     } else {
       const mail = await parseEml(req.body as Buffer, UPLOADS_DIR, publicBase, null)
-      s = service.ingestInbound(mail)
+      s = await service.ingestInbound(mail)
     }
     if (!s) return reply.status(200).send({ duplicate: true })
     if (process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
@@ -194,8 +195,8 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
   })
-  app.post('/api/demo/reset', async (_req, reply) => {
-    service.reset()
+  app.post('/api/demo/reset', async (req, reply) => {
+    await service.reset(req.ip)
     reply.status(204)
   })
 
@@ -218,7 +219,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     ? new MailboxListener(
         mailboxCfg,
         async (mail) => {
-          const s = service.ingestInbound(mail)
+          const s = await service.ingestInbound(mail)
           // The run takes seconds with the model; it must not block the mailbox fetch or the next email.
           if (s && process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
         },
@@ -228,6 +229,9 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
       )
     : null
 
+  // Several instances (laptop + Railway) share one database: each pulls the others' changes every few seconds.
+  const syncMs = Number(process.env.SYNC_INTERVAL_MS ?? 10000)
+  let syncTimer: NodeJS.Timeout | null = null
   const ready = async () => {
     if (persistence) {
       try {
@@ -236,11 +240,25 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
       } catch (e) {
         log((e as Error).message)
       }
+      if (syncMs > 0) {
+        let failures = 0
+        syncTimer = setInterval(() => {
+          service.syncFromPersistence().then(
+            () => (failures = 0),
+            (e) => failures++ === 0 && log((e as Error).message),
+          )
+        }, syncMs)
+        syncTimer.unref()
+        log(`Supabase: syncing with other instances every ${syncMs / 1000}s`)
+      }
     }
     poller?.start()
   }
   pollerRef = poller
-  const stop = () => poller?.stop()
+  const stop = () => {
+    poller?.stop()
+    if (syncTimer) clearInterval(syncTimer)
+  }
 
   return { app, service, store, ready, stop }
 }

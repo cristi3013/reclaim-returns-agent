@@ -8,7 +8,8 @@ import { ValueCalculator } from './ValueCalculator'
 import { ModelUsage } from './ModelUsage'
 import { formatDateTime, formatMoney, formatPercent } from '@/lib/format'
 import { COMPLAINT_LABELS, ROLE_LABELS, STATUS_LABELS, type CaseStatus, type ComplaintType } from '@reclaim/shared'
-import { Download } from 'lucide-react'
+import { Download, FileDown } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
 const minutes = (m: number | null) => (m == null ? '–' : m < 1 ? '< 1 min' : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`)
@@ -31,13 +32,18 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-end gap-4">
+      <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2">
         <div>
           <h1 className="text-xl font-semibold">Analytics</h1>
           <p className="text-sm text-muted">Computed from the cases in this system, nothing invented. {d && <span className="text-xs">Updated {formatDateTime(d.generatedAt)}.</span>}</p>
         </div>
-        <Button variant="outline" size="sm" className="ml-auto" onClick={exportCsv} disabled={!cases.data?.length}>
+        <Button variant="outline" size="sm" className="sm:ml-auto" onClick={exportCsv} disabled={!cases.data?.length}>
           <Download className="size-4" /> Copy cases as CSV
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/reports">
+            <FileDown className="size-4" /> Excel · PDF · XML report
+          </Link>
         </Button>
       </div>
       {q.isLoading || !d ? (
@@ -45,7 +51,7 @@ export function AnalyticsPage() {
       ) : (
         <>
           <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Volume and money</h2>
-          <div className="grid grid-cols-3 gap-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <KpiTile label="Complaints" value={String(d.totals.cases)} hint={`${d.totals.last24h} in the last 24 h`} />
             <KpiTile label="Awaiting approval" value={String(d.totals.byStatus['awaiting_approval'] ?? 0)} hint={d.timing.oldestPendingMinutes != null ? `oldest waiting ${minutes(d.timing.oldestPendingMinutes)}` : 'queue is empty'} tone={(d.totals.byStatus['awaiting_approval'] ?? 0) > 0 ? 'warn' : 'neutral'} />
             <KpiTile label="Credit proposed" value={formatMoney(d.value.proposed, d.currency)} hint="by the agent, awaiting a person" />
@@ -55,7 +61,7 @@ export function AnalyticsPage() {
           </div>
 
           <h2 className="mb-2 mt-6 text-[11px] font-semibold uppercase tracking-wider text-muted">Speed and control</h2>
-          <div className="grid grid-cols-3 gap-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <KpiTile label="Email to proposal" value={minutes(d.timing.medianMinutesToProposal)} hint="median, includes mail delivery" />
             <KpiTile label="Email to decision" value={minutes(d.timing.medianMinutesToDecision)} hint="median, a person decided" />
             <KpiTile label="Agent processing" value={d.timing.medianAgentSeconds == null ? '–' : `${Math.round(d.timing.medianAgentSeconds)} s`} hint="median, read + SAP + decide + explain" />
@@ -64,14 +70,14 @@ export function AnalyticsPage() {
             <KpiTile label="SAP conflicts refused" value={String(d.control.sapConflicts)} hint={`${d.control.sapWriteFailures} write(s) failed, nothing overwritten`} tone={d.control.sapConflicts > 0 ? 'warn' : 'neutral'} />
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             <CasesOverTime data={d} />
             <ValueFunnel data={d} />
             <DecisionsByRule data={d} />
             <Outcomes data={d} />
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
             <Card title="SAP and model" reading="How the agent worked, from the audit trail of every case.">
               <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-sm">
                 <dt className="text-muted">SAP lookups</dt><dd className="tnum text-right">{d.sap.lookups}{d.sap.avgLookupMs != null && <span className="text-muted"> · {d.sap.avgLookupMs} ms avg</span>}</dd>

@@ -73,6 +73,18 @@ export class SupabasePersistence {
     this.queue.set(c.id, next)
   }
 
+  /**
+   * Insert a brand-new case, and only if no instance has inserted it yet (same id = same email). False means
+   * another instance took it; the sync loop brings its copy over. A database error never blocks intake.
+   */
+  async insertCase(c: Case): Promise<boolean> {
+    const { error } = await this.db.from('cases').insert({ id: c.id, status: c.status, invoice: c.invoiceNumber, customer: c.customer, received_at: c.receivedAt, updated_at: c.updatedAt, data: c })
+    if (!error) return true
+    if (error.code === '23505') return false
+    this.log(`Supabase insert of ${c.id} failed: ${error.message}`)
+    return true
+  }
+
   saveSettings(settings: Settings, lastRunAt: string | null) {
     void this.db
       .from('settings')
@@ -87,13 +99,61 @@ export class SupabasePersistence {
       .then(({ error }) => error && this.log(`Supabase eval save failed: ${error.message}`))
   }
 
-  async deleteAll() {
-    const { error } = await this.db.from('cases').delete().neq('id', '')
-    if (error) this.log(`Supabase reset failed: ${error.message}`)
+  async deleteCase(id: string) {
+    const { error } = await this.db.from('cases').delete().eq('id', id)
+    if (error) this.log(`Supabase delete of ${id} failed: ${error.message}`)
+  }
+
+  /**
+   * Pulls what other instances wrote: rows newer than the local copy are reloaded, rows that disappeared
+   * (a reset elsewhere) are dropped. Cases this instance is working on are left alone. Returns the ids that
+   * changed locally so the caller can tell the UI.
+   */
+  async refresh(store: Store, busy: (id: string) => boolean): Promise<{ changed: string[]; removed: string[] }> {
+    const { data: rows, error } = await this.db.from('cases').select('id, updated_at')
+    if (error) throw new Error(`Supabase refresh failed: ${error.message}`)
+    const plan = planSync(store.cases, rows ?? [], busy)
+    const changed: string[] = []
+    if (plan.toFetch.length) {
+      const { data: full, error: e2 } = await this.db.from('cases').select('id, data').in('id', plan.toFetch)
+      if (e2) throw new Error(`Supabase refresh failed: ${e2.message}`)
+      for (const row of full ?? []) {
+        const parsed = CaseSchema.safeParse(row.data)
+        if (!parsed.success) continue
+        const c = parsed.data
+        if (c.status === 'investigating' || c.status === 'proposed') c.status = 'received'
+        store.cases.set(c.id, c)
+        changed.push(c.id)
+      }
+    }
+    for (const id of plan.toRemove) store.cases.delete(id)
+    return { changed, removed: plan.toRemove }
   }
 
   /** Waits for queued writes (tests and graceful shutdown). */
   async flush() {
     await Promise.all([...this.queue.values()])
   }
+}
+
+/**
+ * Which cases to reload and which to drop, given the database's id + updated_at list. Pure, so it is testable:
+ * a row is stale locally when the database is newer than the local copy (by more than a second, to survive
+ * timestamp rounding); a local case absent from the database was reset elsewhere. Busy cases are never touched.
+ */
+export function planSync(
+  local: Map<string, Case>,
+  remote: { id: string; updated_at: string }[],
+  busy: (id: string) => boolean,
+): { toFetch: string[]; toRemove: string[] } {
+  const seen = new Set<string>()
+  const toFetch: string[] = []
+  for (const r of remote) {
+    seen.add(r.id)
+    if (busy(r.id)) continue
+    const mine = local.get(r.id)
+    if (!mine || Date.parse(r.updated_at) - Date.parse(mine.updatedAt) > 1000) toFetch.push(r.id)
+  }
+  const toRemove = [...local.keys()].filter((id) => !seen.has(id) && !busy(id))
+  return { toFetch, toRemove }
 }

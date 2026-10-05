@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { useSearch } from '@tanstack/react-router'
 import { APPROVAL_THRESHOLDS, ROLE_LABELS, primaryProposal, type CaseSummary, type Role } from '@reclaim/shared'
 import { useCase, useCases } from '@/api'
 import { useUi } from '@/store/ui'
@@ -17,12 +18,13 @@ const QUEUE_STATUSES = ['awaiting_approval', 'approved', 'written_to_sap', 'sap_
 export function ApprovalsPage() {
   const { role } = useUi()
   const q = useCases()
-  const [sel, setSel] = useState<string | null>(null)
+  const search = useSearch({ strict: false }) as { case?: string }
+  const [sel, setSel] = useState<string | null>(search.case ?? null)
   const [all, setAll] = useState(false)
   // On a phone the queue and the case are two steps: tap a row to open the case, go back for the queue.
   const mobile = useIsMobile()
   const [opened, setOpened] = useState(false)
-  const mine = (r: CaseSummary) => all || !r.approverRole || RANK[role] >= RANK[r.approverRole]
+  const mine = (r: CaseSummary) => all || r.id === search.case || !r.approverRole || RANK[role] >= RANK[r.approverRole]
   const rows = (q.data ?? [])
     .filter((r) => QUEUE_STATUSES.includes(r.status) && mine(r))
     .sort((a, b) => (a.status === 'awaiting_approval' ? 0 : 1) - (b.status === 'awaiting_approval' ? 0 : 1))

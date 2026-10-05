@@ -30,7 +30,7 @@ export function ModelUsage({ data }: { data: Analytics }) {
           </p>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-3 xl:grid-cols-6">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <KpiTile label="Tokens in / out" value={`${k(m.inputTokens)} / ${k(m.outputTokens)}`} hint={m.cacheReadTokens ? `${k(m.cacheReadTokens)} served from cache` : 'no cache hits yet'} />
         <KpiTile label="Avg tokens per call" value={m.avgTokensPerCall == null ? '–' : k(m.avgTokensPerCall)} hint={m.avgLatencyMs == null ? '' : `${(m.avgLatencyMs / 1000).toFixed(1)} s per call on average`} />
         <KpiTile label="Avg tokens per case" value={m.avgTokensPerCase == null ? '–' : k(m.avgTokensPerCase)} hint={m.avgCostPerCaseUsd == null ? '' : `${usd(m.avgCostPerCaseUsd, 3)} per case`} />
@@ -38,7 +38,7 @@ export function ModelUsage({ data }: { data: Analytics }) {
         <KpiTile label="Heaviest case" value={m.maxCase ? k(m.maxCase.tokens) : '–'} hint={m.maxCase ? `${m.maxCase.caseId} · ${usd(m.maxCase.costUsd, 3)}` : ''} tone="warn" />
         <KpiTile label="Lightest case" value={m.minCase ? k(m.minCase.tokens) : '–'} hint={m.minCase ? `${m.minCase.caseId} · ${usd(m.minCase.costUsd, 3)}` : ''} tone="ok" />
       </div>
-      <div className="mt-4 grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-4">
+      <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="min-w-0">
           <div className="mb-2 text-xs text-muted">Tokens per day, input and output</div>
           <div className="h-48">
@@ -61,9 +61,9 @@ export function ModelUsage({ data }: { data: Analytics }) {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 overflow-x-auto">
           <div className="mb-2 text-xs text-muted">By purpose</div>
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[22rem] text-sm">
             <thead className="text-[11px] uppercase tracking-wider text-muted">
               <tr><th className="text-left font-semibold">Call</th><th className="text-right font-semibold">Calls</th><th className="text-right font-semibold">In</th><th className="text-right font-semibold">Out</th><th className="text-right font-semibold">Avg time</th><th className="text-right font-semibold">Cost</th></tr>
             </thead>
