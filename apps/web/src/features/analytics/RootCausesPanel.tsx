@@ -63,7 +63,8 @@ export function RootCausesPanel() {
             Root causes
           </h2>
           <p className="text-sm text-muted">
-            Complaints that keep coming back, and who can stop them.
+            The recurring issues behind your credit notes: what each one costs, and who can fix it
+            at the source.
           </p>
         </div>
         <div className="flex gap-2">
@@ -105,8 +106,10 @@ export function RootCausesPanel() {
           <ErrorState error={q.error} onRetry={() => q.refetch()} />
         ) : !b ? (
           <p className="text-sm text-muted">
-            The agent reads every complaint, in any language, and groups the ones about the same
-            problem: what it costs, whether it is getting worse, and what to fix.
+            Reclaim reads every complaint, in any language, and groups those with the same
+            underlying cause. For each cause you see the credit it has cost, whether it is growing,
+            and the action that would prevent it. Every figure is calculated from your data; AI only
+            writes the explanation.
           </p>
         ) : (
           <Briefing b={b} />
