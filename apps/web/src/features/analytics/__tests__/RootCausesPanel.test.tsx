@@ -20,23 +20,29 @@ function mount(api: MockApiClient) {
 }
 
 describe('RootCausesPanel', () => {
-  it('generates a briefing: groups ranked by credit value, figures from code, live cases linked', async () => {
+  it('lists the top repeat problems in one line each, with the details one click away', async () => {
     const api = new MockApiClient({ fast: true })
     await api.seedCases()
     await api.runCase('case-01')
     mount(api)
-    fireEvent.click(await screen.findByRole('button', { name: /Generate briefing/ }))
-    const groups = await screen.findAllByRole('article')
-    expect(groups.length).toBeGreaterThanOrEqual(4)
-    expect(groups[0]).toHaveTextContent(/Rising/)
-    expect(groups[0]).toHaveTextContent(/Template wording/)
-    expect(screen.getByText(/from the archive \(sample data\)/)).toBeInTheDocument()
-    // case-01 is open and fits the leaking-drum pattern: called out, and listed among the members
-    expect(groups[0]).toHaveTextContent(/Happening now: case-01 is open/)
-    fireEvent.click(within(groups[0]!).getByRole('button', { name: /Show \d+ complaints/ }))
-    const links = within(groups[0]!).getAllByRole('link', { name: 'case-01' })
+    fireEvent.click(await screen.findByRole('button', { name: /Find repeat problems/ }))
+    expect(await screen.findByText((_, el) => el?.tagName === 'P' && /^\d+ problems caused .+ of credit notes since/.test(el.textContent ?? ''))).toBeInTheDocument()
+    const rows = within(screen.getByRole('list')).getAllByRole('listitem')
+    expect(rows).toHaveLength(3)
+    // Most credit value first: the leaking drums, getting worse, with case-01 open right now
+    expect(rows[0]).toHaveTextContent(/Getting worse/)
+    expect(rows[0]).toHaveTextContent(/1 open case now/)
+    expect(screen.getByRole('button', { name: /Show \d+ more/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Download report/ })).toBeInTheDocument()
+
+    fireEvent.click(within(rows[0]!).getByRole('button'))
+    const drawer = screen.getByRole('dialog')
+    expect(drawer).toHaveTextContent(/Why it happens/)
+    expect(drawer).toHaveTextContent(/Happening now: case-01 is open/)
+    const links = within(drawer).getAllByRole('link', { name: 'case-01' })
     expect(links).toHaveLength(2)
     expect(links.every((a) => a.getAttribute('href') === '/cases/case-01')).toBe(true)
-    expect(screen.getByRole('button', { name: /Refresh briefing/ })).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

@@ -212,12 +212,14 @@ Questions (`answerQuestion`) are parsed by code (country, customer, order, topic
 Routes: `GET /api/control-tower/snapshot`, `POST /run`, `POST /ask {question}`, `GET /memo` (markdown), `GET /notes`, `POST /handover/:findingId`. Tests: `packages/shared/src/__tests__/control-tower.test.ts` checks the scan and the seven questions against the organisers' `expected-results.json`; the acceptance test covers the routes.
 
 
-## 14. Root causes (Insights, read-only)
+## 14. Repeat problems (root causes, Insights, read-only)
 
 Why money leaks through complaints, and what to fix upstream. `POST /api/insights/root-causes` builds a briefing over every investigated case plus `COMPLAINT_ARCHIVE` (34 closed complaints, sample data, in `packages/shared/src/fixtures/archive.ts`); `GET` returns the last one (null before the first; the demo reset clears it). Read-only: it never changes a case and never calls SAP (`src/insights/root-causes.ts`).
 
 1. **Group by meaning.** Assisted mode: each complaint (core text without greeting, signature, invoice number or customer name, plus the model's photo evidence) is embedded with Cohere Embed Multilingual v3 on Bedrock (`EMBEDDING_MODEL`, `src/insights/embeddings.ts`), so a German and a Romanian complaint about the same lids land together. Vectors are cached in Supabase pgvector (`complaint_embeddings`, keyed by id, model and text hash; run the block at the end of `schema.sql`), or in memory without it. Vectors are mean-centred, then grouped by average-linkage clustering (threshold 0.15; at least three complaints per group). Rules-only mode, or when Bedrock fails: local TF-IDF (threshold 0.3), said so in the briefing.
 2. **Code computes every figure** (`packages/shared/src/root-causes.ts`): credit value, share of all credit, desk hours (45 min per complaint), last 30 days against the 30-day average of the 60 before, trend, plants, materials, customers, open cases.
 3. **The model names cause, action and owner** (`ClaudeAi.explainRootCauses`, purpose `insights`) from the computed facts and quotes. Every run of digits in its wording must appear in the prompt (`isGrounded`); otherwise that group gets template wording and a note. The figures are identical with or without the model (tested).
+
+The web shows it as **Repeat problems** at the top of Insights: one line per problem (top three), details in a side panel, and a one-page PDF (`repeatProblemsPdf` in `apps/web/src/features/reports/export.ts`).
 
 Tests: `packages/shared/src/__tests__/root-causes.test.ts` (the four hidden patterns, the figures, the grounding check), `apps/api/test/root-causes.test.ts` (routes, fake model with an invented figure, read-only), `apps/web/src/features/analytics/__tests__/RootCausesPanel.test.tsx`.
