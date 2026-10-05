@@ -22,20 +22,41 @@ export interface MailboxConfig {
   folder: string
   /** Safety sweep interval; push delivery does not depend on it. */
   pollMs: number
+  /** Sender domains accepted. Empty means everyone. Others are marked seen and skipped. */
+  allowedDomains: string[]
 }
 
+/** Reads IMAP_* or EMAIL_* variables (the team's Cloud Foundry scripts use EMAIL_*). EMAIL_ENABLED=false turns it off. */
 export function mailboxConfigFromEnv(): MailboxConfig | null {
-  const { IMAP_HOST, IMAP_USER, IMAP_PASSWORD } = process.env
-  if (!IMAP_HOST || !IMAP_USER || !IMAP_PASSWORD) return null
+  const e = process.env
+  const pick = (a: string, b: string) => e[a] ?? e[b]
+  if ((e.EMAIL_ENABLED ?? 'true').toLowerCase() === 'false') return null
+  const host = pick('IMAP_HOST', 'EMAIL_HOST')
+  const user = pick('IMAP_USER', 'EMAIL_USER')
+  const password = pick('IMAP_PASSWORD', 'EMAIL_PASSWORD')?.replace(/\s+/g, '') // Gmail shows app passwords with spaces
+  if (!host || !user || !password) return null
+  const domains = (pick('IMAP_ALLOWED_DOMAINS', 'EMAIL_ALLOWED_DOMAINS') ?? '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean)
   return {
-    host: IMAP_HOST,
-    port: Number(process.env.IMAP_PORT ?? 993),
-    secure: process.env.IMAP_SECURE !== 'false',
-    user: IMAP_USER,
-    password: IMAP_PASSWORD,
-    folder: process.env.IMAP_FOLDER ?? 'INBOX',
-    pollMs: Number(process.env.IMAP_POLL_MS ?? 60000),
+    host,
+    port: Number(pick('IMAP_PORT', 'EMAIL_PORT') ?? 993),
+    secure: (pick('IMAP_SECURE', 'EMAIL_SECURE') ?? 'true') !== 'false',
+    user,
+    password,
+    folder: pick('IMAP_FOLDER', 'EMAIL_FOLDER') ?? 'INBOX',
+    pollMs: Number(pick('IMAP_POLL_MS', 'EMAIL_POLL_MS') ?? 60000),
+    allowedDomains: domains,
   }
+}
+
+/** True when the sender's domain is on the allowlist, or when there is no allowlist. */
+export function senderAllowed(from: string, allowedDomains: string[]): boolean {
+  if (!allowedDomains.length) return true
+  const m = /@([\w.-]+)/.exec(from)
+  const domain = m?.[1]?.toLowerCase() ?? ''
+  return allowedDomains.some((d) => domain === d || domain.endsWith(`.${d}`))
 }
 
 /** Turns a parsed email into the shape the service ingests, saving image attachments to the uploads folder. */
@@ -150,9 +171,13 @@ export class MailboxListener {
           if (!msg.source) continue
           try {
             const mail = await parseEml(msg.source, this.uploadsDir, this.publicBase, null)
-            await this.onEmail(mail)
+            if (!senderAllowed(mail.from, this.cfg.allowedDomains)) {
+              this.log(`Mailbox: skipped a message from ${mail.from} (sender domain not allowed)`)
+            } else {
+              await this.onEmail(mail)
+              count++
+            }
             await client.messageFlagsAdd({ uid: msg.uid }, ['\\Seen'], { uid: true })
-            count++
           } catch (e) {
             this.log(`Mailbox: could not ingest a message: ${(e as Error).message}`)
           }

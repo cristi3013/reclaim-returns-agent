@@ -268,3 +268,25 @@ describe('inbound complaints', () => {
     expect(k.receivedAt).toBe('2026-10-05T07:50:00.000Z')
   })
 })
+
+import { mailboxConfigFromEnv, senderAllowed } from '../src/intake/mailbox'
+describe('mailbox config', () => {
+  it('reads EMAIL_* names, strips spaces from the app password, parses the allowlist', () => {
+    const saved = { ...process.env }
+    process.env.EMAIL_HOST = 'imap.gmail.com'
+    process.env.EMAIL_USER = 'x@gmail.com'
+    process.env.EMAIL_PASSWORD = 'adfp sujo hvma piug'
+    process.env.EMAIL_ALLOWED_DOMAINS = 'gmail.com, deloitte.com'
+    const cfg = mailboxConfigFromEnv()!
+    expect(cfg).toMatchObject({ host: 'imap.gmail.com', user: 'x@gmail.com', password: 'adfpsujohvmapiug', allowedDomains: ['gmail.com', 'deloitte.com'] })
+    process.env.EMAIL_ENABLED = 'false'
+    expect(mailboxConfigFromEnv()).toBeNull()
+    process.env = saved
+  })
+  it('senderAllowed', () => {
+    expect(senderAllowed('Quality <q@cust-de-1.example>', [])).toBe(true)
+    expect(senderAllowed('Someone <a@gmail.com>', ['gmail.com'])).toBe(true)
+    expect(senderAllowed('Someone <a@mail.gmail.com>', ['gmail.com'])).toBe(true)
+    expect(senderAllowed('Someone <a@evil.example>', ['gmail.com'])).toBe(false)
+  })
+})
