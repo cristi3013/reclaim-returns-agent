@@ -190,12 +190,16 @@ export class MailboxListener {
       try {
         const range = this.lastUid === 0 ? { seen: false } : { uid: `${this.lastUid + 1}:*` }
         let maxUid = this.lastUid
+        // Collect first: no other command may run while the fetch stream is open, or the connection deadlocks.
+        const batch: { uid: number; source: Buffer }[] = []
         for await (const msg of client.fetch(range, { source: true, uid: true })) {
-          if (msg.uid <= this.lastUid) continue
-          maxUid = Math.max(maxUid, msg.uid)
-          if (!msg.source) continue
+          if (msg.uid <= this.lastUid || !msg.source) continue
+          batch.push({ uid: msg.uid, source: msg.source })
+        }
+        for (const m of batch) {
+          maxUid = Math.max(maxUid, m.uid)
           try {
-            const mail = await parseEml(msg.source, this.uploadsDir, this.publicBase, null)
+            const mail = await parseEml(m.source, this.uploadsDir, this.publicBase, null)
             if (!senderAllowed(mail.from, this.cfg.allowedDomains)) {
               this.log(`Mailbox: skipped a message from ${mail.from} (sender domain not allowed)`)
             } else {
@@ -203,15 +207,20 @@ export class MailboxListener {
               this.lastMessageAt = new Date().toISOString()
               count++
             }
-            await client.messageFlagsAdd(String(msg.uid), ['\\Seen'], { uid: true })
           } catch (e) {
-            this.log(`Mailbox: could not ingest a message: ${(e as Error).message}`)
+            this.log(`Mailbox: could not ingest message ${m.uid}: ${(e as Error).message}`)
+          }
+          try {
+            await client.messageFlagsAdd(String(m.uid), ['\\Seen'], { uid: true })
+          } catch (e) {
+            this.log(`Mailbox: could not mark ${m.uid} as read: ${(e as Error).message}`)
           }
         }
         if (this.lastUid === 0) {
-          // First pass: anything already read stays untouched; from here on we go by UID.
-          const st = await client.status(this.cfg.folder, { uidNext: true })
-          maxUid = Math.max(maxUid, (st && st.uidNext ? st.uidNext : 1) - 1)
+          // First pass: anything already read stays untouched; from here on we go by UID, read or not.
+          const mb = client.mailbox
+          const uidNext = mb && typeof mb === 'object' && 'uidNext' in mb ? Number(mb.uidNext) : 0
+          if (uidNext > 0) maxUid = Math.max(maxUid, uidNext - 1)
         }
         this.lastUid = maxUid
       } catch (e) {
