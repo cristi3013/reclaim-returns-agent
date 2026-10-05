@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { SlidersHorizontal } from 'lucide-react'
+import { LogOut, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
-import { ROLES, ROLE_LABELS, type Role } from '@reclaim/shared'
+import { ROLE_LABELS } from '@reclaim/shared'
 import { useReset, useSettings, useUpdateSettings } from '@/api'
-import { useUi } from '@/store/ui'
+import { useAuth } from '@/auth'
 import { useIsMobile } from '@/lib/useIsMobile'
 import { AgentStatusBadge } from '@/components/domain/AgentStatusBadge'
 import { ModeSwitch } from '@/components/domain/ModeSwitch'
@@ -15,7 +15,7 @@ export function TopBar() {
   const { data: s } = useSettings()
   const upd = useUpdateSettings()
   const reset = useReset()
-  const { role, setRole } = useUi()
+  const { user, signOut } = useAuth()
   const mobile = useIsMobile()
   const [menu, setMenu] = useState(false)
 
@@ -72,21 +72,17 @@ export function TopBar() {
       <AgentStatusBadge />
       <div className="ml-auto flex items-center gap-2 whitespace-nowrap md:gap-3">
         {!mobile && demoControls}
-        <label className="flex items-center gap-2 text-xs">
-          <span className="hidden text-muted sm:inline">Role</span>
-          <select
-            aria-label="Role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as Role)}
-            className="h-7 max-w-[8rem] rounded-md border border-line bg-surface px-2 text-xs sm:max-w-[10rem]"
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {user && (
+          <div className="flex items-center gap-2 text-xs" aria-label="Signed in as">
+            <span className="max-w-[9rem] truncate font-medium sm:max-w-[14rem]" title={user.email}>
+              {user.name}
+            </span>
+            <span className="hidden rounded bg-surface-2 px-1.5 py-0.5 text-muted sm:inline">{ROLE_LABELS[user.role]}</span>
+            <button type="button" onClick={() => void signOut()} aria-label="Sign out" title="Sign out" className="rounded-md border border-line bg-surface p-1.5 text-muted hover:text-fg">
+              <LogOut className="size-4" />
+            </button>
+          </div>
+        )}
         <ThemeToggle />
         {mobile && (
           <button

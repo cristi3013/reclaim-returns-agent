@@ -17,6 +17,13 @@ import { ClaudeAi, detectProvider } from './ai/claude'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import { SupabasePersistence } from './persistence'
+import { supabaseVerifier, type Principal, type Verifier } from './auth'
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    principal: Principal
+  }
+}
 import { MailboxListener, mailboxConfigFromEnv, parseEml } from './intake/mailbox'
 import { mailerFromEnv, type Mailer } from './intake/mailer'
 
@@ -35,9 +42,9 @@ const InboundBody = z.object({
   attachments: z.array(z.object({ name: z.string(), mimeType: z.string(), url: z.string() })).default([]),
 })
 
-const ApproveBody = z.object({ actor: z.string(), role: z.enum(['customer_service_lead', 'credit_manager', 'finance_director', 'returns_desk']), editedQuantity: z.number().optional(), comment: z.string().optional() })
+// Who acts comes from the signed session token (req.principal); actor and role in a body are ignored.
+const ApproveBody = z.object({ actor: z.string().optional(), role: z.string().optional(), editedQuantity: z.number().optional(), comment: z.string().optional() })
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
-const ReleaseBody = ApproveBody.pick({ actor: true, role: true })
 const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional() })
 const StatusBody = ApproveBody.pick({ actor: true, role: true }).extend({ to: z.enum(CASE_STATUSES), comment: z.string() })
 
@@ -55,6 +62,8 @@ export interface AppOptions {
   noSideCars?: boolean
   /** Override for tests: the outgoing mailer. Default: mailerFromEnv(), none with noSideCars. */
   mailer?: Mailer | null
+  /** Token verifier. Default: Supabase Auth with the project's public keys. Tests pass `headerVerifier()`. */
+  verifier?: Verifier
 }
 
 /** Builds the Fastify app. `server.ts` listens; tests use `app.inject`. */
@@ -105,6 +114,26 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
 
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' })
   app.register(cors, { origin: true })
+
+  // Every API call carries a Supabase session token. Exceptions: the health check and the status endpoint
+  // the Control Tower polls (read-only), and the inbound webhook (no user behind it).
+  if (!opts.verifier && !process.env.SUPABASE_URL) throw new Error('SUPABASE_URL is required: sessions are verified against it.')
+  const verifier = opts.verifier ?? supabaseVerifier(process.env.SUPABASE_URL ?? '')
+  const PUBLIC = new Set(['/health', '/api/status', '/api/inbound'])
+  app.addHook('onRequest', async (req, reply) => {
+    const path = req.url.split('?')[0] ?? ''
+    if (!path.startsWith('/api/') || PUBLIC.has(path)) return
+    const h = req.headers.authorization
+    // EventSource cannot send headers, so the live-updates stream takes the token as a query parameter.
+    const token = h?.startsWith('Bearer ') ? h.slice(7) : path === '/api/events' ? ((req.query as { token?: string }).token ?? null) : null
+    try {
+      req.principal = await verifier.verify(token)
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return reply.status(err.status ?? 401).send({ message: err.message, status: err.status ?? 401 })
+    }
+  })
+  const who = (req: { principal: Principal }) => ({ actor: req.principal.name, role: req.principal.role })
   app.register(multipart, { limits: { files: 20, fileSize: 5 * 1024 * 1024 } })
   app.register(fastifyStatic, { root: UPLOADS_DIR, prefix: '/uploads/', decorateReply: false })
 
@@ -159,13 +188,13 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   })
 
   app.post<{ Params: { id: string } }>('/api/cases/:id/reply', async (req, reply) => {
-    const r = await service.sendReply(req.params.id, ReplyBody.parse(req.body))
+    const r = await service.sendReply(req.params.id, { ...ReplyBody.parse(req.body), ...who(req) })
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
   })
 
   app.post<{ Params: { id: string } }>('/api/cases/:id/status', async (req, reply) => {
-    const r = service.changeStatus(req.params.id, StatusBody.parse(req.body))
+    const r = service.changeStatus(req.params.id, { ...StatusBody.parse(req.body), ...who(req) })
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     reply.status(204)
   })
@@ -176,22 +205,22 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     reply.status(204)
   })
   app.post<{ Params: { id: string } }>('/api/proposals/:id/approve', async (req, reply) => {
-    const r = await service.approve(req.params.id, ApproveBody.parse(req.body))
+    const r = await service.approve(req.params.id, { ...ApproveBody.parse(req.body), ...who(req) })
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
   })
   app.post<{ Params: { id: string } }>('/api/proposals/:id/reject', async (req, reply) => {
-    service.reject(req.params.id, RejectBody.parse(req.body))
+    service.reject(req.params.id, { ...RejectBody.parse(req.body), ...who(req) })
     reply.status(204)
   })
   app.get<{ Params: { id: string } }>('/api/sap/:id/status', async (req) => service.returnStatus(req.params.id))
   app.post<{ Params: { id: string } }>('/api/sap/:id/goods-receipt', async (req, reply) => {
-    const r = service.confirmGoodsReceipt(req.params.id, ReleaseBody.parse(req.body ?? {}))
+    const r = service.confirmGoodsReceipt(req.params.id, who(req))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
   })
   app.post<{ Params: { id: string } }>('/api/sap/:id/release', async (req, reply) => {
-    const r = await service.release(req.params.id, ReleaseBody.parse(req.body ?? {}))
+    const r = await service.release(req.params.id, who(req))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
   })
@@ -208,7 +237,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     return r.value
   })
   app.post('/api/demo/reset', async (req, reply) => {
-    await service.reset(req.ip)
+    await service.reset(`${req.principal.name} (${req.principal.role}, ${req.ip})`)
     reply.status(204)
   })
 

@@ -2,8 +2,12 @@ import { Outlet } from '@tanstack/react-router'
 import { NavRail } from './NavRail'
 import { TopBar } from './TopBar'
 import { BottomTabs } from './BottomTabs'
+import { LoginPage, useAuth } from '@/auth'
 
 export function AppShell() {
+  const { status } = useAuth()
+  if (status === 'loading') return <div className="flex min-h-screen items-center justify-center bg-bg text-sm text-muted">Checking your session…</div>
+  if (status === 'signed_out') return <LoginPage />
   return (
     <div className="flex min-h-screen bg-bg text-fg">
       <NavRail />

@@ -17,7 +17,11 @@ type Routes = typeof API_ROUTES
 
 /** Thin fetch wrapper over the shared route table. Validates responses in development. */
 export class HttpApiClient implements ApiClient {
-  constructor(private base: string) {}
+  constructor(
+    private base: string,
+    /** Current session token; every call carries it, the API refuses calls without one. */
+    private getToken: () => Promise<string | null> = async () => null,
+  ) {}
 
   private url(path: string, params: Record<string, string> = {}) {
     return this.base + path.replace(/:(\w+)/g, (_, k: string) => encodeURIComponent(params[k] ?? ''))
@@ -31,9 +35,10 @@ export class HttpApiClient implements ApiClient {
   ): Promise<T> {
     const r = API_ROUTES[key]
     const isForm = body instanceof FormData
+    const token = await this.getToken()
     const res = await fetch(this.url(r.path, params), {
       method: r.method,
-      headers: isForm || body === undefined ? {} : { 'content-type': 'application/json' },
+      headers: { ...(isForm || body === undefined ? {} : { 'content-type': 'application/json' }), ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: isForm ? body : body === undefined ? undefined : JSON.stringify(body),
     })
     if (!res.ok) {
@@ -140,15 +145,24 @@ export class HttpApiClient implements ApiClient {
   }
   subscribe(listener: (e: ApiEvent) => void) {
     if (typeof EventSource !== 'undefined') {
-      const es = new EventSource(this.base + API_ROUTES.events.path)
-      es.onmessage = (m) => {
-        try {
-          listener(JSON.parse(m.data) as ApiEvent)
-        } catch {
-          /* heartbeat or comment */
+      // EventSource cannot send headers: the token travels as a query parameter.
+      let es: EventSource | null = null
+      let closed = false
+      void this.getToken().then((token) => {
+        if (closed || !token) return
+        es = new EventSource(`${this.base}${API_ROUTES.events.path}?token=${encodeURIComponent(token)}`)
+        es.onmessage = (m) => {
+          try {
+            listener(JSON.parse(m.data) as ApiEvent)
+          } catch {
+            /* heartbeat or comment */
+          }
         }
+      })
+      return () => {
+        closed = true
+        es?.close()
       }
-      return () => es.close()
     }
     const t = setInterval(() => listener({ type: 'status_changed' }), 3000)
     return () => clearInterval(t)

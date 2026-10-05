@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { EXPECTED, primaryProposal, type Case, type CaseSummary, type EvalResult, type SapDocument } from '@reclaim/shared'
 import { buildApp } from '../src/app'
+import { headerVerifier } from '../src/auth'
 import { detectProvider } from '../src/ai/claude'
 import { caseIdForMessage } from '../src/service'
 
@@ -9,17 +10,22 @@ import { caseIdForMessage } from '../src/service'
  * over HTTP, with the mock gateway and rules-only narration (no API key needed).
  * Run it with the model on by setting AI_MODE=assisted and either ANTHROPIC_API_KEY or the AWS keys; decisions must not change.
  */
+/** The test verifier reads `<role>:<name>` from the bearer token, so a body's actor and role become the caller. */
+const auth = (body?: unknown) => {
+  const b = (body ?? {}) as { role?: string; actor?: string }
+  return b.role ? { authorization: `Bearer ${b.role}:${b.actor ?? 'Demo'}` } : {}
+}
 let ctx: ReturnType<typeof buildApp>
 const cm = { actor: 'Demo', role: 'credit_manager' as const }
 const rd = { actor: 'Warehouse', role: 'returns_desk' as const }
 
 beforeEach(async () => {
-  ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: process.env.AI_MODE === 'assisted' && detectProvider() ? 'assisted' : 'rules_only' } })
+  ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: process.env.AI_MODE === 'assisted' && detectProvider() ? 'assisted' : 'rules_only' } })
   await ctx.app.ready()
 })
 afterEach(async () => ctx.app.close())
 
-const post = (url: string, body?: unknown) => ctx.app.inject({ method: 'POST', url, ...(body ? { payload: body } : {}) })
+const post = (url: string, body?: unknown) => ctx.app.inject({ method: 'POST', url, headers: auth(body), ...(body ? { payload: body } : {}) })
 const get = async <T>(url: string) => (await ctx.app.inject({ method: 'GET', url })).json() as T
 const run = (id: string) => post(`/api/cases/${id}/run`)
 const theCase = (id: string) => get<Case>(`/api/cases/${id}`)
@@ -125,7 +131,7 @@ describe('audit fixes', () => {
       },
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => slow })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => slow })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-03')
@@ -164,7 +170,7 @@ describe('audit fixes', () => {
   it('a missing or failing agreed-price lookup sends the price complaint to a person', async () => {
     const noPrice: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), { getAgreedPrice: async () => null })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => noPrice })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => noPrice })
     await ctx.app.ready()
     await post('/api/cases/seed')
     expect((await run('case-02')).statusCode).toBe(204)
@@ -177,7 +183,7 @@ describe('audit fixes', () => {
       },
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => throwing })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => throwing })
     await ctx.app.ready()
     await post('/api/cases/seed')
     expect((await run('case-02')).statusCode).toBe(204)
@@ -194,7 +200,7 @@ describe('audit fixes', () => {
     expect((await get<{ sapMode: string }>('/api/settings')).sapMode).toBe('mock')
     const gw = new MockGateway({ simulateConflict: () => false, delayMs: 0 })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw, gatewayUrl: 'http://gateway.invalid' })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw, gatewayUrl: 'http://gateway.invalid' })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-08')
@@ -216,7 +222,7 @@ describe('audit fixes', () => {
     ] }
     const gw: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), { getInvoice: async () => two })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-03')
@@ -233,7 +239,7 @@ describe('audit fixes', () => {
       createCreditMemoRequest: async () => ({ ok: true as const, number: '60000999', response: { status: 201, CreditMemoRequest: '60000999', HeaderBillingBlockReason: '' } }),
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-03')
@@ -302,7 +308,7 @@ describe('read again right before the write, and goods receipt before releasing 
       checkExistingCredits: async () => ({ existingReturns: [], existingCredits: existing }),
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-03')
@@ -325,7 +331,7 @@ describe('read again right before the write, and goods receipt before releasing 
       getReturnStatus: async () => ({ status: received ? 'C' : 'A', received }),
     })
     await ctx.app.close()
-    ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
+    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw })
     await ctx.app.ready()
     await post('/api/cases/seed')
     await run('case-08')
@@ -382,5 +388,26 @@ describe('rejecting is a money decision too', () => {
     const k3 = await theCase('case-03')
     expect(k3.status).toBe('closed')
     expect(k3.approvals[k3.approvals.length - 1]!.decision).toBe('rejected')
+  })
+})
+
+describe('authentication', () => {
+  it('refuses API calls without a valid session, except the public health, status and inbound endpoints', async () => {
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/cases', headers: { authorization: 'Bearer invalid' } })).statusCode).toBe(401)
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/events', query: { token: 'invalid' } })).statusCode).toBe(401)
+    expect((await ctx.app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200)
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/status' })).statusCode).toBe(200)
+  })
+
+  it('takes the actor and the role from the token, not from the body', async () => {
+    await post('/api/cases/seed')
+    await run('case-03')
+    const p = primaryProposal(await theCase('case-03'))!
+    // The body claims to be the credit manager; the token says customer service lead.
+    const res = await ctx.app.inject({ method: 'POST', url: `/api/proposals/${p.id}/approve`, headers: { authorization: 'Bearer customer_service_lead:Lead' }, payload: cm })
+    expect(res.statusCode).toBe(403)
+    const ok = await ctx.app.inject({ method: 'POST', url: `/api/proposals/${p.id}/approve`, headers: { authorization: 'Bearer credit_manager:Dana' }, payload: { actor: 'Someone else' } })
+    expect(ok.statusCode).toBe(200)
+    expect((await theCase('case-03')).approvals[0]!.actor).toBe('Dana')
   })
 })

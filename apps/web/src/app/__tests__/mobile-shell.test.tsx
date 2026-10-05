@@ -7,6 +7,9 @@ import { MockApiClient } from '@/api/mock/MockApiClient'
 import { stubViewport } from '@/test/viewport'
 import { BottomTabs } from '../layout/BottomTabs'
 import { TopBar } from '../layout/TopBar'
+import { AuthProvider, fakeAuth } from '@/auth'
+
+const dana = { id: 'u1', email: 'dana@acme.example', name: 'Dana Credit', role: 'credit_manager' as const }
 
 function routed(ui: React.ReactNode, path: string) {
   const root = createRootRoute({ component: () => ui })
@@ -22,7 +25,9 @@ function routed(ui: React.ReactNode, path: string) {
 const wrap = (ui: React.ReactNode) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ApiProvider client={new MockApiClient({ fast: true })}>{ui}</ApiProvider>
+      <AuthProvider client={fakeAuth(dana)}>
+        <ApiProvider client={new MockApiClient({ fast: true })}>{ui}</ApiProvider>
+      </AuthProvider>
     </QueryClientProvider>,
   )
 
@@ -38,9 +43,10 @@ describe('BottomTabs', () => {
 
 describe('TopBar on a phone', () => {
   beforeEach(() => stubViewport('phone'))
-  it('keeps the role selector and hides the demo switches behind a menu', async () => {
+  it('keeps who is signed in and hides the demo switches behind a menu', async () => {
     wrap(<TopBar />)
-    expect(await screen.findByLabelText('Role')).toBeInTheDocument()
+    expect(await screen.findByText('Dana Credit')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
     expect(screen.queryByLabelText('SAP')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /demo controls/i }))
     expect(await screen.findByLabelText('SAP')).toBeInTheDocument()
