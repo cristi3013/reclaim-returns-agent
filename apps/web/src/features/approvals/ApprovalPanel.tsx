@@ -246,12 +246,12 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
       {c.status === 'closed' && (
         <div className="mt-4 rounded-md border border-ok bg-ok-soft p-3 text-sm text-ok">Approved. No SAP document.</div>
       )}
-      <ReplyPanel c={c} role={role} actor={actor} />
       {c.status === 'rejected' && lastApproval && (
         <div className="mt-4 rounded-md border border-line bg-surface-2 p-3 text-sm text-muted">
           Rejected by {lastApproval.actor}: {lastApproval.comment}
         </div>
       )}
+      <ReplyPanel c={c} role={role} actor={actor} />
     </aside>
   )
 }

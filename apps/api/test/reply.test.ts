@@ -78,6 +78,27 @@ describe('send the reply to the customer', () => {
     expect(sent).toHaveLength(1)
   })
 
+  it('a rejected case can be answered too, with the person\'s own text', async () => {
+    const { m, sent } = fakeMailer()
+    const { post, theCase } = setup(m)
+    const s = (await post('/api/inbound', { ...complaint, messageId: '<rej@test>' })).json() as CaseSummary
+    await post(`/api/cases/${s.id}/run`)
+    const p = primaryProposal(await theCase(s.id))!
+    expect((await post(`/api/proposals/${p.id}/reject`, { ...cm, comment: 'The delivery note shows 20 KG signed for.' })).statusCode).toBe(204)
+    expect((await theCase(s.id)).status).toBe('rejected')
+
+    // The generated draft promises the credit that was just refused: it is never the default here.
+    const noText = await post(`/api/cases/${s.id}/reply`, cm)
+    expect(noText.statusCode).toBe(400)
+    expect(sent).toHaveLength(0)
+
+    const res = await post(`/api/cases/${s.id}/reply`, { ...cm, text: 'We are unable to credit this delivery.' })
+    expect(res.statusCode).toBe(200)
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toMatchObject({ to: complaint.from, inReplyTo: '<rej@test>', text: 'We are unable to credit this delivery.' })
+    expect((await post(`/api/cases/${s.id}/reply`, { ...cm, text: 'again' })).statusCode).toBe(409)
+  })
+
   it('refused for demo cases that did not arrive by email, and without a mailer', async () => {
     const { m, sent } = fakeMailer()
     const { post, theCase } = setup(m)
