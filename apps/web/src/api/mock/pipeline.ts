@@ -5,12 +5,11 @@ import {
   type AiMode,
   type Case,
   type CaseStatus,
-  type EventKind,
   type Facts,
   type Findings,
   type Proposal,
 } from '@reclaim/shared'
-import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, rankCandidates, regexFacts } from '@reclaim/shared'
+import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, keptOnRerun, rankCandidates, regexFacts } from '@reclaim/shared'
 import { ev, uid } from './events'
 
 export interface PipelineHost {
@@ -74,8 +73,7 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
   c.status = 'investigating'
   c.aiMode = h.aiMode
   c.proposals = []
-  const KEEP: EventKind[] = ['intake', 'approval', 'sap_write', 'sap_release', 'error']
-  c.events = c.events.filter((e) => KEEP.includes(e.kind))
+  c.events = c.events.filter(keptOnRerun)
   c.facts = null
   c.findings = null
   c.anomalies = []

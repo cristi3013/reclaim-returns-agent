@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { LogoMark } from '@/components/brand/Logo'
 import { useAuth } from './AuthProvider'
 
 /** Email and password, nothing else: the role comes with the account. */
@@ -26,7 +27,7 @@ export function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-bg px-4 text-fg">
       <form onSubmit={submit} className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card" aria-label="Sign in">
         <div className="mb-5 flex items-center gap-2">
-          <span className="inline-block size-6 rounded-sm bg-accent" aria-hidden />
+          <LogoMark className="size-7" />
           <span className="font-semibold tracking-tight">Reclaim</span>
           <span className="text-sm text-muted">· Returns &amp; Credit Note agent</span>
         </div>

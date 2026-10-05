@@ -3,6 +3,7 @@ import { PanelLeft } from 'lucide-react'
 import { useCases } from '@/api'
 import { useUi } from '@/store/ui'
 import { cn } from '@/lib/utils'
+import { LogoMark } from '@/components/brand/Logo'
 import { NAV_GROUPS, NAV_ITEMS, isActive, navCounts } from './nav'
 
 export function NavRail() {
@@ -18,12 +19,7 @@ export function NavRail() {
       )}
     >
       <Link to="/" className="mb-6 flex items-center gap-2.5 px-4" aria-label="Reclaim home">
-        <span
-          className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent text-sm font-bold text-accent-fg"
-          aria-hidden
-        >
-          R
-        </span>
+        <LogoMark />
         {!navCollapsed && (
           <span className="min-w-0 leading-tight">
             <span className="block font-semibold tracking-tight">Reclaim</span>

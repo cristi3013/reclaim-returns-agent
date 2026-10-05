@@ -19,12 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
 /** Statuses where a person decides, or has decided, on the proposal. The rest only need the reply. */
-const DECISION_STATUSES = [
-  'awaiting_approval',
-  'written_to_sap',
-  'sap_write_failed',
-  'closed',
-]
+const DECISION_STATUSES = ['awaiting_approval', 'written_to_sap', 'sap_write_failed', 'closed']
 
 export function CasePage() {
   const { id } = useParams({ from: '/cases/$id' })
@@ -51,7 +46,7 @@ export function CasePage() {
         <div className="min-w-0">
           <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1 text-xs text-muted">
             <Link to="/inbox" className="hover:text-fg hover:underline">
-              Complaints
+              Inbox
             </Link>
             <ChevronRight className="size-3" aria-hidden />
             <span className="font-mono">{c.id}</span>
@@ -59,7 +54,16 @@ export function CasePage() {
           <h1 className="truncate text-2xl font-semibold tracking-tight">{c.subject}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
             <StatusChip status={c.status} />
-            {c.invoiceNumber && <span className="font-mono">invoice {c.invoiceNumber}</span>}
+            {c.invoiceNumber && (
+              <Link
+                to="/invoices/$invoice"
+                params={{ invoice: c.invoiceNumber }}
+                className="font-mono hover:text-fg hover:underline"
+                title="Open the case for this invoice: every complaint and email about it"
+              >
+                invoice {c.invoiceNumber}
+              </Link>
+            )}
             <span>{c.customerName}</span>
             <span className="rounded bg-surface-2 px-1.5 text-xs">
               {c.aiMode === 'rules_only' ? 'rules only' : 'AI assisted'}
@@ -86,7 +90,9 @@ export function CasePage() {
           <StatusMenu c={c} role={role} actor={ROLE_LABELS[role]} size="default" />
           {c.status === 'awaiting_approval' && (
             <Button asChild variant="ghost">
-              <Link to="/approvals" search={{ case: c.id }}>Open in To approve</Link>
+              <Link to="/approvals" search={{ case: c.id }}>
+                Open in To approve
+              </Link>
             </Button>
           )}
           <Button
