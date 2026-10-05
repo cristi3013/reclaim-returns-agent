@@ -1,17 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { EXPECTED, primaryProposal, type Case, type CaseSummary, type EvalResult, type SapDocument } from '@reclaim/shared'
 import { buildApp } from '../src/app'
+import { detectProvider } from '../src/ai/claude'
 
 /**
  * The acceptance test: the backend must produce the organizers' expected decision for every demo case,
  * over HTTP, with the mock gateway and rules-only narration (no API key needed).
- * Run it against a real Claude key by setting ANTHROPIC_API_KEY and AI_MODE=assisted; decisions must not change.
+ * Run it with the model on by setting AI_MODE=assisted and either ANTHROPIC_API_KEY or the AWS keys; decisions must not change.
  */
 let ctx: ReturnType<typeof buildApp>
 const cm = { actor: 'Demo', role: 'credit_manager' as const }
 
 beforeEach(async () => {
-  ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: process.env.AI_MODE === 'assisted' && process.env.ANTHROPIC_API_KEY ? 'assisted' : 'rules_only' } })
+  ctx = buildApp({ mockDelayMs: 0, initialSettings: { aiMode: process.env.AI_MODE === 'assisted' && detectProvider() ? 'assisted' : 'rules_only' } })
   await ctx.app.ready()
 })
 afterEach(async () => ctx.app.close())
@@ -28,7 +29,7 @@ describe('Reclaim API acceptance', () => {
     expect((await get<{ cases: number }>('/api/status')).cases).toBe(8)
   })
 
-  it('every demo case matches expected-results.json', async () => {
+  it('every demo case matches expected-results.json', { timeout: 300000 }, async () => {
     await post('/api/cases/seed')
     await run('case-01')
     const p01 = primaryProposal(await theCase('case-01'))!

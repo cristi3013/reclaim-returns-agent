@@ -12,7 +12,7 @@ import { Service } from './service'
 import { MockGateway } from './gateway/mock'
 import { RealGateway } from './gateway/real'
 import { RulesOnlyAi } from './ai/rules-only'
-import { ClaudeAi } from './ai/claude'
+import { ClaudeAi, detectProvider } from './ai/claude'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 
@@ -47,7 +47,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   const ai =
     opts.ai ??
     ((s: Settings) => {
-      if (s.aiMode !== 'assisted' || !process.env.ANTHROPIC_API_KEY) return rulesOnly
+      if (s.aiMode !== 'assisted' || !detectProvider()) return rulesOnly
       return (claude ??= new ClaudeAi())
     })
 

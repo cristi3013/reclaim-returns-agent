@@ -130,6 +130,12 @@ SAP facts that bite (from the hackathon guide): writes need a CSRF token fetched
 
 ## 7. The model (ClaudeAi)
 
+**Provider.** `ANTHROPIC_API_KEY` → Anthropic API (model `claude-opus-5-5`). Otherwise `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` → Amazon Bedrock in `AWS_REGION` (default `eu-central-1`) with the EU cross-region inference profile `eu.anthropic.claude-opus-5-5`, so inference stays in Europe. Verified on 5 Oct 2026: the account can call Opus 5.5, Sonnet 5.5, Sonnet 4.6, Sonnet 4.5 and Haiku 4.5 through `eu.` and `global.` profiles.
+
+**Structured output on Bedrock.** The 4.x models accept `output_config.format` (native structured output); the 5.x models reject it and `strict` tools ("Extra inputs are not permitted"). `ClaudeAi.structured()` tries the native way first and falls back to a JSON-only instruction with the JSON schema, validated with the same Zod schema. Both paths were verified with text and with the photo. `CLAUDE_MODEL=eu.anthropic.claude-sonnet-4-6` gives native structured output if ever needed.
+
+**Secrets.** Keys live only in `apps/api/.env` (git-ignored) or in Cloud Foundry environment variables. Never in the repo.
+
 Two calls, both with `client.messages.parse` and `zodOutputFormat` from `@anthropic-ai/sdk/helpers/zod`, model `claude-opus-5-5`:
 
 - **extractFacts**: system prompt describes each field; the email (and photo as an image block) is the user message; output format is the shared `FactsSchema`. Effort `medium`. A refusal or unparsable output throws 502 and the run fails cleanly (status back to `received`, error event).

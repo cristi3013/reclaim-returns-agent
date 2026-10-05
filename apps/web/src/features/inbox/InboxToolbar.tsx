@@ -1,9 +1,10 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Play, Upload, Database } from 'lucide-react'
+import { Play, Upload, Database, MailPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useIngest, useRunAll, useSeed } from '@/api'
 import { CASE_STATUSES, STATUS_LABELS } from '@reclaim/shared'
+import { NewComplaintDialog } from './NewComplaintDialog'
 
 export function InboxToolbar({
   query,
@@ -22,8 +23,10 @@ export function InboxToolbar({
   const runAll = useRunAll()
   const ingest = useIngest()
   const file = useRef<HTMLInputElement>(null)
+  const [compose, setCompose] = useState(false)
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
+      <NewComplaintDialog open={compose} onClose={() => setCompose(false)} />
       <input
         aria-label="Search cases"
         placeholder="Search subject, invoice, sender"
@@ -57,6 +60,9 @@ export function InboxToolbar({
             e.target.value = ''
           }}
         />
+        <Button variant="outline" size="sm" onClick={() => setCompose(true)}>
+          <MailPlus className="size-4" /> New complaint
+        </Button>
         <Button variant="outline" size="sm" onClick={() => file.current?.click()}>
           <Upload className="size-4" /> Upload .eml
         </Button>
