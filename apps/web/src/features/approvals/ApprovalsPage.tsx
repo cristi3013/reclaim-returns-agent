@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useSearch } from '@tanstack/react-router'
 import { APPROVAL_THRESHOLDS, ROLE_LABELS, primaryProposal, type CaseSummary, type Role } from '@reclaim/shared'
 import { useCase, useCases } from '@/api'
@@ -10,6 +10,7 @@ import { ApprovalPanel } from './ApprovalPanel'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { RuleBadge } from '@/components/domain/RuleBadge'
 import { EmptyState } from '@/components/domain/EmptyState'
+import { PageHeader } from '@/components/domain/PageHeader'
 import { formatMoney, formatRelative } from '@/lib/format'
 
 const RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
@@ -56,7 +57,7 @@ export function ApprovalsPage() {
     return (
       <div>
         <Button variant="ghost" size="sm" className="mb-3 -ml-2" onClick={() => setOpened(false)}>
-          <ChevronLeft className="size-4" /> Back to queue
+          <ChevronLeft className="size-4" /> Back to the list
         </Button>
         {panel}
       </div>
@@ -64,22 +65,35 @@ export function ApprovalsPage() {
   }
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2">
-        <div>
-          <h1 className="text-xl font-semibold">Approvals</h1>
-          <p className="text-sm text-muted">
-            Queue for {ROLE_LABELS[role]} · {waiting} waiting
-            <span className="ml-2 hidden text-xs md:inline">
-              {APPROVAL_THRESHOLDS.map((t) => `${t.upTo === Infinity ? 'above 5 000' : `up to ${t.upTo.toLocaleString('en-GB').replace(',', ' ')}`}: ${ROLE_LABELS[t.role]}`).join(' · ')} · no goods back: credit manager at least
-            </span>
-          </p>
-        </div>
-        <label className="ml-auto flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show all roles
-        </label>
-      </div>
+      <PageHeader
+        title="To approve"
+        description={
+          waiting
+            ? `${waiting} proposal${waiting > 1 ? 's' : ''} waiting for ${all ? 'a decision' : `you as ${ROLE_LABELS[role]}`}. Check the briefing, then approve or reject.`
+            : `Nothing is waiting for ${all ? 'a decision' : `you as ${ROLE_LABELS[role]}`}.`
+        }
+        extra={
+          <details className="text-xs text-muted">
+            <summary className="cursor-pointer select-none hover:text-fg">Who approves what?</summary>
+            <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              {APPROVAL_THRESHOLDS.map((t) => (
+                <li key={t.role}>
+                  {t.upTo === Infinity ? 'Above 5 000' : `Up to ${t.upTo.toLocaleString('en-GB').replace(',', ' ')}`}:{' '}
+                  <span className="text-fg">{ROLE_LABELS[t.role]}</span>
+                </li>
+              ))}
+              <li>No goods coming back: at least the <span className="text-fg">Credit manager</span></li>
+            </ul>
+          </details>
+        }
+        actions={
+          <label className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm">
+            <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show every role
+          </label>
+        }
+      />
       {rows.length === 0 ? (
-        <EmptyState title="Nothing to approve" description="Run cases from the inbox. Proposals that need your role will appear here." />
+        <EmptyState icon={CheckCircle2} title="All caught up" description="Nothing needs your approval right now. New proposals for your role appear here as soon as the agent has investigated a complaint." />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <ul className="space-y-2">

@@ -42,8 +42,8 @@ export function InboxToolbar({
       <NewComplaintDialog open={compose} onClose={() => setCompose(false)} />
       <input
         ref={search}
-        aria-label="Search cases"
-        placeholder="Search subject, invoice, sender  ( / )"
+        aria-label="Search complaints"
+        placeholder="Search by subject, invoice or sender   /"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
         onKeyDown={(e) => {
@@ -52,16 +52,16 @@ export function InboxToolbar({
             e.currentTarget.blur()
           }
         }}
-        className="h-9 w-full rounded-md border border-line bg-surface px-3 text-sm sm:w-72"
+        className="h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm shadow-card sm:w-80"
       />
       <select
-        aria-label="Sort cases"
+        aria-label="Sort complaints"
         value={sortValue}
         onChange={(e) => {
           const o = SORT_OPTIONS.find((x) => x.value === e.target.value)
           if (o) onSort(o.sort)
         }}
-        className="h-9 rounded-md border border-line bg-surface px-2 text-sm"
+        className="h-9 rounded-lg border border-line bg-surface px-2 text-sm"
       >
         {!SORT_OPTIONS.some((o) => o.value === sortValue) && (
           <option value={sortValue}>Custom order</option>
@@ -83,7 +83,7 @@ export function InboxToolbar({
             const fs = Array.from(e.target.files ?? [])
             if (fs.length)
               ingest.mutate(fs, {
-                onSuccess: (r) => toast.success(`${r.length} email(s) added to the inbox`),
+                onSuccess: (r) => toast.success(`${r.length} email(s) added`),
               })
             e.target.value = ''
           }}
@@ -92,7 +92,7 @@ export function InboxToolbar({
           <MailPlus className="size-4" /> New complaint
         </Button>
         <Button variant="outline" size="sm" onClick={() => file.current?.click()}>
-          <Upload className="size-4" /> Upload .eml
+          <Upload className="size-4" /> Upload email
         </Button>
         <Button
           variant="outline"
@@ -104,19 +104,19 @@ export function InboxToolbar({
             })
           }
         >
-          <Database className="size-4" /> Seed demo cases
+          <Database className="size-4" /> Load demo complaints
         </Button>
         <Button
           size="sm"
           disabled={runAll.isPending || !hasCases}
           onClick={() =>
             runAll.mutate(undefined, {
-              onSuccess: () => toast.success('All cases processed'),
+              onSuccess: () => toast.success('All complaints investigated'),
               onError: (e) => toast.error(e instanceof Error ? e.message : 'Run failed'),
             })
           }
         >
-          <Play className="size-4" /> {runAll.isPending ? 'Running…' : 'Run all'}
+          <Play className="size-4" /> {runAll.isPending ? 'Investigating…' : 'Investigate all'}
         </Button>
       </div>
     </div>

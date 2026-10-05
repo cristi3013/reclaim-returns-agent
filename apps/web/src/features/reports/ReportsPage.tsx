@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/features/analytics/charts'
 import { formatDateTime, formatMoney } from '@/lib/format'
+import { PageHeader } from '@/components/domain/PageHeader'
 import { exportReport, type ExportFormat } from './export'
 
 const PRESETS = [
@@ -67,10 +68,10 @@ export function ReportsPage() {
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold">Reports</h1>
-        <p className="text-sm text-muted">The audit trail of every case, ready for finance and audit: summary, cases, approvals, SAP documents and the full event log with L4 steps.</p>
-      </div>
+      <PageHeader
+        title="Reports"
+        description="Download the audit trail for finance and audit: a summary, every complaint, who approved what, the SAP documents and the full event log. Pick a period, then a format."
+      />
 
       <div className="mb-4 flex flex-wrap items-end gap-2">
         {PRESETS.map((p) => (

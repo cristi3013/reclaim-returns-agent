@@ -10,6 +10,7 @@ import { formatDateTime, formatMoney, formatPercent } from '@/lib/format'
 import { COMPLAINT_LABELS, ROLE_LABELS, STATUS_LABELS, type CaseStatus, type ComplaintType } from '@reclaim/shared'
 import { Download, FileDown } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
+import { PageHeader } from '@/components/domain/PageHeader'
 import { toast } from 'sonner'
 
 const minutes = (m: number | null) => (m == null ? '–' : m < 1 ? '< 1 min' : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`)
@@ -32,25 +33,26 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2">
-        <div>
-          <h1 className="text-xl font-semibold">Analytics</h1>
-          <p className="text-sm text-muted">Computed from the cases in this system, nothing invented. {d && <span className="text-xs">Updated {formatDateTime(d.generatedAt)}.</span>}</p>
-        </div>
-        <Button variant="outline" size="sm" className="sm:ml-auto" onClick={exportCsv} disabled={!cases.data?.length}>
+      <PageHeader
+        title="Insights"
+        description="How the desk and the agent are doing: volume, money, speed and control. Every number comes from the complaints in this system."
+        extra={d && <span className="text-xs text-muted">Updated {formatDateTime(d.generatedAt)}</span>}
+        actions={<>
+        <Button variant="outline" size="sm" onClick={exportCsv} disabled={!cases.data?.length}>
           <Download className="size-4" /> Copy cases as CSV
         </Button>
         <Button asChild variant="outline" size="sm">
           <Link to="/reports">
-            <FileDown className="size-4" /> Excel · PDF · XML report
+            <FileDown className="size-4" /> Download a report
           </Link>
         </Button>
-      </div>
+        </>}
+      />
       {q.isLoading || !d ? (
         q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : <Skeleton className="h-96" />
       ) : (
         <>
-          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Volume and money</h2>
+          <h2 className="mb-3 text-base font-semibold text-fg">Volume and money</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <KpiTile label="Complaints" value={String(d.totals.cases)} hint={`${d.totals.last24h} in the last 24 h`} />
             <KpiTile label="Awaiting approval" value={String(d.totals.byStatus['awaiting_approval'] ?? 0)} hint={d.timing.oldestPendingMinutes != null ? `oldest waiting ${minutes(d.timing.oldestPendingMinutes)}` : 'queue is empty'} tone={(d.totals.byStatus['awaiting_approval'] ?? 0) > 0 ? 'warn' : 'neutral'} />
@@ -60,7 +62,7 @@ export function AnalyticsPage() {
             <KpiTile label="Accepted unchanged" value={d.approvals.acceptedUnchangedRatio == null ? '–' : formatPercent(d.approvals.acceptedUnchangedRatio)} hint={`${d.approvals.editedQuantity} with an edited quantity`} />
           </div>
 
-          <h2 className="mb-2 mt-6 text-[11px] font-semibold uppercase tracking-wider text-muted">Speed and control</h2>
+          <h2 className="mb-3 mt-8 text-base font-semibold text-fg">Speed and control</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <KpiTile label="Email to proposal" value={minutes(d.timing.medianMinutesToProposal)} hint="median, includes mail delivery" />
             <KpiTile label="Email to decision" value={minutes(d.timing.medianMinutesToDecision)} hint="median, a person decided" />
@@ -106,7 +108,7 @@ export function AnalyticsPage() {
             <Card title="Top customers" reading="Who complains most, and how much credit is involved.">
               {d.topCustomers.length === 0 ? <div className="text-sm text-muted">No cases yet.</div> : (
                 <table className="w-full text-sm">
-                  <thead className="text-[11px] uppercase tracking-wider text-muted"><tr><th className="text-left font-semibold">Customer</th><th className="text-right font-semibold">Cases</th><th className="text-right font-semibold">Credit</th></tr></thead>
+                  <thead className="text-xs font-medium text-muted"><tr><th className="text-left font-semibold">Customer</th><th className="text-right font-semibold">Cases</th><th className="text-right font-semibold">Credit</th></tr></thead>
                   <tbody>{d.topCustomers.map((c) => (<tr key={c.customer} className="border-t border-line"><td className="py-1">{c.name} <span className="font-mono text-xs text-muted">{c.customer}</span></td><td className="py-1 text-right tnum">{c.cases}</td><td className="py-1 text-right font-mono tnum">{formatMoney(c.value, d.currency)}</td></tr>))}</tbody>
                 </table>
               )}

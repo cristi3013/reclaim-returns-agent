@@ -31,7 +31,7 @@ export function NewComplaintDialog({ open, onClose }: { open: boolean; onClose: 
     const file = new File([eml], `manual-${Date.now()}.eml`, { type: 'message/rfc822' })
     ingest.mutate([file], {
       onSuccess: () => {
-        toast.success('Complaint added to the inbox')
+        toast.success('Complaint added')
         onClose()
       },
       onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not add the complaint'),

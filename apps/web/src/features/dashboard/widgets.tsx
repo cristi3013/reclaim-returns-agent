@@ -15,10 +15,10 @@ const RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1
 
 export function Widget({ title, hint, action, children }: { title: string; hint?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="min-w-0 rounded-lg border border-line bg-surface shadow-card" aria-label={title}>
+    <section className="min-w-0 rounded-xl border border-line bg-surface shadow-card" aria-label={title}>
       <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{title}</h2>
+          <h2 className="text-base font-semibold">{title}</h2>
           {hint && <p className="truncate text-xs text-muted">{hint}</p>}
         </div>
         {action}
@@ -45,7 +45,7 @@ export function ApprovalsWidget({ cases, role }: { cases: CaseSummary[]; role: R
   const higher = waiting.length - mine.length
   return (
     <Widget
-      title="Your approvals"
+      title="Waiting for your approval"
       hint={waiting.length ? `${mine.length} for ${ROLE_LABELS[role]}${higher ? `, ${higher} need a higher role` : ''}` : 'Nothing waiting for a decision'}
       action={
         <Link to="/approvals" className="flex items-center gap-1 text-xs text-muted hover:text-fg">
@@ -93,7 +93,7 @@ export function AttentionWidget({ cases }: { cases: CaseSummary[] }) {
   items.sort((a, b) => order[a.tone] - order[b.tone] || a.c.updatedAt.localeCompare(b.c.updatedAt))
   const dot = { bad: 'bg-bad', warn: 'bg-warn', info: 'bg-info' }
   return (
-    <Widget title="Needs attention" hint={items.length ? `${items.length} item(s) a person has to unblock` : 'Nothing is stuck'}>
+    <Widget title="Needs your attention" hint={items.length ? `${items.length} item(s) a person has to unblock` : 'Nothing is stuck'}>
       {items.length === 0 ? (
         <Empty text="No failed writes, no blocks waiting, nothing unprocessed." />
       ) : (
@@ -138,11 +138,11 @@ export function QuickActions({ unprocessed, hasCases }: { unprocessed: number; h
   return (
     <Widget title="Quick actions">
       <NewComplaintDialog open={compose} onClose={() => setCompose(false)} />
-      <input ref={file} type="file" accept=".eml,message/rfc822" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) ingest.mutate(fs, { onSuccess: (r) => toast.success(`${r.length} email(s) added to the inbox`) }); e.target.value = '' }} />
-      <Item icon={Play} label={runAll.isPending ? 'Running…' : unprocessed ? `Run ${unprocessed} unprocessed` : 'Run all'} hint="Investigate every complaint that has not been run" primary disabled={runAll.isPending || !hasCases} onClick={() => runAll.mutate(undefined, { onSuccess: () => toast.success('All cases processed'), onError: (e) => toast.error(e instanceof Error ? e.message : 'Run failed') })} />
+      <input ref={file} type="file" accept=".eml,message/rfc822" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) ingest.mutate(fs, { onSuccess: (r) => toast.success(`${r.length} email(s) added`) }); e.target.value = '' }} />
+      <Item icon={Play} label={runAll.isPending ? 'Investigating…' : unprocessed ? `Investigate ${unprocessed} new` : 'Investigate all'} hint="Investigate every complaint that has not been run" primary disabled={runAll.isPending || !hasCases} onClick={() => runAll.mutate(undefined, { onSuccess: () => toast.success('All complaints investigated'), onError: (e) => toast.error(e instanceof Error ? e.message : 'Run failed') })} />
       <Item icon={MailPlus} label="New complaint" hint="Type the email a customer would send" onClick={() => setCompose(true)} />
-      <Item icon={Upload} label="Upload .eml" hint="Emails saved from the returns mailbox" onClick={() => file.current?.click()} />
-      <Item icon={Database} label="Seed demo cases" hint="The eight hackathon complaints" disabled={seed.isPending} onClick={() => seed.mutate(undefined, { onSuccess: () => toast.success('Eight demo complaints loaded') })} />
+      <Item icon={Upload} label="Upload email" hint="Emails saved from the returns mailbox" onClick={() => file.current?.click()} />
+      <Item icon={Database} label="Load demo complaints" hint="The eight hackathon complaints" disabled={seed.isPending} onClick={() => seed.mutate(undefined, { onSuccess: () => toast.success('Eight demo complaints loaded') })} />
       <Link to="/inbox" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-surface-2">
         <Inbox className="size-4 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1"><span className="block font-medium">Open the inbox</span><span className="block text-xs text-muted">Every complaint, searchable</span></span>

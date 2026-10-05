@@ -54,7 +54,7 @@ describe('ApprovalsPage on a phone', () => {
     expect(await screen.findByRole('button', { name: /approve and create/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /90000353/ })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /back to queue/i }))
+    fireEvent.click(screen.getByRole('button', { name: /back to the list/i }))
     await waitFor(() => expect(screen.getByRole('button', { name: /90000353/ })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /approve and create/i })).not.toBeInTheDocument()
   })
@@ -67,6 +67,6 @@ describe('ApprovalsPage on a desktop', () => {
     mount(await clientWithOneCaseAwaitingApproval())
     expect(await screen.findByRole('button', { name: /90000353/ })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /approve and create/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /back to queue/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /back to the list/i })).not.toBeInTheDocument()
   })
 })
