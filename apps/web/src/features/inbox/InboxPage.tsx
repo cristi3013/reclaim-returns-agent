@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useCases, useSeed, useStatus } from '@/api'
 import { InboxToolbar } from './InboxToolbar'
 import { InboxTable } from './InboxTable'
+import { StatusFilters } from './StatusFilters'
+import { matchesQuery, matchesStatus, sortRows } from './view'
+import { useUi } from '@/store/ui'
 import { EmptyState } from '@/components/domain/EmptyState'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { Button } from '@/components/ui/button'
@@ -20,33 +23,60 @@ export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
   const seed = useSeed()
   const { data: agent } = useStatus()
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('')
-  const all = q.data ?? []
-  const rows = all.filter(
-    (r) =>
-      (!status || r.status === status) &&
-      (!query ||
-        `${r.subject} ${r.from} ${r.invoiceNumber ?? ''} ${r.customerName ?? ''}`.toLowerCase().includes(query.toLowerCase())),
+  const { inboxSort: sort, setInboxSort, inboxStatus: status, setInboxStatus } = useUi()
+  const all = useMemo(() => q.data ?? [], [q.data])
+  const searched = all.filter((r) => matchesQuery(r, query))
+  const rows = sortRows(
+    searched.filter((r) => matchesStatus(r, status)),
+    sort,
   )
+  const filtered = Boolean(query.trim() || status)
+  const clear = () => {
+    setQuery('')
+    setInboxStatus('')
+  }
   const pending = all.filter((r) => r.status === 'awaiting_approval').length
   return (
     <div>
       <div className="mb-4">
         <h1 className="text-xl font-semibold">Inbox</h1>
         <p className="text-sm text-muted">
-          Every complaint, what the agent found in SAP and what it proposes. Nothing reaches SAP without a person's approval.
-          {pending > 0 && <span className="ml-2 rounded bg-warn-soft px-1.5 py-0.5 text-xs text-warn">{pending} awaiting approval</span>}
+          Every complaint, what the agent found in SAP and what it proposes. Nothing reaches SAP
+          without a person's approval.
+          {pending > 0 && (
+            <button
+              type="button"
+              onClick={() => setInboxStatus('awaiting_approval')}
+              className="ml-2 rounded bg-warn-soft px-1.5 py-0.5 text-xs text-warn hover:underline"
+            >
+              {pending} awaiting approval
+            </button>
+          )}
         </p>
         {agent?.mailbox && (
           <p className="mt-1 flex items-center gap-2 text-xs text-muted">
-            <span className={`size-2 rounded-full ${agent.mailbox.connected ? 'bg-ok' : 'bg-warn'}`} aria-hidden />
-            Complaints arrive from <span className="font-mono text-fg">{agent.mailbox.address}</span>
-            {agent.mailbox.connected ? ' · listening' : ` · reconnecting${agent.mailbox.lastError ? ` (${agent.mailbox.lastError.slice(0, 60)})` : ''}`}
-            {agent.mailbox.lastMessageAt && ` · last email ${formatRelative(agent.mailbox.lastMessageAt)}`}
+            <span
+              className={`size-2 rounded-full ${agent.mailbox.connected ? 'bg-ok' : 'bg-warn'}`}
+              aria-hidden
+            />
+            Complaints arrive from{' '}
+            <span className="font-mono text-fg">{agent.mailbox.address}</span>
+            {agent.mailbox.connected
+              ? ' · listening'
+              : ` · reconnecting${agent.mailbox.lastError ? ` (${agent.mailbox.lastError.slice(0, 60)})` : ''}`}
+            {agent.mailbox.lastMessageAt &&
+              ` · last email ${formatRelative(agent.mailbox.lastMessageAt)}`}
           </p>
         )}
       </div>
-      <InboxToolbar query={query} onQuery={setQuery} status={status} onStatus={setStatus} hasCases={all.length > 0} />
+      <InboxToolbar
+        query={query}
+        onQuery={setQuery}
+        sort={sort}
+        onSort={setInboxSort}
+        hasCases={all.length > 0}
+      />
+      {all.length > 0 && <StatusFilters rows={searched} value={status} onChange={setInboxStatus} />}
       {q.isLoading ? (
         <Skeleton className="h-64" />
       ) : q.error ? (
@@ -58,9 +88,27 @@ export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
           action={<Button onClick={() => seed.mutate()}>Seed demo cases</Button>}
         />
       ) : rows.length === 0 ? (
-        <EmptyState title="No matches" description="No case matches the current search or filter." />
+        <EmptyState
+          title="No matches"
+          description="No case matches the current search or filter."
+          action={
+            <Button variant="outline" onClick={clear}>
+              Clear filters
+            </Button>
+          }
+        />
       ) : (
-        <InboxTable rows={rows} onOpen={onOpen} />
+        <>
+          <InboxTable rows={rows} onOpen={onOpen} sort={sort} onSort={setInboxSort} />
+          {filtered && (
+            <p className="mt-2 text-xs text-muted">
+              Showing {rows.length} of {all.length} cases ·{' '}
+              <button type="button" className="underline hover:text-fg" onClick={clear}>
+                Clear filters
+              </button>
+            </p>
+          )}
+        </>
       )}
     </div>
   )

@@ -5,7 +5,7 @@ import fastifyStatic from '@fastify/static'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SettingsSchema, type Settings } from '@reclaim/shared'
+import { CASE_STATUSES, SettingsSchema, type Settings } from '@reclaim/shared'
 import { z } from 'zod'
 import { Store } from './store'
 import { EventHub } from './events'
@@ -39,6 +39,7 @@ const ApproveBody = z.object({ actor: z.string(), role: z.enum(['customer_servic
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
 const ReleaseBody = ApproveBody.pick({ actor: true, role: true }).extend({ goodsReceived: z.boolean().optional() })
 const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional() })
+const StatusBody = ApproveBody.pick({ actor: true, role: true }).extend({ to: z.enum(CASE_STATUSES), comment: z.string() })
 
 export interface AppOptions {
   initialSettings?: Partial<Settings>
@@ -161,6 +162,12 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     const r = await service.sendReply(req.params.id, ReplyBody.parse(req.body))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
     return r.value
+  })
+
+  app.post<{ Params: { id: string } }>('/api/cases/:id/status', async (req, reply) => {
+    const r = service.changeStatus(req.params.id, StatusBody.parse(req.body))
+    if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
+    reply.status(204)
   })
 
   // Proposals and SAP

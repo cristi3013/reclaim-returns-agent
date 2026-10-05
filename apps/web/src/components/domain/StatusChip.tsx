@@ -4,17 +4,16 @@ import { cn } from '@/lib/utils'
 type Tone = 'neutral' | 'info' | 'warn' | 'ok' | 'bad'
 
 const tone: Record<CaseStatus, Tone> = {
-  received: 'neutral',
+  received: 'ok',
   investigating: 'info',
   proposed: 'info',
   awaiting_approval: 'warn',
   approved: 'ok',
-  written_to_sap: 'ok',
-  closed: 'ok',
-  needs_customer_input: 'warn',
+  written_to_sap: 'neutral',
+  closed: 'bad',
+  needs_customer_input: 'info',
   handed_over: 'info',
   duplicate: 'neutral',
-  rejected: 'bad',
   sap_write_failed: 'bad',
 }
 

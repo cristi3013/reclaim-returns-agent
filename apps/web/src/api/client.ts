@@ -2,6 +2,7 @@ import type {
   AgentStatus,
   Analytics,
   Case,
+  CaseStatus,
   CaseSummary,
   EvalResult,
   ReturnStatus,
@@ -44,6 +45,14 @@ export interface RejectInput {
   comment: string
 }
 
+export interface ChangeStatusInput {
+  actor: string
+  role: Role
+  to: CaseStatus
+  /** Why: kept in the audit trail. */
+  comment: string
+}
+
 export interface ReleaseInput {
   actor: string
   role: Role
@@ -67,6 +76,8 @@ export interface ApiClient {
   chooseProposal(proposalId: string): Promise<void>
   approve(proposalId: string, input: ApproveInput): Promise<ApproveResult>
   reject(proposalId: string, input: RejectInput): Promise<void>
+  /** Reopen a decided case or close one by hand (MANUAL_STATUSES). Never touches SAP. */
+  changeStatus(caseId: string, input: ChangeStatusInput): Promise<void>
   release(sapDocumentId: string, input: ReleaseInput): Promise<ReleaseResult>
   /** Goods receipt of a return as SAP reports it (step 5.1.3). */
   getReturnStatus(sapDocumentId: string): Promise<ReturnStatus>

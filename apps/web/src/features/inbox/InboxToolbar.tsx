@@ -1,22 +1,22 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Play, Upload, Database, MailPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useIngest, useRunAll, useSeed } from '@/api'
-import { CASE_STATUSES, STATUS_LABELS } from '@reclaim/shared'
 import { NewComplaintDialog } from './NewComplaintDialog'
+import { SORT_OPTIONS, type InboxSort } from './view'
 
 export function InboxToolbar({
   query,
   onQuery,
-  status,
-  onStatus,
+  sort,
+  onSort,
   hasCases,
 }: {
   query: string
   onQuery: (q: string) => void
-  status: string
-  onStatus: (s: string) => void
+  sort: InboxSort
+  onSort: (s: InboxSort) => void
   hasCases: boolean
 }) {
   const seed = useSeed()
@@ -24,26 +24,51 @@ export function InboxToolbar({
   const ingest = useIngest()
   const file = useRef<HTMLInputElement>(null)
   const [compose, setCompose] = useState(false)
+  const search = useRef<HTMLInputElement>(null)
+  // "/" jumps to the search box, as in Gmail and GitHub; not while typing somewhere else.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (e.key !== '/' || t?.closest('input, textarea, select, [contenteditable]')) return
+      e.preventDefault()
+      search.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  const sortValue = `${sort.key}:${sort.dir}`
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       <NewComplaintDialog open={compose} onClose={() => setCompose(false)} />
       <input
+        ref={search}
         aria-label="Search cases"
-        placeholder="Search subject, invoice, sender"
+        placeholder="Search subject, invoice, sender  ( / )"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            onQuery('')
+            e.currentTarget.blur()
+          }
+        }}
         className="h-9 w-full rounded-md border border-line bg-surface px-3 text-sm sm:w-72"
       />
       <select
-        aria-label="Filter by status"
-        value={status}
-        onChange={(e) => onStatus(e.target.value)}
+        aria-label="Sort cases"
+        value={sortValue}
+        onChange={(e) => {
+          const o = SORT_OPTIONS.find((x) => x.value === e.target.value)
+          if (o) onSort(o.sort)
+        }}
         className="h-9 rounded-md border border-line bg-surface px-2 text-sm"
       >
-        <option value="">All statuses</option>
-        {CASE_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {STATUS_LABELS[s]}
+        {!SORT_OPTIONS.some((o) => o.value === sortValue) && (
+          <option value={sortValue}>Custom order</option>
+        )}
+        {SORT_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            Sort: {o.label}
           </option>
         ))}
       </select>
@@ -56,7 +81,10 @@ export function InboxToolbar({
           hidden
           onChange={(e) => {
             const fs = Array.from(e.target.files ?? [])
-            if (fs.length) ingest.mutate(fs, { onSuccess: (r) => toast.success(`${r.length} email(s) added to the inbox`) })
+            if (fs.length)
+              ingest.mutate(fs, {
+                onSuccess: (r) => toast.success(`${r.length} email(s) added to the inbox`),
+              })
             e.target.value = ''
           }}
         />
@@ -70,7 +98,11 @@ export function InboxToolbar({
           variant="outline"
           size="sm"
           disabled={seed.isPending}
-          onClick={() => seed.mutate(undefined, { onSuccess: () => toast.success('Eight demo complaints loaded') })}
+          onClick={() =>
+            seed.mutate(undefined, {
+              onSuccess: () => toast.success('Eight demo complaints loaded'),
+            })
+          }
         >
           <Database className="size-4" /> Seed demo cases
         </Button>

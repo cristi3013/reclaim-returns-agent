@@ -121,11 +121,16 @@ export class RealGateway implements Gateway {
   }
 
   async getInvoice(invoiceNumber: string) {
+    // A billing document number is at most 10 digits (VBELN): anything else cannot be in SAP.
+    if (!/^\d{1,10}$/.test(invoiceNumber.trim())) return null
     try {
-      const raw = await this.fn<RawInvoice>('getInvoice', { invoiceNumber })
+      const raw = await this.fn<RawInvoice>('getInvoice', { invoiceNumber: invoiceNumber.trim() })
       return raw && raw.BillingDocument ? this.toSnapshot(raw) : null
     } catch (e) {
-      if ((e as { status?: number }).status === 404) return null
+      // 404, or 400 "Malformed URI literal" for a number SAP cannot parse: the invoice does not exist.
+      // A Cloud Foundry 404 is already 503 here, and 5xx/timeouts still abort the run.
+      const status = (e as { status?: number }).status
+      if (status === 404 || status === 400) return null
       throw e
     }
   }

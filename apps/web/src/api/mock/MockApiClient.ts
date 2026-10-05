@@ -8,6 +8,9 @@ import {
   capQuantity,
   DEMO_INVOICES,
   primaryProposal,
+  MANUAL_STATUSES,
+  STATUS_LABELS,
+  statusChangeBlocked,
   toSummary,
   type Role,
   type Case,
@@ -22,6 +25,7 @@ import {
   type ApiEvent,
   type ApproveInput,
   type ApproveResult,
+  type ChangeStatusInput,
   type RejectInput,
   type ReleaseInput,
   type ReleaseResult,
@@ -295,8 +299,22 @@ export class MockApiClient implements ApiClient {
       comment: input.comment,
       decidedAt: new Date().toISOString(),
     })
-    c.status = 'rejected'
+    c.status = 'closed'
     ev(c, 'approval', `Rejected by ${input.actor}: ${input.comment}`, {}, null, null)
+    this.touch(c.id)
+  }
+
+  async changeStatus(caseId: string, input: ChangeStatusInput) {
+    const c = this.store.cases.get(caseId)
+    if (!c) throw Object.assign(new Error('Case not found'), { status: 404 })
+    if (this.writing.has(c.id)) throw Object.assign(new Error('The case is busy. Try again in a moment.'), { status: 409 })
+    const blocked = statusChangeBlocked(c, input.to, input.role)
+    if (blocked) throw Object.assign(new Error(blocked.message), { status: blocked.status })
+    if (!input.comment.trim()) throw Object.assign(new Error('Say why the status changes.'), { status: 400 })
+    const from = c.status
+    c.status = input.to
+    const label = MANUAL_STATUSES.find((m) => m.to === input.to)?.label ?? STATUS_LABELS[input.to]
+    ev(c, 'status', `Set to ${label} by ${input.actor}: ${input.comment.trim()}`, { from, to: input.to, reopened: input.to !== 'closed', actor: input.actor, role: input.role, comment: input.comment.trim() }, null, null)
     this.touch(c.id)
   }
 

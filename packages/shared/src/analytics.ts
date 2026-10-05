@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { primaryProposal, type Case, type EvalResult } from './schemas'
+import { caseOutcome, primaryProposal, type Case, type EvalResult } from './schemas'
 import { estimateCostUsd, ModelUsageSchema, type ModelUsage } from './pricing'
 
 /** Everything the Analytics page shows, computed from real cases only. Same function for backend and mock. */
@@ -109,7 +109,7 @@ export function computeAnalytics(cases: Case[], evalResults: EvalResult[] | null
         value.proposed += amount
         if (c.status === 'awaiting_approval') value.pending += amount
         if (['approved', 'written_to_sap'].includes(c.status)) value.approved += amount
-        if (c.status === 'rejected') value.rejected += amount
+        if (caseOutcome(c) === 'rejected') value.rejected += amount
         if (c.sapDocuments.some((x) => x.released)) value.released += amount
       }
     }
@@ -173,7 +173,7 @@ export function computeAnalytics(cases: Case[], evalResults: EvalResult[] | null
     if (['approved', 'written_to_sap'].includes(c.status)) {
       pt.approved++
       pt.value += d?.amount ?? 0
-    } else if (c.status === 'rejected') pt.rejected++
+    } else if (caseOutcome(c) === 'rejected') pt.rejected++
     else if (d && d.documentType === 'NONE') pt.noDocument++
     points.set(k, pt)
   }
