@@ -222,6 +222,20 @@ export class Service {
       const type = p.decision.documentType as 'YRE' | 'YCR'
       const step = type === 'YRE' ? '5.1.2' : '5.2.1'
       const gw = this.deps.gateway(this.store.settings)
+      // The gateway keeps its own approval record: log the request, mark it APPROVED, then write.
+      // Its release refuses a credit memo whose request was not APPROVED there.
+      const fail = (status: number, message: string, what: string) => {
+        c.status = 'sap_write_failed'
+        ev(c, 'error', `${what} failed (${status}); nothing was written to SAP`, { status, message }, step, null)
+        this.touch(c.id)
+        return { ok: false as const, status, message }
+      }
+      const log = await gw.logRequest({ invoiceNumber: c.invoiceNumber ?? String(p.sapPayload.ReferenceSDDocument ?? ''), proposedAction: type === 'YRE' ? 'RETURN' : 'CREDIT' })
+      if (!log.ok) return fail(log.status, log.message, 'Logging the request with the gateway')
+      const set = await gw.setApprovalStatus({ id: log.id, status: 'APPROVED' })
+      if (!set.ok) return fail(set.status, set.message, 'Recording the approval with the gateway')
+      ev(c, 'approval', `Approval recorded with the gateway (record ${log.id})`, { gatewayLogId: log.id, status: 'APPROVED', actor: input.actor }, step, null)
+
       const t = Date.now()
       const r = type === 'YRE' ? await gw.createReturn(p.sapPayload) : await gw.createCreditMemoRequest(p.sapPayload)
       if (!r.ok) {
@@ -232,7 +246,7 @@ export class Service {
       }
       const block = r.response.HeaderBillingBlockReason
       const blockConfirmed = block === undefined ? null : block === '08'
-      const doc: SapDocument = { id: uid('sap'), caseId: c.id, type, number: r.number, payload: p.sapPayload, response: r.response, createdAt: new Date().toISOString(), released: false }
+      const doc: SapDocument = { id: uid('sap'), caseId: c.id, type, number: r.number, payload: p.sapPayload, response: r.response, createdAt: new Date().toISOString(), released: false, etag: r.etag, gatewayLogId: log.id }
       c.sapDocuments.push(doc)
       c.status = 'written_to_sap'
       ev(c, 'sap_write', `${type} ${r.number} created${blockConfirmed === false ? '' : ' with billing block 08'}`, { payload: p.sapPayload, response: r.response, ifMatch: inv?.etag, blockConfirmed }, step, Date.now() - t)
@@ -273,7 +287,7 @@ export class Service {
       return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4.` }
     }
     const t = Date.now()
-    const r = await this.deps.gateway(this.store.settings).release({ type: d.type, number: d.number })
+    const r = await this.deps.gateway(this.store.settings).release({ type: d.type, number: d.number, etag: d.etag ?? '' })
     if (!r.ok) {
       ev(c, 'error', r.status === 412 ? 'SAP refused the release: 412 Precondition Failed' : `SAP refused the release: ${r.status}`, { status: r.status, message: r.message, actor: input.actor }, step, Date.now() - t)
       this.touch(c.id)

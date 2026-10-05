@@ -115,7 +115,7 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
       return { returns: r.existingReturns.map((d) => d.number), credits: r.existingCredits.map((d) => d.number) }
     })
     if (facts.complaintType === 'price') {
-      const args = { material: inv.items[0]?.material ?? '', salesOrg: inv.salesOrg, channel: inv.distributionChannel }
+      const args = { customer: inv.customer, material: inv.items[0]?.material ?? '', salesOrg: inv.salesOrg, channel: inv.distributionChannel }
       await lookup('getAgreedPrice', { ...args, conditionType: 'PR00' }, async () => {
         findings.agreedUnitPrice = await gateway.getAgreedPrice(args)
         return { conditionType: 'PR00', unitPrice: findings.agreedUnitPrice }

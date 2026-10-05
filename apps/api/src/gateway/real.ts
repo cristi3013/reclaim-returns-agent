@@ -1,19 +1,23 @@
 import { DEMO_INVOICES, type ExistingDoc, type InvoiceSnapshot } from '@reclaim/shared'
-import type { Gateway, WriteResult } from './types'
+import type { Gateway, GatewayAction, LogResult, WriteResult } from './types'
 
 /**
  * Calls the CAP gateway on BTP (Alex's service). The gateway is the only thing that talks to DS4.
  *
- * Known shape of the service as of 5 Oct 2026 (CDS):
- *   function getInvoice(invoiceNumber: String) returns String;
- *   function checkExistingCredits(invoiceNumber: String) returns String;
- *   action createReturn(invoiceNumber, invoiceItem, material, quantity, unit, reason, soldToParty) returns String;
- *   action createCreditMemoRequest(invoiceNumber, material, quantity, unit, reason, soldToParty) returns String;
+ * Contract of the service as of 5 Oct 2026 (/odata/v4/returns):
+ *   GET  getInvoice(invoiceNumber)
+ *   GET  checkExistingCredits(invoiceNumber)
+ *   GET  findInvoices(soldToParty, material, fromDate, toDate)                            dates YYYY-MM-DD
+ *   GET  getAgreedPrice(soldToParty, material, salesOrganization, distributionChannel)    PR00 valid today
+ *   GET  getReturnStatus(returnDocumentNumber)                                            not used yet (5.1.3)
+ *   POST logRequest {invoiceNumber, proposedAction}                                       → record, status PENDING
+ *   POST setApprovalStatus {ID, status}                                                   APPROVED | REJECTED
+ *   POST createReturn {invoiceNumber, invoiceItem, material, quantity, unit, reason, soldToParty}
+ *   POST createCreditMemoRequest {invoiceNumber, material, quantity, unit, reason, soldToParty}
+ *   POST releaseCreditMemoRequest {creditMemoNumber, versionStamp}                        only after APPROVED
  *
  * Every function returns a JSON *string* inside `{ "value": "..." }`. `unwrap()` hides that.
- * Still missing on the gateway (the methods below call the names we agreed; adjust when he ships them):
- *   releaseCreditMemoRequest(number, type): the gateway must GET the document, take its ETag and PATCH with If-Match;
- *   getAgreedPrice(material, salesOrg, channel), findInvoices(customer, material, dateFrom, dateTo)
+ * The gateway takes reason names (DEFECTIVE, PRICE_COMPLAINT…) instead of SAP order reason codes; see GATEWAY_REASONS.
  *
  * Plant → company code is NOT a gateway call; it is our own reference table.
  */
@@ -24,20 +28,33 @@ export class RealGateway implements Gateway {
   ) {}
 
   private async fn<T>(name: string, params: Record<string, string>): Promise<T> {
+    // OData v4 string literal: a single quote is escaped by doubling it.
     const args = Object.entries(params)
-      .map(([k, v]) => `${k}='${encodeURIComponent(v)}'`)
+      .map(([k, v]) => `${k}='${encodeURIComponent(v.replace(/'/g, "''"))}'`)
       .join(',')
-    const res = await fetch(`${this.base}/${name}(${args})`, { headers: { accept: 'application/json' } })
+    let res: Response
+    try {
+      res = await fetch(`${this.base}/${name}(${args})`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(READ_TIMEOUT_MS) })
+    } catch (e) {
+      throw Object.assign(new Error(`${name}: gateway not reachable (${(e as Error).message})`), { status: 504 })
+    }
     if (!res.ok) throw Object.assign(new Error(await res.text()), { status: res.status })
     return this.unwrap<T>(await res.json())
   }
 
   private async action<T>(name: string, body: Record<string, unknown>): Promise<T> {
-    const res = await fetch(`${this.base}/${name}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify(body),
-    })
+    let res: Response
+    try {
+      res = await fetch(`${this.base}/${name}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
+      })
+    } catch (e) {
+      // A write that timed out may still have happened in SAP: say so, never retry it blindly.
+      throw Object.assign(new Error(`${name}: no answer from the gateway (${(e as Error).message}). The outcome in SAP is unknown; check SAP before trying again.`), { status: 504 })
+    }
     if (!res.ok) throw Object.assign(new Error(await res.text()), { status: res.status })
     return this.unwrap<T>(await res.json())
   }
@@ -112,16 +129,34 @@ export class RealGateway implements Gateway {
     return { existingReturns: map('YRE', r.existingReturns), existingCredits: map('YCR', r.existingCredits) }
   }
 
+  /** The search result shape is not fixed, so each hit is re-read with getInvoice: full lines and version stamp. */
   async findInvoices(args: { customer: string; material: string; dateFrom: string; dateTo: string }) {
-    const raw = await this.fn<RawInvoice[] | { results?: RawInvoice[] }>('findInvoices', args)
-    const list = Array.isArray(raw) ? raw : (raw.results ?? [])
-    return list.map((r) => this.toSnapshot(r))
+    const raw = await this.fn<RawFound[] | { results?: RawFound[] } | null>('findInvoices', {
+      soldToParty: args.customer,
+      material: args.material,
+      fromDate: args.dateFrom,
+      toDate: args.dateTo,
+    })
+    const list = Array.isArray(raw) ? raw : (raw?.results ?? [])
+    const numbers = [...new Set(list.map((r) => String(r.BillingDocument ?? r.invoiceNumber ?? r.number ?? '')).filter(Boolean))].slice(0, 5)
+    const invoices = await Promise.all(numbers.map((n) => this.getInvoice(n)))
+    return invoices.filter((i): i is InvoiceSnapshot => !!i && i.items.length > 0)
   }
 
-  async getAgreedPrice(args: { material: string; salesOrg: string; channel: string }) {
-    const r = await this.fn<{ unitPrice?: string | number; ConditionRateValue?: string | number } | null>('getAgreedPrice', args)
-    const v = r?.unitPrice ?? r?.ConditionRateValue
-    return v == null ? null : Number(v)
+  /** PR00 rate per unit. SAP gives the rate per condition quantity (e.g. per 100 KG), so divide by it. */
+  async getAgreedPrice(args: { customer: string; material: string; salesOrg: string; channel: string }) {
+    const raw = await this.fn<RawPrice | RawPrice[] | { results?: RawPrice[] } | null>('getAgreedPrice', {
+      soldToParty: args.customer,
+      material: args.material,
+      salesOrganization: args.salesOrg,
+      distributionChannel: args.channel,
+    })
+    const r = Array.isArray(raw) ? raw[0] : raw && 'results' in raw ? raw.results?.[0] : (raw as RawPrice | null)
+    const v = r?.unitPrice ?? r?.price ?? r?.ConditionRateValue
+    if (v == null || v === '') return null
+    const per = Number(r?.ConditionQuantity ?? 1) || 1
+    const price = Number(v) / per
+    return Number.isFinite(price) ? Math.round(price * 100) / 100 : null
   }
 
   async getPlantCompanyCode(plant: string) {
@@ -132,7 +167,43 @@ export class RealGateway implements Gateway {
     const o = (r ?? {}) as Record<string, unknown>
     const number = String(o[type === 'YRE' ? 'CustomerReturn' : 'CreditMemoRequest'] ?? o.number ?? o.documentNumber ?? '')
     if (!number) return { ok: false, status: 502, message: `Gateway returned no document number: ${JSON.stringify(o).slice(0, 300)}` }
-    return { ok: true, number, response: o }
+    const meta = o.__metadata as { etag?: string } | undefined
+    const etag = meta?.etag ?? (o.versionStamp as string | undefined) ?? (o.etag as string | undefined)
+    return { ok: true, number, response: o, etag }
+  }
+
+  /** The gateway takes a reason name, not the SAP code. 101 means R2 quality on a YRE but R4 price on a YCR, so key by type. */
+  private reason(type: 'YRE' | 'YCR', code: unknown): string | null {
+    return GATEWAY_REASONS[`${type}:${String(code ?? '')}`] ?? null
+  }
+
+  private unmappedReason(type: 'YRE' | 'YCR', code: unknown): WriteResult {
+    return { ok: false, status: 400, message: `Order reason ${String(code)} on a ${type} has no agreed gateway reason name yet. Nothing was written. Add it to GATEWAY_REASONS in gateway/real.ts once the gateway owner confirms it.` }
+  }
+
+  private logResult(r: unknown): LogResult {
+    const o = (r ?? {}) as Record<string, unknown>
+    const id = String(o.ID ?? o.id ?? '')
+    if (!id) return { ok: false, status: 502, message: `Gateway returned no approval record ID: ${JSON.stringify(o).slice(0, 300)}` }
+    return { ok: true, id, response: o }
+  }
+
+  async logRequest(args: { invoiceNumber: string; proposedAction: GatewayAction }): Promise<LogResult> {
+    try {
+      return this.logResult(await this.action('logRequest', args))
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return { ok: false, status: err.status ?? 502, message: err.message }
+    }
+  }
+
+  async setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED' }): Promise<LogResult> {
+    try {
+      return this.logResult(await this.action('setApprovalStatus', { ID: args.id, status: args.status }))
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return { ok: false, status: err.status ?? 502, message: err.message }
+    }
   }
 
   private catchWrite(e: unknown): WriteResult {
@@ -151,6 +222,8 @@ export class RealGateway implements Gateway {
     const item = (payload.to_Item as Record<string, string>[] | undefined)?.[0] ?? {}
     const blocked = this.demoGuard(item.ReferenceSDDocument)
     if (blocked) return blocked
+    const reason = this.reason('YRE', payload.SDDocumentReason)
+    if (!reason) return this.unmappedReason('YRE', payload.SDDocumentReason)
     try {
       const r = await this.action('createReturn', {
         invoiceNumber: item.ReferenceSDDocument,
@@ -158,9 +231,8 @@ export class RealGateway implements Gateway {
         material: item.Material,
         quantity: item.RequestedQuantity,
         unit: item.RequestedQuantityUnit,
-        reason: payload.SDDocumentReason,
+        reason,
         soldToParty: payload.SoldToParty,
-        customerReference: payload.PurchaseOrderByCustomer,
       })
       return this.writeResult('YRE', r)
     } catch (e) {
@@ -172,15 +244,16 @@ export class RealGateway implements Gateway {
     const item = (payload.to_Item as Record<string, string>[] | undefined)?.[0] ?? {}
     const blocked = this.demoGuard(payload.ReferenceSDDocument)
     if (blocked) return blocked
+    const reason = this.reason('YCR', payload.SDDocumentReason)
+    if (!reason) return this.unmappedReason('YCR', payload.SDDocumentReason)
     try {
       const r = await this.action('createCreditMemoRequest', {
         invoiceNumber: payload.ReferenceSDDocument,
         material: item.Material,
         quantity: item.RequestedQuantity,
         unit: item.RequestedQuantityUnit,
-        reason: payload.SDDocumentReason,
+        reason,
         soldToParty: payload.SoldToParty,
-        customerReference: payload.PurchaseOrderByCustomer,
       })
       return this.writeResult('YCR', r)
     } catch (e) {
@@ -188,14 +261,33 @@ export class RealGateway implements Gateway {
     }
   }
 
-  async release(args: { type: 'YRE' | 'YCR'; number: string }): Promise<WriteResult> {
+  async release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult> {
+    if (args.type !== 'YCR') {
+      return { ok: false, status: 501, message: `The gateway releases credit memo requests only. Release return ${args.number} in SAP after the goods receipt.` }
+    }
+    if (!args.etag) {
+      return { ok: false, status: 409, message: `SAP returned no version stamp when ${args.number} was created, so it cannot be released safely. Check the document in SAP.` }
+    }
     try {
-      const r = await this.action('releaseCreditMemoRequest', { number: args.number, type: args.type })
+      const r = await this.action('releaseCreditMemoRequest', { creditMemoNumber: args.number, versionStamp: args.etag })
       return { ok: true, number: args.number, response: (r ?? {}) as Record<string, unknown> }
     } catch (e) {
       return this.catchWrite(e)
     }
   }
+}
+
+const READ_TIMEOUT_MS = 15_000
+const WRITE_TIMEOUT_MS = 30_000
+
+/**
+ * SAP order reason code, keyed by document type → reason name the gateway expects.
+ * Only the two names the gateway owner has shown are filled in. Any other reason is refused, so a wrong one never
+ * reaches SAP. Still to confirm: YRE:102 (R1 damaged), YCR:103 (R5 short delivery), YCR:104 (R3 ruined).
+ */
+const GATEWAY_REASONS: Record<string, string> = {
+  'YRE:101': 'DEFECTIVE',
+  'YCR:101': 'PRICE_COMPLAINT',
 }
 
 /** "/Date(1790640000000)/" → "2026-09-29" */
@@ -230,6 +322,19 @@ interface RawInvoice {
       ReferenceSDDocument: string
     }[]
   }
+}
+
+interface RawFound {
+  BillingDocument?: string
+  invoiceNumber?: string
+  number?: string
+}
+
+interface RawPrice {
+  unitPrice?: string | number
+  price?: string | number
+  ConditionRateValue?: string | number
+  ConditionQuantity?: string | number
 }
 
 interface RawExisting {

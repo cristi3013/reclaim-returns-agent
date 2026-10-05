@@ -1,5 +1,5 @@
 import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, type ExistingDoc } from '@reclaim/shared'
-import type { Gateway, WriteResult } from './types'
+import type { Gateway, GatewayAction, LogResult, WriteResult } from './types'
 
 /**
  * Replays the DS4 answers captured on 1 Oct 2026 and simulates writes.
@@ -7,6 +7,7 @@ import type { Gateway, WriteResult } from './types'
  */
 export class MockGateway implements Gateway {
   private nextDoc = 60000171
+  private nextLog = 1
   /** Documents this gateway "created", keyed by invoice, so duplicate detection sees them. */
   private created = new Map<string, ExistingDoc[]>()
   constructor(private opts: { simulateConflict: () => boolean; delayMs?: number } = { simulateConflict: () => false }) {}
@@ -15,6 +16,7 @@ export class MockGateway implements Gateway {
   reset() {
     this.created.clear()
     this.nextDoc = 60000171
+    this.nextLog = 1
   }
 
   private delay(ms: number) {
@@ -43,7 +45,7 @@ export class MockGateway implements Gateway {
     )
   }
 
-  async getAgreedPrice(args: { material: string; salesOrg: string; channel: string }) {
+  async getAgreedPrice(args: { customer: string; material: string; salesOrg: string; channel: string }) {
     await this.delay(380)
     return args.material === AGREED_PRICE.material && args.salesOrg === AGREED_PRICE.salesOrg ? AGREED_PRICE.unitPrice : null
   }
@@ -62,7 +64,8 @@ export class MockGateway implements Gateway {
     const list = this.created.get(invoice) ?? []
     list.push({ type, number, reasonCode: String(payload.SDDocumentReason ?? ''), amount: 0, billingBlock: '08' })
     this.created.set(invoice, list)
-    return { ok: true, number, response: { status: 201, [type === 'YRE' ? 'CustomerReturn' : 'CreditMemoRequest']: number, HeaderBillingBlockReason: '08' } }
+    const etag = `W/"datetimeoffset'${new Date().toISOString()}'"`
+    return { ok: true, number, etag, response: { status: 201, [type === 'YRE' ? 'CustomerReturn' : 'CreditMemoRequest']: number, HeaderBillingBlockReason: '08', __metadata: { etag } } }
   }
 
   async createReturn(payload: Record<string, unknown>) {
@@ -75,7 +78,18 @@ export class MockGateway implements Gateway {
     return this.write('YCR', payload)
   }
 
-  async release(args: { type: 'YRE' | 'YCR'; number: string }): Promise<WriteResult> {
+  async logRequest(args: { invoiceNumber: string; proposedAction: GatewayAction }): Promise<LogResult> {
+    await this.delay(150)
+    const id = `mock-log-${this.nextLog++}`
+    return { ok: true, id, response: { ID: id, ...args, status: 'PENDING' } }
+  }
+
+  async setApprovalStatus(args: { id: string; status: 'APPROVED' | 'REJECTED' }): Promise<LogResult> {
+    await this.delay(150)
+    return { ok: true, id: args.id, response: { ID: args.id, status: args.status, decidedAt: new Date().toISOString() } }
+  }
+
+  async release(args: { type: 'YRE' | 'YCR'; number: string; etag: string }): Promise<WriteResult> {
     await this.delay(500)
     if (this.opts.simulateConflict()) {
       return { ok: false, status: 412, message: 'The record changed in SAP since it was read. Nothing was changed.' }

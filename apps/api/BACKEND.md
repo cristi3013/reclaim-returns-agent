@@ -80,8 +80,9 @@ Re-running a case that already has a SAP document is refused (409). Re-running k
 - An edited quantity is capped at the invoiced quantity, the amount is recomputed, and the **approver role is re-derived** from the threshold table. A role below the required one gets 403.
 - In SAP mode `real`, the hackathon demo invoices (90000353–90000359, `DEMO_INVOICES`) are refused with 400. They must never be written to DS4.
 - Document type NONE (price not supported, policy gap): approving sends the reply and closes the case. No SAP call.
+- Before the create, the gateway's own approval record is opened and closed: `logRequest({invoiceNumber, proposedAction: RETURN|CREDIT})` → `setApprovalStatus({ID, status: APPROVED})`, with an `approval` event carrying the record ID. If either call fails the case goes to `sap_write_failed` and nothing has been written to SAP. The record ID and the version stamp from the create response are stored on the `SapDocument` (`gatewayLogId`, `etag`).
 - YRE → `gateway.createReturn(payload)`, YCR → `gateway.createCreditMemoRequest(payload)`. The payload is `proposal.sapPayload`, built by `buildSapPayload`, sent unchanged. Success → `SapDocument` stored, status `written_to_sap`, event `sap_write` with L4 `5.1.2` or `5.2.1`. Failure → status `sap_write_failed`, event `error` with the HTTP status and SAP's message; the route returns that status (412 on conflict).
-- `release(documentId, {actor, role, goodsReceived?})` → `gateway.release({type, number})`. Removing billing block 08 is the credit decision itself, so: same role as the approval (403 otherwise), only once (409 on repeat), refused if the create response did not confirm block 08, and for a return (YRE) only with `goodsReceived: true`, because the policy credits after the goods arrive (step 5.1.3). The gateway re-reads the document right before the PATCH and sends its current ETag as If-Match; a change since then is a 412.
+- `release(documentId, {actor, role, goodsReceived?})` → `gateway.release({type, number, etag})`. Removing billing block 08 is the credit decision itself, so: same role as the approval (403 otherwise), only once (409 on repeat), refused if the create response did not confirm block 08, and for a return (YRE) only with `goodsReceived: true`, because the policy credits after the goods arrive (step 5.1.3). `etag` is the document's version stamp from the create response, sent back as `versionStamp`; a change in SAP since then is a 412. The gateway releases only YCRs, and only if their request was APPROVED with `setApprovalStatus`; a YRE release returns 501 in real mode (release it in SAP after the goods receipt).
 - Approve order of operations: the edited decision is computed in local variables first, every check runs (quantity > 0, role vs the re-derived approver, SAP-mode match, demo-invoice guard), and only then is the proposal changed and the write attempted. A refused approval changes nothing.
 - A proposal is stamped with the SAP mode it was investigated in. Approving it in another mode is a 409: re-run the case first. Switching to real mode without `GATEWAY_URL` is refused.
 - After a successful create the response's `HeaderBillingBlockReason` is checked. If it is present and not `08`, the document is recorded, an error event says it was created without the block, and release is refused.
@@ -90,22 +91,31 @@ Re-running a case that already has a SAP document is refused (409). Re-running k
 
 The gateway is the only thing that talks to SAP DS4 (through Destination + Cloud Connector). Every function returns `{ "value": "<JSON string>" }`; `RealGateway.unwrap()` parses it.
 
-| Our method | His function | Status 5 Oct | Notes |
-|---|---|---|---|
-| getInvoice | `getInvoice(invoiceNumber)` | done | raw OData v2 billing document; we map it in `toSnapshot`, keep `__metadata.etag` |
-| checkExistingCredits | `checkExistingCredits(invoiceNumber)` | done | `{existingReturns:[], existingCredits:[]}` |
-| createReturn | `createReturn(invoiceNumber, invoiceItem, material, quantity, unit, reason, soldToParty)` | done | we also send `customerReference` (PurchaseOrderByCustomer); ask him to accept it. Must create with reference to the invoice item or SAP makes a normal sale (item category TAN instead of REN) |
-| createCreditMemoRequest | `createCreditMemoRequest(invoiceNumber, material, quantity, unit, reason, soldToParty)` | done | gateway must set HeaderBillingBlockReason 08 itself |
-| release | `releaseCreditMemoRequest(number, type)` | **missing** | The gateway must GET the document, take its ETag, then PATCH `HeaderBillingBlockReason: ""` with `If-Match`; 412 on conflict. We pass only the number. Needed for the demo's release step and the 412 story |
-| getAgreedPrice | `getAgreedPrice(material, salesOrg, channel)` | **missing** | `API_SLSPRICINGCONDITIONRECORD_SRV`, condition PR00. Needed for case 02 |
-| findInvoices | `findInvoices(customer, material, dateFrom, dateTo)` | **missing** | `A_BillingDocumentItem` filtered, then headers. Needed for case 05 |
-| getPlantCompanyCode | none | n/a | our own table `{ YGLG: 'YDE1', YRO1: 'YRO1' }` in `gateway/real.ts` |
+Base path `/odata/v4/returns`. Reads are OData v4 functions (GET, parameters in the URL, single quotes doubled); writes are actions (POST, JSON body). Reads time out after 15 s, writes after 30 s; a write timeout is reported as 504 "outcome unknown, check SAP before retrying".
 
-The names and shapes for the three missing ones are our proposal; adjust `gateway/real.ts` to whatever he ships. Reads are safe to call any time. **Writes only against the team's own four invoices on DS4** (guarded in the service and again in `RealGateway`).
+| Our method | His call | Notes |
+|---|---|---|
+| getInvoice | GET `getInvoice(invoiceNumber)` | raw OData v2 billing document; we map it in `toSnapshot`, keep `__metadata.etag` |
+| checkExistingCredits | GET `checkExistingCredits(invoiceNumber)` | `{existingReturns:[], existingCredits:[]}` |
+| findInvoices | GET `findInvoices(soldToParty, material, fromDate, toDate)` | dates `YYYY-MM-DD`. Each hit (by `BillingDocument`/`invoiceNumber`) is re-read with `getInvoice`, at most 5. Case 05 |
+| getAgreedPrice | GET `getAgreedPrice(soldToParty, material, salesOrganization, distributionChannel)` | PR00 valid today. We read `unitPrice`, `price` or `ConditionRateValue`, divided by `ConditionQuantity` if present. Case 02 |
+| (not used yet) | GET `getReturnStatus(returnDocumentNumber)` | return processing and warehouse receipt status; can replace the `goodsReceived` checkbox (step 5.1.3) |
+| logRequest | POST `logRequest {invoiceNumber, proposedAction}` | `RETURN`/`CREDIT`/`REPLACEMENT`/`REJECT`; returns the record with `ID`, status PENDING |
+| setApprovalStatus | POST `setApprovalStatus {ID, status}` | `APPROVED`/`REJECTED` |
+| createReturn | POST `createReturn {invoiceNumber, invoiceItem, material, quantity, unit, reason, soldToParty}` | must create with reference to the invoice item or SAP makes a normal sale (TAN instead of REN) |
+| createCreditMemoRequest | POST `createCreditMemoRequest {invoiceNumber, material, quantity, unit, reason, soldToParty}` | returns the YCR with block 08; we read the version stamp from `__metadata.etag` (or `versionStamp`/`etag`) |
+| release | POST `releaseCreditMemoRequest {creditMemoNumber, versionStamp}` | YCR only, only after APPROVED. Returns the released YCR (block removed) |
+| getPlantCompanyCode | none | our own table `{ YGLG: 'YDE1', YRO1: 'YRO1' }` in `gateway/real.ts` |
+
+**Reasons.** The gateway takes reason names, not SAP order reason codes. `GATEWAY_REASONS` in `gateway/real.ts` maps type + code: `YRE:101 → DEFECTIVE`, `YCR:101 → PRICE_COMPLAINT`. Any other combination is refused with 400 before any call, so a wrong reason never reaches SAP. **To confirm with Alex:** names for `YRE:102` (R1 damaged), `YCR:103` (R5 short delivery), `YCR:104` (R3 ruined).
+
+**Also to confirm with Alex:** how a `logRequest` record is tied to the credit memo request his release checks (the body carries only `invoiceNumber`); the exact response shapes of `findInvoices` and `getAgreedPrice`; and that the create response includes `__metadata.etag` and `HeaderBillingBlockReason`.
+
+Reads are safe to call any time. **Writes only against the team's own four invoices on DS4** (guarded in the service and again in `RealGateway`).
 
 Lookups that may be missing on the gateway (`findInvoices`, `getAgreedPrice`, the plant table) are **optional**: a failure is recorded as an error event and the rules decide with what is known. A price complaint without an agreed price goes to the credit manager as "no automatic decision". `getInvoice` failing aborts the run.
 
-Ask Alex to accept the full payload object on the two creates instead of flat parameters. Today `RealGateway` maps `sapPayload` onto his parameters, so "sent unchanged" holds up to the gateway, and billing block 08 depends on his service. The response check above is the safety net.
+The creates take flat parameters, so `RealGateway` maps `sapPayload` onto his parameters, so "sent unchanged" holds up to the gateway, and billing block 08 depends on his service. The response check above is the safety net.
 
 SAP facts that bite (from the hackathon guide): writes need a CSRF token fetched with a GET first plus the session cookies (the gateway handles it); a return item needs both `ReferenceSDDocument` and `ReferenceSDDocumentItem`; a released credit memo request is not posted to accounting automatically on DS4 (stop the demo at the release); OData v2 dates are `/Date(ms)/` and numbers are strings.
 
@@ -127,7 +137,7 @@ Ideas that fit later, in order of value: a chat endpoint over one case (read-onl
 ## 9. What is left to do, in priority order
 
 1. Run the frontend against this backend (`VITE_API_MODE=http`) and walk `docs/demo-script.md` end to end.
-2. Wire `RealGateway` to Alex's service: verify `toSnapshot` against a live `getInvoice`, confirm the parameter names of the three missing functions, do **one** real `createCreditMemoRequest` on a team invoice, then one release.
+2. Wire `RealGateway` to Alex's service: verify `toSnapshot` against a live `getInvoice`, get the missing reason names and response shapes (§6), do **one** real `createCreditMemoRequest` on a team invoice, then one release.
 3. Set `ANTHROPIC_API_KEY`, run the acceptance test in assisted mode, read a few explanations and replies, tune the two system prompts in `ai/claude.ts` if needed.
 4. Deploy: `apps/api` on BTP Cloud Foundry (Node buildpack, `PORT` from the platform, env vars above), the web build behind the approuter, `VITE_API_BASE` pointing at the API.
 5. Only if time remains: persistence in Supabase (replace `Store`), policy retrieval, case chat.
@@ -137,7 +147,9 @@ Ideas that fit later, in order of value: a chat endpoint over one case (read-onl
 - **R4 price-difference credit.** When the agreed price is below the invoiced one, the decision is "credit the difference", but the YCR payload carries only the quantity with reference to the invoice. SAP would copy the invoice price and credit the full line value. A correct implementation needs a manual price condition on the credit request, which must be verified on DS4 first. The demo data never reaches this path (agreed price equals invoiced). Until fixed, a credit manager must correct the amount in SAP after release, or the rule can be changed to send the case to a person.
 - **Customer identity.** Uploaded emails default to customer 10021; once the invoice is read, the case takes the customer from the invoice. There is no table from sender address to SAP customer, so the agent does not verify that the complaining party owns the invoice.
 - **Multi-line invoices.** The line matching the material named in the email is used (`preferItem`); when no material is named, the first line is. Check how many lines the team's real DS4 invoices have.
-- **Release of a return.** `goodsReceived` is a human confirmation, not a lookup of the returns delivery (`API_CUSTOMER_RETURNS_DELIVERY_SRV;v=0002`). A later version should read `GoodsMovementStatus`.
+- **Release of a return.** `goodsReceived` is a human confirmation, not a lookup. The gateway's `getReturnStatus` can replace it. The gateway has no release for a YRE, so in real mode a return is released in SAP by hand.
+- **Reason names.** Only reason 101 is mapped to a gateway name (§6). R1, R3 and R5 writes are refused in real mode until the names are confirmed; mock mode is unaffected.
+- **Rejections** are not sent to the gateway's approval log; only approved requests get a record.
 
 ## 11. Rules that must not be broken
 

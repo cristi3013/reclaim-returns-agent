@@ -140,6 +140,10 @@ export const SapDocumentSchema = z.object({
   response: z.record(z.string(), z.unknown()),
   createdAt: z.string(),
   released: z.boolean(),
+  /** Version stamp SAP returned on create; the release must send it back. */
+  etag: z.string().optional(),
+  /** Gateway approval record (logRequest → setApprovalStatus) that authorises this document. */
+  gatewayLogId: z.string().optional(),
 })
 
 export const CaseEventSchema = z.object({
