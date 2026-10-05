@@ -2,9 +2,9 @@ import { Link, useParams } from '@tanstack/react-router'
 import { FileText, Play } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCase, useChoose, useRunCase, useStatus } from '@/api'
-import { buildReport, ROLE_LABELS } from '@reclaim/shared'
+import { ROLE_LABELS } from '@reclaim/shared'
 import { useUi } from '@/store/ui'
-import { runExport } from '@/features/reports/ReportsPage'
+import { exportCaseAuditPack } from '@/features/reports/export'
 import { ComplaintPanel } from './ComplaintPanel'
 import { SapFindingsPanel } from './SapFindingsPanel'
 import { ProposalCard } from './ProposalCard'
@@ -50,7 +50,12 @@ export function CasePage() {
         <div className="ml-auto flex shrink-0 gap-2">
           <Button
             variant="outline"
-            onClick={() => runExport(buildReport([c], { generatedBy: ROLE_LABELS[role], sapMode: status.data?.sapMode, title: `Reclaim · Audit pack · ${c.id}` }), 'pdf', `-${c.id}`)}
+            onClick={() =>
+              exportCaseAuditPack(c, { generatedBy: ROLE_LABELS[role], sapMode: status.data?.sapMode }).then(
+                () => toast.success('Audit pack downloaded'),
+                (e) => toast.error(e instanceof Error ? `Export failed: ${e.message}` : 'Export failed'),
+              )
+            }
             title="Download this case's proposal, approvals, SAP documents and audit log as a PDF"
           >
             <FileText className="size-4" /> Audit pack

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import ExcelJS from 'exceljs'
 import { buildReport, primaryProposal } from '@reclaim/shared'
 import { MockApiClient } from '@/api/mock/MockApiClient'
-import { reportBlob } from '../export'
+import { caseAuditPdf, readableDetail, reportBlob } from '../export'
 
 /** jsdom's Blob has no arrayBuffer(); FileReader works. */
 const bytes = (b: Blob) =>
@@ -22,6 +22,8 @@ async function report() {
   const cases = await Promise.all((await c.listCases()).map((s) => c.getCase(s.id)))
   return buildReport(cases, { generatedBy: 'Credit manager', sapMode: 'mock' })
 }
+
+const pdfHead = async (b: Blob) => new TextDecoder().decode(new Uint8Array(await bytes(b)).slice(0, 5))
 
 describe('report exports', () => {
   beforeEach(() => localStorage.clear())
@@ -45,5 +47,16 @@ describe('report exports', () => {
     const doc = new DOMParser().parseFromString(xml, 'application/xml')
     expect(doc.getElementsByTagName('parsererror')).toHaveLength(0)
     expect(doc.querySelectorAll('AuditLog > Event').length).toBe(r.tables.find((t) => t.key === 'events')!.rows.length)
+  })
+
+  it('the case audit pack is a PDF of that one case', async () => {
+    const c = new MockApiClient({ fast: true })
+    await c.seedCases()
+    await c.runCase('case-01')
+    expect(await pdfHead(await caseAuditPdf(await c.getCase('case-01'), { generatedBy: 'Credit manager', sapMode: 'mock' }))).toBe('%PDF-')
+  })
+
+  it('event detail reads as key: value lines, not raw JSON', () => {
+    expect(readableDetail(JSON.stringify({ args: { invoiceNumber: '90000353' }, result: { returns: [], credits: [] }, options: [{ a: 1 }, { a: 2 }], empty: null }))).toBe('args: invoiceNumber=90000353\nresult: returns=none, credits=none\noptions: 2 items')
   })
 })
