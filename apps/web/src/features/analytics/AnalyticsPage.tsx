@@ -8,7 +8,8 @@ import { ValueCalculator } from './ValueCalculator'
 import { ModelUsage } from './ModelUsage'
 import { formatDateTime, formatMoney, formatPercent } from '@/lib/format'
 import { COMPLAINT_LABELS, ROLE_LABELS, STATUS_LABELS, type CaseStatus, type ComplaintType } from '@reclaim/shared'
-import { Download } from 'lucide-react'
+import { Download, FileDown } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
 const minutes = (m: number | null) => (m == null ? '–' : m < 1 ? '< 1 min' : m < 90 ? `${Math.round(m)} min` : `${(m / 60).toFixed(1)} h`)
@@ -38,6 +39,11 @@ export function AnalyticsPage() {
         </div>
         <Button variant="outline" size="sm" className="sm:ml-auto" onClick={exportCsv} disabled={!cases.data?.length}>
           <Download className="size-4" /> Copy cases as CSV
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/reports">
+            <FileDown className="size-4" /> Excel · PDF · XML report
+          </Link>
         </Button>
       </div>
       {q.isLoading || !d ? (

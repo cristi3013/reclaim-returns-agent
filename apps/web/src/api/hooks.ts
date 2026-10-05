@@ -13,6 +13,15 @@ export const useCase = (id: string) => {
   return useQuery({ queryKey: ['case', id], queryFn: () => api.getCase(id), enabled: id !== '' })
 }
 
+/** Every case with its proposals, approvals, SAP documents and events, for the audit report. Refreshes with the case list. */
+export const useFullCases = () => {
+  const api = useApi()
+  return useQuery({
+    queryKey: ['cases', 'full'],
+    queryFn: async () => Promise.all((await api.listCases()).map((r) => api.getCase(r.id))),
+  })
+}
+
 export const useStatus = () => {
   const api = useApi()
   return useQuery({ queryKey: ['status'], queryFn: () => api.getStatus(), refetchInterval: 5000 })

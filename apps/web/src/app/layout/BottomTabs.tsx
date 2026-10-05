@@ -10,7 +10,7 @@ export function BottomTabs() {
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+      {NAV_ITEMS.filter((n) => !('desktopOnly' in n)).map(({ to, label, icon: Icon }) => {
         const active = isActive(to, path)
         return (
           <Link
