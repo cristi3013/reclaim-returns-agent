@@ -18,7 +18,16 @@ const FIELDS: Field[] = [
   { key: 'costOfCapital', label: 'Cost of capital', percent: true },
 ]
 
-export function ValueCalculator() {
+export interface Measured {
+  agentSeconds: number | null
+  minutesToDecision: number | null
+  cases: number
+  casesLast24h: number
+  duplicatesPrevented: number
+  intercompanyFlagged: number
+}
+
+export function ValueCalculator({ measured }: { measured?: Measured }) {
   const [input, setInput] = useState<ValueInput>(DEFAULT_VALUE_INPUT)
   const r = computeValue(input)
   const set = (k: keyof ValueInput, raw: string, percent?: boolean) => {
@@ -37,6 +46,14 @@ export function ValueCalculator() {
       <p className="mt-1 max-w-3xl text-sm text-muted">
         Every value is an editable assumption for a mid-sized business unit, not a measurement. Replace them with the numbers of the business you pitch to. The calculation is the one from the hackathon guide, so anyone can check it.
       </p>
+      {measured && measured.cases > 0 && (
+        <p className="mt-2 max-w-3xl rounded-md border-l-2 border-accent bg-accent-soft/50 px-3 py-2 text-sm">
+          <span className="font-semibold">Measured in this system:</span> the agent needs{' '}
+          <span className="tnum font-mono">{measured.agentSeconds == null ? '–' : `${Math.round(measured.agentSeconds)} s`}</span> per complaint; a person decided after{' '}
+          <span className="tnum font-mono">{measured.minutesToDecision == null ? '–' : `${Math.round(measured.minutesToDecision)} min`}</span> (median);{' '}
+          {measured.duplicatesPrevented} duplicate credit(s) and {measured.intercompanyFlagged} intercompany case(s) caught in {measured.cases} complaint(s). Compare with the assumptions on the left.
+        </p>
+      )}
       <div className="mt-4 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-6">
         <div className="space-y-2">
           {FIELDS.map((f) => (

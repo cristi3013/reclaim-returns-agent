@@ -4,14 +4,13 @@ import {
   buildSapPayload,
   capQuantity,
   DEMO_INVOICES,
+  computeAnalytics,
   EXPECTED,
   FIXTURES,
-  HISTORY_TOTALS,
-  HISTORY_WEEKS,
   primaryProposal,
   toSummary,
   type AgentStatus,
-  type AnalyticsSummary,
+  type Analytics,
   type Case,
   type CaseSummary,
   type EvalResult,
@@ -398,32 +397,8 @@ export class Service {
     return results
   }
 
-  analytics(): AnalyticsSummary {
-    const cases = this.store.list()
-    const byStatus: Record<string, number> = {}
-    const byType: Record<string, number> = {}
-    for (const c of cases) {
-      byStatus[c.status] = (byStatus[c.status] ?? 0) + 1
-      byType[c.complaintType] = (byType[c.complaintType] ?? 0) + 1
-    }
-    const amountOf = (c: Case) => primaryProposal(c)?.decision.amount ?? 0
-    const approvedLive = cases.filter((c) => ['written_to_sap', 'approved', 'closed'].includes(c.status)).reduce((s, c) => s + amountOf(c), 0)
-    const rejectedLive = cases.filter((c) => c.status === 'rejected').reduce((s, c) => s + amountOf(c), 0)
-    const count = (w: (typeof HISTORY_WEEKS)[number]) => w.damaged + w.ruined + w.quality + w.price + w.short_delivery + w.other
-    return {
-      casesThisMonth: cases.length + HISTORY_WEEKS.slice(-4).reduce((s, w) => s + count(w), 0),
-      pendingApprovals: byStatus['awaiting_approval'] ?? 0,
-      approvedValue: approvedLive + HISTORY_WEEKS.reduce((s, w) => s + w.approvedValue, 0),
-      rejectedValue: rejectedLive + HISTORY_WEEKS.reduce((s, w) => s + w.rejectedValue, 0),
-      medianHoursToApproval: HISTORY_TOTALS.medianHoursToApproval,
-      acceptedUnchangedRatio: HISTORY_TOTALS.acceptedUnchanged,
-      duplicatesPrevented: HISTORY_TOTALS.duplicatesPrevented + (byStatus['duplicate'] ?? 0),
-      intercompanyFlagged: HISTORY_TOTALS.intercompanyFlagged + cases.filter((c) => c.proposals.some((p) => p.decision.intercompany)).length,
-      byStatus,
-      byType,
-      weeks: HISTORY_WEEKS,
-      currency: 'EUR',
-    }
+  analytics(): Analytics {
+    return computeAnalytics(this.store.list(), this.store.evalResults)
   }
 
   status(): AgentStatus {

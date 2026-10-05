@@ -247,33 +247,6 @@ export const SettingsSchema = z.object({
   simulateConflict: z.boolean(),
 })
 
-export const WeekPointSchema = z.object({
-  week: z.string(),
-  damaged: z.number(),
-  ruined: z.number(),
-  quality: z.number(),
-  price: z.number(),
-  short_delivery: z.number(),
-  other: z.number(),
-  approvedValue: z.number(),
-  rejectedValue: z.number(),
-})
-
-export const AnalyticsSummarySchema = z.object({
-  casesThisMonth: z.number(),
-  pendingApprovals: z.number(),
-  approvedValue: z.number(),
-  rejectedValue: z.number(),
-  medianHoursToApproval: z.number(),
-  acceptedUnchangedRatio: z.number(),
-  duplicatesPrevented: z.number(),
-  intercompanyFlagged: z.number(),
-  byStatus: z.record(z.string(), z.number()),
-  byType: z.record(z.string(), z.number()),
-  weeks: z.array(WeekPointSchema),
-  currency: z.string(),
-})
-
 export type Facts = z.infer<typeof FactsSchema>
 export type InvoiceItem = z.infer<typeof InvoiceItemSchema>
 export type InvoiceSnapshot = z.infer<typeof InvoiceSnapshotSchema>
@@ -294,8 +267,6 @@ export type EvalField = z.infer<typeof EvalFieldSchema>
 export type AgentStatus = z.infer<typeof AgentStatusSchema>
 export type MailboxStatus = z.infer<typeof MailboxStatusSchema>
 export type Settings = z.infer<typeof SettingsSchema>
-export type AnalyticsSummary = z.infer<typeof AnalyticsSummarySchema>
-export type WeekPoint = z.infer<typeof WeekPointSchema>
 
 /** The proposal that currently represents the case: chosen, else recommended, else the first. */
 export function primaryProposal(c: Pick<Case, 'proposals'>): Proposal | undefined {

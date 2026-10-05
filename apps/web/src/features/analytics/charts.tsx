@@ -1,31 +1,11 @@
 import { useEffect, useState } from 'react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import type { AnalyticsSummary } from '@reclaim/shared'
-import { COMPLAINT_LABELS, STATUS_LABELS, type CaseStatus, type ComplaintType } from '@reclaim/shared'
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import type { Analytics } from '@reclaim/shared'
+import { RULES, type RuleId } from '@reclaim/shared'
 import { useUi } from '@/store/ui'
 import { formatMoney } from '@/lib/format'
 
-/**
- * Categorical series in a fixed order, validated for colour-vision deficiency and contrast
- * on both surfaces with the dataviz palette validator. Light and dark are separate sets, not a flip.
- */
-const SERIES: { key: 'damaged' | 'price' | 'short_delivery' | 'other' | 'quality' | 'ruined'; label: string }[] = [
-  { key: 'damaged', label: 'Damaged in transit' },
-  { key: 'price', label: 'Price difference' },
-  { key: 'short_delivery', label: 'Short delivery' },
-  { key: 'other', label: 'Other' },
-  { key: 'quality', label: 'Poor quality' },
-  { key: 'ruined', label: 'Goods ruined' },
-]
+/** Categorical colours validated for colour-vision deficiency and contrast on both surfaces (dataviz validator). */
 const LIGHT = ['#046A38', '#0073B1', '#9A6F0A', '#8B4A8F', '#5E8F00', '#0097A9']
 const DARK = ['#4CA86F', '#3B8CD6', '#BD8822', '#B072BB', '#70A41F', '#2B93B0']
 
@@ -42,7 +22,7 @@ function useDark() {
   return dark
 }
 
-function useChartTokens() {
+export function useChartTokens() {
   const dark = useDark()
   return {
     palette: dark ? DARK : LIGHT,
@@ -54,11 +34,6 @@ function useChartTokens() {
   }
 }
 
-const weekLabel = (w: string) => {
-  const d = new Date(w)
-  return `${d.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]}`
-}
-
 function tooltipStyle(t: ReturnType<typeof useChartTokens>) {
   return {
     contentStyle: { background: t.surface, border: `1px solid ${t.line}`, borderRadius: 6, color: t.text, fontSize: 12 },
@@ -68,9 +43,9 @@ function tooltipStyle(t: ReturnType<typeof useChartTokens>) {
   }
 }
 
-function Card({ title, reading, children }: { title: string; reading: string; children: React.ReactNode }) {
+export function Card({ title, reading, children }: { title: string; reading: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
+    <section className="min-w-0 rounded-lg border border-line bg-surface p-4 shadow-card">
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mb-3 text-xs text-muted">{reading}</p>
       {children}
@@ -78,91 +53,106 @@ function Card({ title, reading, children }: { title: string; reading: string; ch
   )
 }
 
-export function CasesByWeek({ data }: { data: AnalyticsSummary }) {
+const BUCKET_LABEL = { hour: 'hour', day: 'day', week: 'week' }
+
+export function CasesOverTime({ data }: { data: Analytics }) {
   const t = useChartTokens()
-  const rows = data.weeks.map((w) => ({ ...w, label: weekLabel(w.week) }))
-  const total = rows.reduce((s, w) => s + SERIES.reduce((x, k) => x + w[k.key], 0), 0)
+  const rows = data.series.points
+  const total = rows.reduce((s, p) => s + p.received, 0)
   return (
-    <Card title="Complaints per week by type" reading={`${total} complaints in 12 weeks. Damage in transit is the largest share every week.`}>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 4, right: 8, left: -16, bottom: 0 }} barCategoryGap="30%">
-            <CartesianGrid vertical={false} stroke={t.grid} />
-            <XAxis dataKey="label" tick={{ fill: t.ink, fontSize: 11 }} axisLine={{ stroke: t.line }} tickLine={false} />
-            <YAxis tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip {...tooltipStyle(t)} />
-            <Legend wrapperStyle={{ fontSize: 11, color: t.ink }} iconType="square" iconSize={8} />
-            {SERIES.map((s, i) => (
-              <Bar key={s.key} dataKey={s.key} name={s.label} stackId="a" fill={t.palette[i]} stroke={t.surface} strokeWidth={2} isAnimationActive={false} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+    <Card title={`Complaints per ${BUCKET_LABEL[data.series.bucket]}`} reading={total ? `${total} received, ${rows.reduce((s, p) => s + p.approved, 0)} approved so far. Buckets adapt to the span of the data.` : 'No cases yet.'}>
+      <div className="h-60">
+        {rows.length > 0 && (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} margin={{ top: 4, right: 8, left: -16, bottom: 0 }} barCategoryGap="30%">
+              <CartesianGrid vertical={false} stroke={t.grid} />
+              <XAxis dataKey="label" tick={{ fill: t.ink, fontSize: 11 }} axisLine={{ stroke: t.line }} tickLine={false} />
+              <YAxis tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip {...tooltipStyle(t)} />
+              <Legend wrapperStyle={{ fontSize: 11, color: t.ink }} iconType="square" iconSize={8} />
+              <Bar dataKey="approved" name="Approved" stackId="a" fill={t.palette[0]} stroke={t.surface} strokeWidth={2} isAnimationActive={false} />
+              <Bar dataKey="rejected" name="Rejected" stackId="a" fill={t.palette[2]} stroke={t.surface} strokeWidth={2} isAnimationActive={false} />
+              <Bar dataKey="noDocument" name="No document" stackId="a" fill={t.palette[1]} stroke={t.surface} strokeWidth={2} isAnimationActive={false} />
+              <Bar dataKey="received" name="Received" fill={t.palette[5]} isAnimationActive={false} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </Card>
   )
 }
 
-export function ValueByWeek({ data }: { data: AnalyticsSummary }) {
+export function DecisionsByRule({ data }: { data: Analytics }) {
   const t = useChartTokens()
-  const rows = data.weeks.map((w) => ({ label: weekLabel(w.week), approved: w.approvedValue, rejected: w.rejectedValue }))
-  const approved = rows.reduce((s, r) => s + r.approved, 0)
-  const rejected = rows.reduce((s, r) => s + r.rejected, 0)
+  const rows = (Object.keys(RULES) as RuleId[])
+    .map((r) => ({ rule: r === 'NONE' ? 'no rule' : r, label: RULES[r].situation, count: data.totals.byRule[r] ?? 0 }))
+    .filter((r) => r.count > 0)
   return (
-    <Card
-      title="Credit value approved vs rejected per week"
-      reading={`${formatMoney(approved, data.currency)} approved, ${formatMoney(rejected, data.currency)} rejected. Rejections are a small share of the value proposed.`}
-    >
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%" barGap={2}>
-            <CartesianGrid vertical={false} stroke={t.grid} />
-            <XAxis dataKey="label" tick={{ fill: t.ink, fontSize: 11 }} axisLine={{ stroke: t.line }} tickLine={false} />
-            <YAxis tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-            <Tooltip {...tooltipStyle(t)} formatter={(v: number) => formatMoney(v, data.currency)} />
-            <Legend wrapperStyle={{ fontSize: 11, color: t.ink }} iconType="square" iconSize={8} />
-            <Bar dataKey="approved" name="Approved" fill={t.palette[0]} radius={[3, 3, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="rejected" name="Rejected" fill={t.palette[2]} radius={[3, 3, 0, 0]} isAnimationActive={false} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  )
-}
-
-export function OutcomeMix({ data }: { data: AnalyticsSummary }) {
-  const t = useChartTokens()
-  const rows = Object.entries(data.byStatus)
-    .map(([k, v]) => ({ label: STATUS_LABELS[k as CaseStatus] ?? k, value: v }))
-    .sort((a, b) => b.value - a.value)
-  const types = Object.entries(data.byType)
-    .map(([k, v]) => ({ label: COMPLAINT_LABELS[k as ComplaintType] ?? k, value: v }))
-    .sort((a, b) => b.value - a.value)
-  return (
-    <Card title="Live cases by outcome" reading={rows.length ? `${rows.reduce((s, r) => s + r.value, 0)} cases in this session, grouped by what happened to them.` : 'No cases yet. Seed and run the demo cases to fill this chart.'}>
-      {rows.length === 0 ? (
-        <div className="h-64" />
-      ) : (
-        <div className="h-64">
+    <Card title="Decisions by policy rule" reading={rows.length ? `${rows.length} of the nine rules applied in this period. Hover a bar for the rule text.` : 'No decisions yet.'}>
+      <div className="h-60">
+        {rows.length > 0 && (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }} barCategoryGap="25%">
               <CartesianGrid horizontal={false} stroke={t.grid} />
               <XAxis type="number" tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="label" width={150} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip {...tooltipStyle(t)} />
-              <Bar dataKey="value" name="Cases" fill={t.palette[0]} radius={[0, 3, 3, 0]} isAnimationActive={false} label={{ position: 'right', fill: t.ink, fontSize: 11 }} />
+              <YAxis type="category" dataKey="rule" width={56} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip {...tooltipStyle(t)} formatter={(v: number, _n, item) => [v, (item.payload as { label: string }).label]} />
+              <Bar dataKey="count" name="Cases" fill={t.palette[0]} radius={[0, 3, 3, 0]} isAnimationActive={false} label={{ position: 'right', fill: t.ink, fontSize: 11 }} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      )}
-      {types.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted">
-          {types.map((x) => (
-            <span key={x.label} className="rounded bg-surface-2 px-2 py-0.5">
-              {x.label}: <span className="tnum text-fg">{x.value}</span>
-            </span>
-          ))}
-        </div>
-      )}
+        )}
+      </div>
+    </Card>
+  )
+}
+
+export function ValueFunnel({ data }: { data: Analytics }) {
+  const t = useChartTokens()
+  const v = data.value
+  const rows = [
+    { step: 'Proposed', value: v.proposed },
+    { step: 'Awaiting approval', value: v.pending },
+    { step: 'Approved', value: v.approved },
+    { step: 'Released to billing', value: v.released },
+    { step: 'Rejected', value: v.rejected },
+  ]
+  return (
+    <Card title="Credit value through the process" reading={v.proposed ? `${formatMoney(v.proposed, data.currency)} proposed by the agent; ${formatMoney(v.approved, data.currency)} approved by a person; ${formatMoney(v.released, data.currency)} released to billing.` : 'No credit proposed yet.'}>
+      <div className="h-60">
+        {v.proposed > 0 && (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 90, left: 8, bottom: 0 }} barCategoryGap="25%">
+              <CartesianGrid horizontal={false} stroke={t.grid} />
+              <XAxis type="number" tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(x: number) => (x >= 1000 ? `${Math.round(x / 1000)}k` : String(x))} />
+              <YAxis type="category" dataKey="step" width={130} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip {...tooltipStyle(t)} formatter={(x: number) => formatMoney(x, data.currency)} />
+              <Bar dataKey="value" name="Value" fill={t.palette[0]} radius={[0, 3, 3, 0]} isAnimationActive={false} label={{ position: 'right', fill: t.ink, fontSize: 11, formatter: (x: number) => formatMoney(x, data.currency) }} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+export function Outcomes({ data }: { data: Analytics }) {
+  const t = useChartTokens()
+  const rows = Object.entries(data.totals.byOutcome).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value)
+  return (
+    <Card title="What happened to each complaint" reading={rows.length ? 'Documents created versus cases that correctly ended without one.' : 'No outcomes yet.'}>
+      <div className="h-60">
+        {rows.length > 0 && (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 24, left: 8, bottom: 0 }} barCategoryGap="25%">
+              <CartesianGrid horizontal={false} stroke={t.grid} />
+              <XAxis type="number" tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <YAxis type="category" dataKey="label" width={210} tick={{ fill: t.ink, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip {...tooltipStyle(t)} />
+              <Bar dataKey="value" name="Cases" fill={t.palette[1]} radius={[0, 3, 3, 0]} isAnimationActive={false} label={{ position: 'right', fill: t.ink, fontSize: 11 }} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </Card>
   )
 }

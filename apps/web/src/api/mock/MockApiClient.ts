@@ -2,10 +2,9 @@ import {
   approverFor,
   buildFixtureCases,
   buildSapPayload,
+  computeAnalytics,
   EXPECTED,
   FIXTURES,
-  HISTORY_TOTALS,
-  HISTORY_WEEKS,
   capQuantity,
   DEMO_INVOICES,
   primaryProposal,
@@ -324,35 +323,7 @@ export class MockApiClient implements ApiClient {
   }
 
   async getAnalytics() {
-    const cases = [...this.store.cases.values()]
-    const byStatus: Record<string, number> = {}
-    const byType: Record<string, number> = {}
-    for (const c of cases) {
-      byStatus[c.status] = (byStatus[c.status] ?? 0) + 1
-      byType[c.complaintType] = (byType[c.complaintType] ?? 0) + 1
-    }
-    const amountOf = (c: Case) => primaryProposal(c)?.decision.amount ?? 0
-    const approvedLive = cases
-      .filter((c) => ['written_to_sap', 'approved', 'closed'].includes(c.status))
-      .reduce((s, c) => s + amountOf(c), 0)
-    const rejectedLive = cases.filter((c) => c.status === 'rejected').reduce((s, c) => s + amountOf(c), 0)
-    const histCount = (w: (typeof HISTORY_WEEKS)[number]) =>
-      w.damaged + w.ruined + w.quality + w.price + w.short_delivery + w.other
-    return {
-      casesThisMonth: cases.length + HISTORY_WEEKS.slice(-4).reduce((s, w) => s + histCount(w), 0),
-      pendingApprovals: byStatus['awaiting_approval'] ?? 0,
-      approvedValue: approvedLive + HISTORY_WEEKS.reduce((s, w) => s + w.approvedValue, 0),
-      rejectedValue: rejectedLive + HISTORY_WEEKS.reduce((s, w) => s + w.rejectedValue, 0),
-      medianHoursToApproval: HISTORY_TOTALS.medianHoursToApproval,
-      acceptedUnchangedRatio: HISTORY_TOTALS.acceptedUnchanged,
-      duplicatesPrevented: HISTORY_TOTALS.duplicatesPrevented + (byStatus['duplicate'] ?? 0),
-      intercompanyFlagged:
-        HISTORY_TOTALS.intercompanyFlagged + cases.filter((c) => c.proposals.some((p) => p.decision.intercompany)).length,
-      byStatus,
-      byType,
-      weeks: HISTORY_WEEKS,
-      currency: 'EUR',
-    }
+    return computeAnalytics([...this.store.cases.values()], this.store.evalResults)
   }
 
   async runEval(): Promise<EvalResult[]> {

@@ -1,6 +1,6 @@
 import type {
   AgentStatus,
-  AnalyticsSummary,
+  Analytics,
   Case,
   CaseSummary,
   EvalResult,
@@ -54,7 +54,7 @@ export interface ApiClient {
   approve(proposalId: string, input: ApproveInput): Promise<ApproveResult>
   reject(proposalId: string, input: RejectInput): Promise<void>
   release(sapDocumentId: string, input: ReleaseInput): Promise<ReleaseResult>
-  getAnalytics(): Promise<AnalyticsSummary>
+  getAnalytics(): Promise<Analytics>
   runEval(): Promise<EvalResult[]>
   getLatestEval(): Promise<EvalResult[] | null>
   getStatus(): Promise<AgentStatus>

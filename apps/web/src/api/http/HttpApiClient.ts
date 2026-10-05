@@ -1,7 +1,7 @@
 import {
   API_ROUTES,
   AgentStatusSchema,
-  AnalyticsSummarySchema,
+  AnalyticsSchema,
   CaseSchema,
   CaseSummarySchema,
   EvalResultSchema,
@@ -94,7 +94,7 @@ export class HttpApiClient implements ApiClient {
     }
   }
   getAnalytics() {
-    return this.call('analytics', {}, undefined, AnalyticsSummarySchema)
+    return this.call('analytics', {}, undefined, AnalyticsSchema)
   }
   runEval() {
     return this.call('runEval', {}, undefined, z.array(EvalResultSchema))
