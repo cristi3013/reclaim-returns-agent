@@ -18,6 +18,17 @@ export type ReleaseResult =
   | { ok: true; document: SapDocument }
   | { ok: false; status: number; message: string }
 
+export type SendReplyResult =
+  | { ok: true; to: string; messageId: string }
+  | { ok: false; status: number; message: string }
+
+export interface SendReplyInput {
+  actor: string
+  role: Role
+  /** The reply as the person edited it. Default: the proposal's draft. */
+  text?: string
+}
+
 export type ApiEvent = { type: 'case_changed'; id: string } | { type: 'status_changed' }
 
 export interface ApproveInput {
@@ -51,6 +62,8 @@ export interface ApiClient {
   ingest(files: File[]): Promise<CaseSummary[]>
   runCase(id: string): Promise<void>
   runAll(): Promise<void>
+  /** Emails the reply to the customer, in their thread. Only after a person decided, once. */
+  sendReply(caseId: string, input: SendReplyInput): Promise<SendReplyResult>
   chooseProposal(proposalId: string): Promise<void>
   approve(proposalId: string, input: ApproveInput): Promise<ApproveResult>
   reject(proposalId: string, input: RejectInput): Promise<void>

@@ -26,6 +26,7 @@ import { Store } from './store'
 import { EventHub, ev, uid } from './events'
 import { runPipeline } from './pipeline'
 import type { InboundEmail } from './intake/mailbox'
+import type { Mailer } from './intake/mailer'
 
 const ROLE_RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
@@ -46,6 +47,14 @@ export interface ReleaseInput {
   /** Required for a return (YRE): the policy credits only after the goods are received (step 5.1.3). */
   goodsReceived?: boolean
 }
+export interface SendReplyInput {
+  actor: string
+  role: Role
+  /** The reply as the person edited it. Default: the proposal's draft. */
+  text?: string
+}
+/** Statuses where a person has decided and the customer can be told. */
+const REPLY_STATUSES = ['written_to_sap', 'closed', 'needs_customer_input', 'handed_over', 'duplicate'] as const
 export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; message: string }
 
 export interface ServiceDeps {
@@ -60,6 +69,8 @@ export interface ServiceDeps {
   hasRealGateway: boolean
   /** Mailbox listener status for the UI, when one is configured. */
   mailboxStatus?: () => { address: string; connected: boolean; lastMessageAt: string | null; lastError: string | null } | null
+  /** Sends the customer reply (SMTP or Resend). Without one, the UI offers copy to clipboard. */
+  mailer?: Mailer | null
   /** Optional write-through persistence (Supabase). Never blocks a request. */
   persistence?: {
     saveCase: (c: Case) => void
@@ -76,6 +87,7 @@ export interface ServiceDeps {
 export class Service {
   private running = new Set<string>()
   private writing = new Set<string>()
+  private sending = new Set<string>()
   constructor(private deps: ServiceDeps) {}
 
   private get store() {
@@ -301,7 +313,7 @@ export class Service {
 
       if (p.decision.documentType === 'NONE' || !p.sapPayload) {
         c.status = 'closed'
-        ev(c, 'status', 'Reply sent to the customer; no SAP document', { replyDraft: p.replyDraft }, null, null)
+        ev(c, 'status', 'Approved; no SAP document. The reply to the customer is ready to send', { replyDraft: p.replyDraft }, null, null)
         this.touch(c.id)
         return { ok: true, value: null }
       }
@@ -358,6 +370,51 @@ export class Service {
       return { ok: true, value: doc }
     } finally {
       this.writing.delete(c.id)
+    }
+  }
+
+  /**
+   * Emails the reply to the customer, in the thread of their complaint. Only for complaints that came in by email,
+   * only after a person decided, and only once. The text is the person's; the SAP reference is added by code.
+   */
+  async sendReply(caseId: string, input: SendReplyInput): Promise<Outcome<{ to: string; messageId: string }>> {
+    const c = this.store.get(caseId)
+    const mailer = this.deps.mailer
+    if (!mailer) return { ok: false, status: 503, message: 'No outgoing email is configured (SMTP_* or IMAP_* credentials, or RESEND_API_KEY). Copy the reply instead.' }
+    const intake = c.events.find((e) => e.kind === 'intake')
+    if (intake?.detail.channel !== 'mailbox' || !c.from.includes('@')) {
+      return { ok: false, status: 400, message: 'This complaint did not arrive by email, so there is no address to reply to. Copy the reply instead.' }
+    }
+    if (!(REPLY_STATUSES as readonly string[]).includes(c.status)) {
+      return { ok: false, status: 409, message: 'A person has not decided this case yet. Approve it first, then send the reply.' }
+    }
+    if (c.events.some((e) => e.kind === 'status' && e.detail.replySent === true)) {
+      return { ok: false, status: 409, message: 'The reply to this complaint has already been sent.' }
+    }
+    if (this.sending.has(c.id)) return { ok: false, status: 409, message: 'The reply is being sent.' }
+    const p = primaryProposal(c)
+    let text = (input.text ?? p?.replyDraft ?? '').trim()
+    if (!text) return { ok: false, status: 400, message: 'The reply is empty.' }
+    const doc = c.sapDocuments[c.sapDocuments.length - 1]
+    if (doc && !text.includes(doc.number)) {
+      text += `\n\nReference: ${doc.type === 'YRE' ? 'return order' : 'credit memo request'} ${doc.number}${c.invoiceNumber ? ` for invoice ${c.invoiceNumber}` : ''}.`
+    }
+    const subject = /^re:/i.test(c.subject) ? c.subject : `Re: ${c.subject}`
+    const inReplyTo = typeof intake.detail.messageId === 'string' ? intake.detail.messageId : null
+    this.sending.add(c.id)
+    const t = Date.now()
+    try {
+      const r = await mailer.send({ to: c.from, subject, text, inReplyTo })
+      ev(c, 'status', `Reply sent to ${c.from} by ${input.actor}`, { replySent: true, to: c.from, from: mailer.from, subject, text, messageId: r.messageId, inReplyTo, actor: input.actor, role: input.role }, null, Date.now() - t)
+      this.touch(c.id)
+      return { ok: true, value: { to: c.from, messageId: r.messageId } }
+    } catch (e) {
+      const message = (e as Error).message
+      ev(c, 'error', `Sending the reply to ${c.from} failed; nothing was sent`, { message, actor: input.actor }, null, Date.now() - t)
+      this.touch(c.id)
+      return { ok: false, status: 502, message: `Sending the reply failed (${message}). Nothing was sent; copy the reply instead or try again.` }
+    } finally {
+      this.sending.delete(c.id)
     }
   }
 

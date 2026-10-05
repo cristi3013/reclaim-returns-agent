@@ -25,6 +25,7 @@ import {
   type RejectInput,
   type ReleaseInput,
   type ReleaseResult,
+  type SendReplyResult,
 } from '../client'
 import { MockStore } from './store'
 import { ev, uid } from './events'
@@ -224,7 +225,7 @@ export class MockApiClient implements ApiClient {
       if (p.decision.documentType === 'NONE' || !p.sapPayload) {
         await this.delay(300)
         c.status = 'closed'
-        ev(c, 'status', 'Reply sent to the customer; no SAP document', { replyDraft: p.replyDraft }, null, null)
+        ev(c, 'status', 'Approved; no SAP document. The reply to the customer is ready to send', { replyDraft: p.replyDraft }, null, null)
         this.touch(c.id)
         return { ok: true, document: null }
       }
@@ -275,6 +276,10 @@ export class MockApiClient implements ApiClient {
     } finally {
       this.writing.delete(c.id)
     }
+  }
+
+  async sendReply(): Promise<SendReplyResult> {
+    return { ok: false, status: 503, message: 'The in-browser mock sends no email. Copy the reply, or run the backend with mailbox credentials.' }
   }
 
   async reject(proposalId: string, input: RejectInput) {

@@ -6,6 +6,7 @@ export const API_ROUTES = {
   ingest: { method: 'POST', path: '/api/cases/ingest' },
   runCase: { method: 'POST', path: '/api/cases/:id/run' },
   runAll: { method: 'POST', path: '/api/cases/run-all' },
+  sendReply: { method: 'POST', path: '/api/cases/:id/reply' },
   chooseProposal: { method: 'POST', path: '/api/proposals/:id/choose' },
   approve: { method: 'POST', path: '/api/proposals/:id/approve' },
   reject: { method: 'POST', path: '/api/proposals/:id/reject' },

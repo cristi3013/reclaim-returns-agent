@@ -20,12 +20,14 @@
     "fastify": "^5.0.0",
     "imapflow": "^2.2.5",
     "mailparser": "^3.9.35",
+    "nodemailer": "^10.0.14",
     "tsx": "^4.19.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/mailparser": "^3.9.0",
     "@types/node": "^22.0.0",
+    "@types/nodemailer": "^8.0.2",
     "typescript": "^5.6.0",
     "vitest": "^3.0.0"
   }

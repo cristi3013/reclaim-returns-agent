@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { approverFor, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
 import { useApprove, useReject, useRelease, useReturnStatus, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
+import { ReplyPanel } from '@/features/case/ReplyPanel'
 import { PayloadView } from '@/components/domain/PayloadView'
 import { RuleBadge } from '@/components/domain/RuleBadge'
 import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
@@ -243,8 +244,9 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
       )}
 
       {c.status === 'closed' && (
-        <div className="mt-4 rounded-md border border-ok bg-ok-soft p-3 text-sm text-ok">Reply approved and sent. No SAP document.</div>
+        <div className="mt-4 rounded-md border border-ok bg-ok-soft p-3 text-sm text-ok">Approved. No SAP document.</div>
       )}
+      <ReplyPanel c={c} role={role} actor={actor} />
       {c.status === 'rejected' && lastApproval && (
         <div className="mt-4 rounded-md border border-line bg-surface-2 p-3 text-sm text-muted">
           Rejected by {lastApproval.actor}: {lastApproval.comment}
