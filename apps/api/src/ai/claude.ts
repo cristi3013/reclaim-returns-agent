@@ -22,7 +22,7 @@ Extract only what the email (and the photo, if any) actually says. Do not guess 
 - claimedQuantity and unit: the quantity the customer complains about (damaged, missing, to return), not the invoiced total.
 - complaintType: damaged (arrived damaged/leaking/crushed), ruined (contaminated, destroyed, unusable), quality (defective, discoloured, not as expected), price (invoiced price higher than agreed), short_delivery (less arrived than invoiced), over_quantity, replacement (wants new goods), follow_up (asks about an earlier complaint, "RE:", "any news"), unknown.
 - claimedUnitPrice: only for price complaints, the price the customer says was agreed.
-- wantsReplacement: true only if the customer explicitly wants a re-delivery instead of money.
+- wantsReplacement: true only if the customer asks for new goods and does NOT want a credit (e.g. "please send a replacement", "we need the material, not a credit note"). false when they ask for a credit, or offer a choice such as "credit or replace" / "credit note or new delivery": a credit is always acceptable to them then.
 - goodsReturnable: false if the goods are lost/leaked/consumed and cannot be sent back; true if they say the goods can be collected; null if unclear.
 - evidence: one sentence with the facts you relied on, including what the photo shows.
 - language: ISO code of the email language.`
