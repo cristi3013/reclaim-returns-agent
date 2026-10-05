@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { Card, useChartTokens } from './charts'
 import { KpiTile } from '@/components/domain/KpiTile'
 
-const k = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)} M` : n >= 10_000 ? `${(n / 1000).toFixed(1)} k` : n.toLocaleString('en-GB').replace(/,/g, ' '))
+const k = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)} M` : n >= 1000 ? `${(n / 1000).toFixed(1)} k` : String(n))
 const usd = (n: number, digits = 2) => `$${n.toFixed(digits)}`
 
 /** What the model costs: tokens and estimated dollars per call, per case and per day, from the audit trail. */
