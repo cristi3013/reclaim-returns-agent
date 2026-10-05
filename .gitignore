@@ -8,3 +8,4 @@ dist/
 .vite/
 coverage/
 .superpowers/
+apps/api/uploads/
