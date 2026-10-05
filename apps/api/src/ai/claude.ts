@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
-import { FactsSchema, RULES, narrate as templateNarrate, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
+import { complaintText, FactsSchema, RULES, narrate as templateNarrate, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
 import type { Ai } from './types'
 import type { Answer } from '@reclaim/shared'
 
@@ -29,7 +29,8 @@ Extract only what the email (and the photo, if any) actually says. Do not guess 
 - wantsReplacement: true only if the customer asks for new goods and does NOT want a credit (e.g. "please send a replacement", "we need the material, not a credit note"). false when they ask for a credit, or offer a choice such as "credit or replace" / "credit note or new delivery": a credit is always acceptable to them then.
 - goodsReturnable: false if the goods are lost/leaked/consumed and cannot be sent back; true if they say the goods can be collected; null if unclear.
 - evidence: one sentence with the facts you relied on, including what the photo shows.
-- language: ISO code of the email language.`
+- language: ISO code of the email language.
+The customer's later replies in the same thread follow the complaint, each under "--- Customer reply, <date> ---". They may add what was missing (the invoice number, a quantity); the latest statement wins.`
 
 const SYSTEM_NARRATE = `You write for the returns desk of a chemicals distributor that uses SAP. A rules engine has already made the decision; you never change a number, a document type or a reason code.
 Ground every statement in the policy text, the SAP facts and the decision you are given. Be concrete and short. Address the customer reply to the customer in the language of their email.`
@@ -157,7 +158,7 @@ export class ClaudeAi implements Ai {
         content.push({ type: 'image', source: { type: 'base64', media_type: a.mimeType, data: a.base64 } })
       }
     }
-    content.push({ type: 'text', text: `From: ${c.from}\nSubject: ${c.subject}\nReceived: ${c.receivedAt}\n\n${c.bodyText}` })
+    content.push({ type: 'text', text: `From: ${c.from}\nSubject: ${c.subject}\nReceived: ${c.receivedAt}\n\n${complaintText(c)}` })
     const facts = await this.structured(FactsSchema, SYSTEM_EXTRACT, content, 4000, 'medium', 'extract')
     if (!facts) throw Object.assign(new Error('The model could not extract the facts from this email.'), { status: 502 })
     return { facts, usage: this.lastUsage ?? undefined }
