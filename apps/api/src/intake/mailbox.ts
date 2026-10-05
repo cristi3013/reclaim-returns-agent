@@ -101,7 +101,10 @@ export class MailboxListener {
   private stopped = false
   private lastMessageAt: string | null = null
   private lastError: string | null = null
+  /** Highest UID handled on this connection. After the first drain, new mail is taken by UID, whatever its read flag. */
+  private lastUid = 0
   private draining: Promise<number> | null = null
+  private pending = false
   private sweep: NodeJS.Timeout | null = null
   constructor(
     private cfg: MailboxConfig,
@@ -147,10 +150,12 @@ export class MailboxListener {
         await client.connect()
         await client.mailboxOpen(this.cfg.folder)
         this.client = client
+        this.lastUid = 0
         backoff = 2000
         this.lastError = null
         this.log('Mailbox connected; waiting for new messages')
         client.on('exists', (ev: { count: number; prevCount: number }) => {
+          this.log(`Mailbox: server reports ${ev.count} messages (was ${ev.prevCount})`)
           if (ev.count > ev.prevCount) void this.drain('push')
         })
         await this.drain('connect')
@@ -167,16 +172,27 @@ export class MailboxListener {
     }
   }
 
-  /** Fetches every unseen message, ingests it and marks it seen. Serialised so push and sweep never overlap. */
+  /**
+   * On connect: every unseen message. Afterwards: every message with a UID above the last one handled, read or not,
+   * so a second client that marks mail as read (a phone, another app) cannot hide a complaint from us.
+   * Serialised so push and sweep never overlap.
+   */
   drain(reason: 'connect' | 'push' | 'sweep'): Promise<number> {
-    if (this.draining) return this.draining
+    if (this.draining) {
+      this.pending = true
+      return this.draining
+    }
     this.draining = (async () => {
       const client = this.client
       if (!client || !client.usable) return 0
       let count = 0
       const lock = await client.getMailboxLock(this.cfg.folder)
       try {
-        for await (const msg of client.fetch({ seen: false }, { source: true, uid: true })) {
+        const range = this.lastUid === 0 ? { seen: false } : { uid: `${this.lastUid + 1}:*` }
+        let maxUid = this.lastUid
+        for await (const msg of client.fetch(range, { source: true, uid: true })) {
+          if (msg.uid <= this.lastUid) continue
+          maxUid = Math.max(maxUid, msg.uid)
           if (!msg.source) continue
           try {
             const mail = await parseEml(msg.source, this.uploadsDir, this.publicBase, null)
@@ -187,20 +203,30 @@ export class MailboxListener {
               this.lastMessageAt = new Date().toISOString()
               count++
             }
-            await client.messageFlagsAdd({ uid: msg.uid }, ['\\Seen'], { uid: true })
+            await client.messageFlagsAdd(String(msg.uid), ['\\Seen'], { uid: true })
           } catch (e) {
             this.log(`Mailbox: could not ingest a message: ${(e as Error).message}`)
           }
         }
+        if (this.lastUid === 0) {
+          // First pass: anything already read stays untouched; from here on we go by UID.
+          const st = await client.status(this.cfg.folder, { uidNext: true })
+          maxUid = Math.max(maxUid, (st && st.uidNext ? st.uidNext : 1) - 1)
+        }
+        this.lastUid = maxUid
       } catch (e) {
         this.log(`Mailbox ${reason} fetch failed: ${(e as Error).message}`)
       } finally {
         lock.release()
       }
-      if (count) this.log(`Mailbox: ${count} new complaint(s) ingested (${reason})`)
+      if (count || reason !== 'sweep') this.log(`Mailbox: ${count} new complaint(s) ingested (${reason})`)
       return count
     })().finally(() => {
       this.draining = null
+      if (this.pending) {
+        this.pending = false
+        void this.drain('push')
+      }
     })
     return this.draining
   }

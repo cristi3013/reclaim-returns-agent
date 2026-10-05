@@ -206,7 +206,8 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
         mailboxCfg,
         async (mail) => {
           const s = service.ingestInbound(mail)
-          if (s && process.env.INBOUND_AUTORUN !== 'false') await service.runCase(s.id).catch(() => undefined)
+          // The run takes seconds with the model; it must not block the mailbox fetch or the next email.
+          if (s && process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
         },
         UPLOADS_DIR,
         publicBase,
