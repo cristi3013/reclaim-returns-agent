@@ -14,7 +14,7 @@ Deloitte AI Agentic Enterprise Hackathon entry. Presentation Tuesday 6 Oct 2026,
 ## Layout
 
 - `packages/shared` — the contract: enums, Zod schemas, policy table, `decide()` rules engine, `buildSapPayload()`, `narrate()`, route table, demo fixtures. Both apps import it. Change it with care: the frontend, the backend and the acceptance tests all depend on it.
-- `apps/web` — React + Vite frontend. Done. Runs on an in-browser mock (`VITE_API_MODE=mock`, default) or the real backend (`VITE_API_MODE=http`).
+- `apps/web` — React + Vite frontend. Done. Runs on an in-browser mock (`VITE_API_MODE=mock`, default) or the real backend (`VITE_API_MODE=http`). Installable PWA; the approval journey (inbox, approvals, case) works at phone width, analytics and evaluation are desktop screens.
 - `apps/api` — Fastify backend. Skeleton done; see BACKEND.md for what remains.
 
 ## Commands
@@ -23,7 +23,8 @@ Deloitte AI Agentic Enterprise Hackathon entry. Presentation Tuesday 6 Oct 2026,
 npm install                      # once, at the root (npm workspaces, not pnpm)
 npm run dev                      # frontend on :5173 (mock backend)
 npm run dev --workspace apps/api # backend on :3000
-npm test                         # all tests (shared 17, web 35, api 6)
+npm test                         # all tests (shared 27, web 44, api 31)
+npm run build --workspace apps/web && npm run start --workspace apps/web   # what Railway runs (railway.json)
 npm run typecheck && npm run lint
 ```
 
