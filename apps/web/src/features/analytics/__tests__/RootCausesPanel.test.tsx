@@ -20,12 +20,12 @@ function mount(api: MockApiClient) {
 }
 
 describe('RootCausesPanel', () => {
-  it('lists the top repeat problems in one line each, with the details one click away', async () => {
+  it('lists the top root causes in one line each, with the details one click away', async () => {
     const api = new MockApiClient({ fast: true })
     await api.seedCases()
     await api.runCase('case-01')
     mount(api)
-    fireEvent.click(await screen.findByRole('button', { name: /Find repeat problems/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Find root causes/ }))
     expect(await screen.findByText((_, el) => el?.tagName === 'P' && /^\d+ problems caused .+ of credit notes since/.test(el.textContent ?? ''))).toBeInTheDocument()
     const rows = within(screen.getByRole('list')).getAllByRole('listitem')
     expect(rows).toHaveLength(3)

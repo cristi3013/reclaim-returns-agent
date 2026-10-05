@@ -367,8 +367,8 @@ export async function exportCaseAuditPack(c: Case, opts: CasePackOptions) {
 const TREND_WORDS = { rising: 'getting worse', stable: 'steady', falling: 'easing' } as const
 const amount = (v: number, cur: string) => `${v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`
 
-/** Repeat problems as a report a manager can forward: the headline, then per problem what it costs, why, and who fixes it. */
-export async function repeatProblemsPdf(b: RootCauseBriefing): Promise<Blob> {
+/** Root causes as a report a manager can forward: the headline, then per problem what it costs, why, and who fixes it. */
+export async function rootCausesPdf(b: RootCauseBriefing): Promise<Blob> {
   const { doc, autoTable } = await pdfLibs('portrait')
   const margin = 40
   const w = doc.internal.pageSize.getWidth()
@@ -378,7 +378,7 @@ export async function repeatProblemsPdf(b: RootCauseBriefing): Promise<Blob> {
   const n = b.clusters.length
 
   doc.setFillColor(...TEAL).rect(0, 0, w, 74, 'F')
-  doc.setTextColor(255, 255, 255).setFont('helvetica', 'bold').setFontSize(18).text('Repeat problems report', margin, 34)
+  doc.setTextColor(255, 255, 255).setFont('helvetica', 'bold').setFontSize(18).text('Root causes report', margin, 34)
   doc.setFont('helvetica', 'normal').setFontSize(11).text(pdfText(`Complaints from ${formatDate(b.period.from)} to ${formatDate(b.period.to)}`), margin, 54)
   doc.setFontSize(8).text(pdfText(`Generated ${formatDateTime(b.generatedAt)} UTC`), w - margin, 34, { align: 'right' })
 
@@ -424,10 +424,10 @@ export async function repeatProblemsPdf(b: RootCauseBriefing): Promise<Blob> {
     })
   }
 
-  footer(doc, `Reclaim · repeat problems · ${b.totals.live} complaints from this desk, ${b.totals.archive} from the archive (sample data)`, margin)
+  footer(doc, `Reclaim · root causes · ${b.totals.live} complaints from this desk, ${b.totals.archive} from the archive (sample data)`, margin)
   return doc.output('blob')
 }
 
-export async function exportRepeatProblems(b: RootCauseBriefing) {
-  downloadBlob(await repeatProblemsPdf(b), `reclaim-repeat-problems-${b.generatedAt.slice(0, 10)}.pdf`)
+export async function exportRootCauses(b: RootCauseBriefing) {
+  downloadBlob(await rootCausesPdf(b), `reclaim-root-causes-${b.generatedAt.slice(0, 10)}.pdf`)
 }

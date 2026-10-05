@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { formatDate, formatMoney, formatPercent } from '@/lib/format'
-import { exportRepeatProblems } from '@/features/reports/export'
+import { exportRootCauses } from '@/features/reports/export'
 
 const TREND = {
   rising: { icon: TrendingUp, label: 'Getting worse', cls: 'bg-warn-soft text-warn' },
@@ -30,7 +30,7 @@ const TREND = {
 const SHOWN = 3
 
 /**
- * Repeat problems: complaints that keep coming back, grouped by meaning, with what each costs and who can stop it.
+ * Root causes: complaints that keep coming back, grouped by meaning, with what each costs and who can stop it.
  * The model names the problem and the fix; code computes every figure. Read-only: nothing here changes a case or SAP.
  */
 export function RootCausesPanel() {
@@ -43,7 +43,7 @@ export function RootCausesPanel() {
     if (!b) return
     setBusy(true)
     try {
-      await exportRepeatProblems(b)
+      await exportRootCauses(b)
       toast.success('Report downloaded')
     } catch (e) {
       toast.error(e instanceof Error ? `Report failed: ${e.message}` : 'Report failed')
@@ -55,12 +55,12 @@ export function RootCausesPanel() {
   return (
     <section
       className="mb-8 rounded-lg border border-line bg-surface p-4 shadow-card"
-      aria-labelledby="repeat-problems"
+      aria-labelledby="root-causes"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="repeat-problems" className="text-base font-semibold text-fg">
-            Repeat problems
+          <h2 id="root-causes" className="text-base font-semibold text-fg">
+            Root causes
           </h2>
           <p className="text-sm text-muted">
             Complaints that keep coming back, and who can stop them.
@@ -84,7 +84,7 @@ export function RootCausesPanel() {
             ) : (
               <Sparkles className="size-4" />
             )}
-            {gen.isPending ? 'Reading complaints…' : b ? 'Check again' : 'Find repeat problems'}
+            {gen.isPending ? 'Reading complaints…' : b ? 'Check again' : 'Find root causes'}
           </Button>
         </div>
       </div>
