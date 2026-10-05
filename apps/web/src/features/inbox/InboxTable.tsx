@@ -35,7 +35,10 @@ export function InboxTable({ rows, onOpen }: { rows: CaseSummary[]; onOpen: (id:
             >
               <td className="whitespace-nowrap px-3 py-2 tnum text-muted">{formatDateTime(r.receivedAt).replace(/ \d{4}/, '')}</td>
               <td className="min-w-0 px-3 py-2">
-                <div className="max-w-[17rem] truncate font-medium">{r.subject}</div>
+                <div className="flex max-w-[17rem] items-center gap-1.5">
+                  <span className="truncate font-medium">{r.subject}</span>
+                  {r.intercompany && <span className="shrink-0 rounded bg-warn-soft px-1 text-[10px] font-semibold uppercase text-warn" title="Intercompany: flag for finance (step 5.2.2)">IC</span>}
+                </div>
                 <div className="max-w-[17rem] truncate text-xs text-muted">{r.from}</div>
               </td>
               <td className="px-3 py-2">

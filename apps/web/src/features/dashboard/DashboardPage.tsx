@@ -63,8 +63,8 @@ export function DashboardPage() {
           <Link to="/inbox"><KpiTile label="Complaints, 24 h" value={String(d.totals.last24h)} hint={`${d.totals.cases} in total`} /></Link>
           <Link to="/analytics"><KpiTile label="Credit approved" value={formatMoney(d.value.approved, d.currency)} hint={`${formatMoney(d.value.released, d.currency)} released`} tone="ok" /></Link>
           <Link to="/analytics"><KpiTile label="Email to decision" value={minutes(d.timing.medianMinutesToDecision)} hint={d.timing.medianAgentSeconds != null ? `agent ${Math.round(d.timing.medianAgentSeconds)} s of it` : 'median'} /></Link>
-          <Link to="/analytics"><KpiTile label="Duplicates prevented" value={String(d.control.duplicatesPrevented)} hint={`${d.control.intercompanyFlagged} intercompany flagged`} tone={d.control.duplicatesPrevented ? 'ok' : 'neutral'} /></Link>
-          <Link to="/analytics"><KpiTile label="Model cost" value={`$${d.model.estimatedCostUsd.toFixed(2)}`} hint={d.model.avgCostPerCaseUsd != null ? `$${d.model.avgCostPerCaseUsd.toFixed(3)} per case` : 'no model calls yet'} /></Link>
+          <Link to="/analytics"><KpiTile label="Duplicates prevented" value={String(d.control.duplicatesPrevented)} hint={d.model.calls ? `model cost $${d.model.estimatedCostUsd.toFixed(2)} so far` : 'rule R8, no second credit'} tone={d.control.duplicatesPrevented ? 'ok' : 'neutral'} /></Link>
+          <Link to="/inbox" search={{ filter: 'intercompany' }}><KpiTile label="Intercompany flagged" value={String(d.control.intercompanyFlagged)} hint="for finance, step 5.2.2" tone={d.control.intercompanyFlagged ? 'warn' : 'neutral'} /></Link>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useCases, useSeed, useStatus } from '@/api'
 import { InboxToolbar } from './InboxToolbar'
 import { InboxTable } from './InboxTable'
@@ -11,20 +11,23 @@ import { formatRelative } from '@/lib/format'
 
 export function InboxPage() {
   const nav = useNavigate()
-  return <InboxView onOpen={(id) => nav({ to: '/cases/$id', params: { id } })} />
+  const search = useSearch({ strict: false }) as { filter?: 'intercompany' }
+  return <InboxView onOpen={(id) => nav({ to: '/cases/$id', params: { id } })} initialIntercompany={search.filter === 'intercompany'} />
 }
 
 /** Hooks, toolbar and table without a router dependency, so it can be tested on its own. */
-export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
+export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id: string) => void; initialIntercompany?: boolean }) {
   const q = useCases()
   const seed = useSeed()
   const { data: agent } = useStatus()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
+  const [intercompany, setIntercompany] = useState(initialIntercompany)
   const all = q.data ?? []
   const rows = all.filter(
     (r) =>
       (!status || r.status === status) &&
+      (!intercompany || r.intercompany) &&
       (!query ||
         `${r.subject} ${r.from} ${r.invoiceNumber ?? ''} ${r.customerName ?? ''}`.toLowerCase().includes(query.toLowerCase())),
   )
@@ -46,7 +49,7 @@ export function InboxView({ onOpen }: { onOpen: (id: string) => void }) {
           </p>
         )}
       </div>
-      <InboxToolbar query={query} onQuery={setQuery} status={status} onStatus={setStatus} hasCases={all.length > 0} />
+      <InboxToolbar query={query} onQuery={setQuery} status={status} onStatus={setStatus} intercompany={intercompany} onIntercompany={setIntercompany} hasCases={all.length > 0} />
       {q.isLoading ? (
         <Skeleton className="h-64" />
       ) : q.error ? (

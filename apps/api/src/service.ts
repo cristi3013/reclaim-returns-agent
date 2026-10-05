@@ -45,8 +45,10 @@ export interface RejectInput {
 export interface ReleaseInput {
   actor: string
   role: Role
-  /** Required for a return (YRE): the policy credits only after the goods are received (step 5.1.3). */
-  goodsReceived?: boolean
+}
+export interface GoodsReceiptInput {
+  actor: string
+  role: Role
 }
 export interface SendReplyInput {
   actor: string
@@ -470,9 +472,13 @@ export class Service {
     }
   }
 
+  /** Rejecting a claim is a money decision too: same role as approving it, and a reason the customer and the audit trail can read. */
   reject(proposalId: string, input: RejectInput) {
-    const { c } = this.store.locateProposal(proposalId)
+    const { c, p } = this.store.locateProposal(proposalId)
     if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) throw Object.assign(new Error('This case is not awaiting approval.'), { status: 409 })
+    const required = p.decision.approverRole ?? 'customer_service_lead'
+    if (ROLE_RANK[input.role] < ROLE_RANK[required]) throw Object.assign(new Error(`Rejecting this claim needs the ${required.replace(/_/g, ' ')}. Your role cannot decide it.`), { status: 403 })
+    if (input.comment.trim().length < 3) throw Object.assign(new Error('A reason is required to reject: it goes to the customer and into the audit trail.'), { status: 400 })
     c.approvals.push({ id: uid('appr'), proposalId, actor: input.actor, role: input.role, decision: 'rejected', editedQuantity: null, comment: input.comment, decidedAt: new Date().toISOString() })
     c.status = 'rejected'
     ev(c, 'approval', `Rejected by ${input.actor}: ${input.comment}`, {}, null, null)
@@ -496,6 +502,23 @@ export class Service {
     }
   }
 
+  /**
+   * Step 5.1.3 by hand: the Returns desk confirms that the warehouse received the goods, under its own name.
+   * Only the Returns desk may do it, so the person who confirms the goods is never the person who releases the money.
+   */
+  confirmGoodsReceipt(documentId: string, input: GoodsReceiptInput): Outcome<SapDocument> {
+    const { c, d } = this.store.locateDocument(documentId)
+    if (d.type !== 'YRE') return { ok: false, status: 400, message: `${d.type} ${d.number} is a credit memo request; there are no goods to receive.` }
+    if (d.released) return { ok: false, status: 409, message: `${d.type} ${d.number} is already released.` }
+    if (d.goodsReceivedAt) return { ok: false, status: 409, message: `The goods receipt for ${d.number} was already confirmed by ${d.goodsReceivedBy}.` }
+    if (input.role !== 'returns_desk') return { ok: false, status: 403, message: 'Only the Returns desk confirms the goods receipt (step 5.1.3). The approver releases the credit afterwards.' }
+    d.goodsReceivedAt = new Date().toISOString()
+    d.goodsReceivedBy = input.actor
+    ev(c, 'goods_receipt', `Goods receipt confirmed for ${d.type} ${d.number} by ${input.actor} (Returns desk)`, { number: d.number, actor: input.actor, role: input.role }, '5.1.3', null)
+    this.touch(c.id)
+    return { ok: true, value: d }
+  }
+
   /** Removing billing block 08 is the credit decision itself: same role as the approval, once, and for a return only after the goods arrived. */
   async release(documentId: string, input: ReleaseInput): Promise<Outcome<SapDocument>> {
     const { c, d } = this.store.locateDocument(documentId)
@@ -507,16 +530,16 @@ export class Service {
     }
     const blockEvent = c.events.find((e) => e.kind === 'sap_write' && e.detail.blockConfirmed === false)
     if (blockEvent) return { ok: false, status: 409, message: `${d.type} ${d.number} was created without billing block 08; check it in SAP before anything else.` }
-    // Step 5.1.3: SAP's word on the goods receipt first; a manual confirmation stands in only where SAP has none.
-    let goodsReceipt: 'not required' | 'confirmed by SAP' | 'confirmed manually' = 'not required'
+    // Step 5.1.3: SAP's word on the goods receipt first; the Returns desk's confirmation stands in where SAP has none.
+    let goodsReceipt: 'not required' | 'confirmed by SAP' | 'confirmed by the Returns desk' = 'not required'
     let warehouse: ReturnStatus | null = null
     if (d.type === 'YRE') {
       warehouse = await this.returnStatus(documentId)
       if (warehouse.received && warehouse.source === 'sap') goodsReceipt = 'confirmed by SAP'
-      else if (input.goodsReceived) goodsReceipt = 'confirmed manually'
+      else if (d.goodsReceivedAt) goodsReceipt = 'confirmed by the Returns desk'
       else {
         const why = warehouse.source === 'sap' ? `SAP reports the warehouse receipt status "${warehouse.status}": the goods have not been received.` : 'The goods receipt is not known to this system.'
-        return { ok: false, status: 409, message: `A return is credited only after the warehouse has received the goods (step 5.1.3). ${why} Confirm the goods receipt by hand to release anyway.` }
+        return { ok: false, status: 409, message: `A return is credited only after the warehouse has received the goods (step 5.1.3). ${why} The Returns desk confirms the receipt; then the credit can be released.` }
       }
     }
     if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
@@ -530,7 +553,7 @@ export class Service {
       return { ok: false, status: r.status, message: r.message }
     }
     d.released = true
-    ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})${goodsReceipt === 'not required' ? '' : `; goods receipt ${goodsReceipt}`}`, { HeaderBillingBlockReason: '', goodsReceipt, warehouseStatus: warehouse?.status ?? null, goodsReceived: goodsReceipt !== 'not required' }, step, Date.now() - t)
+    ev(c, 'sap_release', `Billing block removed on ${d.type} ${d.number} by ${input.actor} (${input.role})${goodsReceipt === 'not required' ? '' : `; goods receipt ${goodsReceipt}`}`, { HeaderBillingBlockReason: '', goodsReceipt, warehouseStatus: warehouse?.status ?? null, goodsReceivedBy: d.goodsReceivedBy ?? null, goodsReceivedAt: d.goodsReceivedAt ?? null }, step, Date.now() - t)
     this.touch(c.id)
     return { ok: true, value: d }
   }

@@ -228,8 +228,12 @@ describe('audit fixes (mock mirrors the backend)', () => {
     expect(d?.type).toBe('YRE')
     expect(await c.release(d!.id, { actor: 'RD', role: 'returns_desk' })).toMatchObject({ ok: false, status: 403 })
     expect(await c.release(d!.id, cm)).toMatchObject({ ok: false, status: 409 })
-    expect((await c.release(d!.id, { ...cm, goodsReceived: true })).ok).toBe(true)
-    expect(await c.release(d!.id, { ...cm, goodsReceived: true })).toMatchObject({ ok: false, status: 409 })
+    expect(await c.confirmGoodsReceipt(d!.id, cm)).toMatchObject({ ok: false, status: 403 })
+    expect((await c.confirmGoodsReceipt(d!.id, { actor: 'RD', role: 'returns_desk' })).ok).toBe(true)
+    expect(await c.confirmGoodsReceipt(d!.id, { actor: 'RD', role: 'returns_desk' })).toMatchObject({ ok: false, status: 409 })
+    expect((await c.release(d!.id, cm)).ok).toBe(true)
+    expect(await c.release(d!.id, cm)).toMatchObject({ ok: false, status: 409 })
+    expect((await c.getCase('case-08')).events.some((e) => e.kind === 'goods_receipt' && e.l4Step === '5.1.3')).toBe(true)
   })
   it('closed cases cannot be re-run', async () => {
     const c = await mk()
@@ -237,4 +241,16 @@ describe('audit fixes (mock mirrors the backend)', () => {
     await c.approve(primaryProposal(await c.getCase('case-02'))!.id, cm)
     await expect(c.runCase('case-02')).rejects.toMatchObject({ status: 409 })
   })
+})
+
+it('rejecting needs the approver role and a reason', async () => {
+  const c = new MockApiClient({ fast: true })
+  await c.seedCases()
+  await c.runCase('case-03')
+  const p = primaryProposal(await c.getCase('case-03'))!
+  await expect(c.reject(p.id, { actor: 'CS', role: 'customer_service_lead', comment: 'no' })).rejects.toMatchObject({ status: 403 })
+  await expect(c.reject(p.id, { ...cm, comment: ' ' })).rejects.toMatchObject({ status: 400 })
+  expect((await c.getCase('case-03')).status).toBe('awaiting_approval')
+  await c.reject(p.id, { ...cm, comment: 'Delivery note signed for 20 KG' })
+  expect((await c.getCase('case-03')).status).toBe('rejected')
 })

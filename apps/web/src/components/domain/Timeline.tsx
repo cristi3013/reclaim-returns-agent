@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { L4_STEPS, type CaseEvent, type EventKind } from '@reclaim/shared'
-import { Cpu, Search, Scale, FileText, UserCheck, Database, AlertTriangle, Mail, Flag, Unlock } from 'lucide-react'
+import { Cpu, Search, Scale, FileText, UserCheck, Database, AlertTriangle, Mail, Flag, Unlock, PackageCheck } from 'lucide-react'
 import { formatDateTime } from '@/lib/format'
 
 const icon: Record<EventKind, typeof Mail> = {
@@ -12,6 +12,7 @@ const icon: Record<EventKind, typeof Mail> = {
   approval: UserCheck,
   sap_write: Database,
   sap_release: Unlock,
+  goods_receipt: PackageCheck,
   status: Flag,
   error: AlertTriangle,
 }

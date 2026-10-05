@@ -11,6 +11,7 @@ import { caseIdForMessage } from '../src/service'
  */
 let ctx: ReturnType<typeof buildApp>
 const cm = { actor: 'Demo', role: 'credit_manager' as const }
+const rd = { actor: 'Warehouse', role: 'returns_desk' as const }
 
 beforeEach(async () => {
   ctx = buildApp({ mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: process.env.AI_MODE === 'assisted' && detectProvider() ? 'assisted' : 'rules_only' } })
@@ -155,7 +156,9 @@ describe('audit fixes', () => {
     const d8 = (await post(`/api/proposals/${p8.id}/approve`, cm)).json() as SapDocument
     expect(d8.type).toBe('YRE')
     expect((await post(`/api/sap/${d8.id}/release`, cm)).statusCode).toBe(409)
-    expect((await post(`/api/sap/${d8.id}/release`, { ...cm, goodsReceived: true })).statusCode).toBe(200)
+    expect((await post(`/api/sap/${d8.id}/goods-receipt`, cm)).statusCode).toBe(403)
+    expect((await post(`/api/sap/${d8.id}/goods-receipt`, rd)).statusCode).toBe(200)
+    expect((await post(`/api/sap/${d8.id}/release`, cm)).statusCode).toBe(200)
   })
 
   it('a missing or failing agreed-price lookup sends the price complaint to a person', async () => {
@@ -339,15 +342,18 @@ describe('read again right before the write, and goods receipt before releasing 
     expect(rel.detail.goodsReceipt).toBe('confirmed by SAP')
   })
 
-  it('without a status function, a manual confirmation releases the return and is recorded as manual', async () => {
+  it('without a status function, the Returns desk confirms the goods receipt and the approver releases', async () => {
     await post('/api/cases/seed')
     await run('case-08')
     const p = primaryProposal(await theCase('case-08'))!
     const doc = (await post(`/api/proposals/${p.id}/approve`, cm)).json() as SapDocument
     expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(409)
-    expect((await post(`/api/sap/${doc.id}/release`, { ...cm, goodsReceived: true })).statusCode).toBe(200)
+    expect((await post(`/api/sap/${doc.id}/goods-receipt`, cm)).statusCode).toBe(403)
+    expect((await post(`/api/sap/${doc.id}/goods-receipt`, rd)).statusCode).toBe(200)
+    expect((await post(`/api/sap/${doc.id}/release`, cm)).statusCode).toBe(200)
     const rel = (await theCase('case-08')).events.find((e) => e.kind === 'sap_release')!
-    expect(rel.detail.goodsReceipt).toBe('confirmed manually')
+    expect(rel.detail.goodsReceipt).toBe('confirmed by the Returns desk')
+    expect((await theCase('case-08')).events.some((e) => e.kind === 'goods_receipt' && e.l4Step === '5.1.3')).toBe(true)
   })
 })
 
@@ -360,5 +366,19 @@ describe('demo reset', () => {
     expect((await post('/api/demo/reset')).statusCode).toBe(204)
     const left = await get<CaseSummary[]>('/api/cases')
     expect(left.map((c) => c.id)).toEqual([caseIdForMessage('<keep-me@test>')])
+  })
+})
+
+describe('rejecting is a money decision too', () => {
+  it('needs the same role as approving, and a reason', async () => {
+    await post('/api/cases/seed')
+    await run('case-03') // short delivery, 540 EUR: credit manager
+    const p = primaryProposal(await theCase('case-03'))!
+    expect((await post(`/api/proposals/${p.id}/reject`, { actor: 'CS', role: 'customer_service_lead', comment: 'not convinced' })).statusCode).toBe(403)
+    expect((await post(`/api/proposals/${p.id}/reject`, { actor: 'RD', role: 'returns_desk', comment: 'not convinced' })).statusCode).toBe(403)
+    expect((await post(`/api/proposals/${p.id}/reject`, { ...cm, comment: '  ' })).statusCode).toBe(400)
+    expect((await theCase('case-03')).status).toBe('awaiting_approval')
+    expect((await post(`/api/proposals/${p.id}/reject`, { ...cm, comment: 'Customer counted wrong, delivery note signed for 20 KG' })).statusCode).toBe(204)
+    expect((await theCase('case-03')).status).toBe('rejected')
   })
 })

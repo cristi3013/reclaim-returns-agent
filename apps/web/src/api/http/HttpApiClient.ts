@@ -103,6 +103,14 @@ export class HttpApiClient implements ApiClient {
       return { ok: false, status: err.status ?? 500, message: err.message }
     }
   }
+  async confirmGoodsReceipt(id: string, input: ReleaseInput): Promise<ReleaseResult> {
+    try {
+      return { ok: true, document: await this.call('confirmGoodsReceipt', { id }, input, SapDocumentSchema) }
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      return { ok: false, status: err.status ?? 500, message: err.message }
+    }
+  }
   getReturnStatus(id: string) {
     return this.call('returnStatus', { id }, undefined, ReturnStatusSchema)
   }

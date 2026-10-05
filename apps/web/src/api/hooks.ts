@@ -118,6 +118,12 @@ export const useSendReply = () => {
   })
 }
 
+export const useConfirmGoodsReceipt = () => {
+  const api = useApi()
+  const inv = useInvalidate()
+  return useMutation({ mutationFn: (v: { id: string; input: ReleaseInput }) => api.confirmGoodsReceipt(v.id, v.input), onSettled: () => inv('cases', 'analytics') })
+}
+
 /** Goods receipt of a return, asked again every 15 s while the panel is open: the warehouse posts it, not the user. */
 export const useReturnStatus = (sapDocumentId: string | null) => {
   const api = useApi()

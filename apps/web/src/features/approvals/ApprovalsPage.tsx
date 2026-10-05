@@ -24,7 +24,10 @@ export function ApprovalsPage() {
   // On a phone the queue and the case are two steps: tap a row to open the case, go back for the queue.
   const mobile = useIsMobile()
   const [opened, setOpened] = useState(false)
-  const mine = (r: CaseSummary) => all || r.id === search.case || !r.approverRole || RANK[role] >= RANK[r.approverRole]
+  // The Returns desk has its own queue: returns written to SAP whose goods receipt it must confirm (step 5.1.3).
+  const returnsDesk = role === 'returns_desk'
+  const mine = (r: CaseSummary) =>
+    returnsDesk ? r.status === 'written_to_sap' && r.documentType === 'YRE' : all || r.id === search.case || !r.approverRole || RANK[role] >= RANK[r.approverRole]
   const rows = (q.data ?? [])
     .filter((r) => QUEUE_STATUSES.includes(r.status) && mine(r))
     .sort((a, b) => (a.status === 'awaiting_approval' ? 0 : 1) - (b.status === 'awaiting_approval' ? 0 : 1))
@@ -52,20 +55,26 @@ export function ApprovalsPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-2">
         <div>
-          <h1 className="text-xl font-semibold">Approvals</h1>
+          <h1 className="text-xl font-semibold">{returnsDesk ? 'Returns waiting for goods' : 'Approvals'}</h1>
           <p className="text-sm text-muted">
-            Queue for {ROLE_LABELS[role]} · {waiting} waiting
-            <span className="ml-2 hidden text-xs md:inline">
+            {returnsDesk ? `${rows.length} return(s) to confirm once the warehouse has the goods (step 5.1.3)` : `Queue for ${ROLE_LABELS[role]} · ${waiting} waiting`}
+            {!returnsDesk && <span className="ml-2 hidden text-xs md:inline">
               {APPROVAL_THRESHOLDS.map((t) => `${t.upTo === Infinity ? 'above 5 000' : `up to ${t.upTo.toLocaleString('en-GB').replace(',', ' ')}`}: ${ROLE_LABELS[t.role]}`).join(' · ')} · no goods back: credit manager at least
-            </span>
+            </span>}
           </p>
         </div>
-        <label className="ml-auto flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show all roles
-        </label>
+        {!returnsDesk && (
+          <label className="ml-auto flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show all roles
+          </label>
+        )}
       </div>
       {rows.length === 0 ? (
-        <EmptyState title="Nothing to approve" description="Run cases from the inbox. Proposals that need your role will appear here." />
+        returnsDesk ? (
+          <EmptyState title="No returns waiting" description="When an approver creates a customer return, it appears here until you confirm the goods receipt." />
+        ) : (
+          <EmptyState title="Nothing to approve" description="Run cases from the inbox. Proposals that need your role will appear here." />
+        )
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <ul className="space-y-2">

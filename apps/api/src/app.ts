@@ -37,7 +37,7 @@ const InboundBody = z.object({
 
 const ApproveBody = z.object({ actor: z.string(), role: z.enum(['customer_service_lead', 'credit_manager', 'finance_director', 'returns_desk']), editedQuantity: z.number().optional(), comment: z.string().optional() })
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
-const ReleaseBody = ApproveBody.pick({ actor: true, role: true }).extend({ goodsReceived: z.boolean().optional() })
+const ReleaseBody = ApproveBody.pick({ actor: true, role: true })
 const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional() })
 
 export interface AppOptions {
@@ -178,6 +178,11 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     reply.status(204)
   })
   app.get<{ Params: { id: string } }>('/api/sap/:id/status', async (req) => service.returnStatus(req.params.id))
+  app.post<{ Params: { id: string } }>('/api/sap/:id/goods-receipt', async (req, reply) => {
+    const r = service.confirmGoodsReceipt(req.params.id, ReleaseBody.parse(req.body ?? {}))
+    if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
+    return r.value
+  })
   app.post<{ Params: { id: string } }>('/api/sap/:id/release', async (req, reply) => {
     const r = await service.release(req.params.id, ReleaseBody.parse(req.body ?? {}))
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
