@@ -5,7 +5,7 @@ export function ComplaintPanel({ c }: { c: Case }) {
   const f = c.facts
   return (
     <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
-      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Complaint</h2>
+      <h2 className="text-base font-semibold text-fg">Complaint</h2>
       <div className="mt-2 text-sm">
         <div className="font-medium">{c.subject}</div>
         <div className="text-muted">

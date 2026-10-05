@@ -24,7 +24,7 @@ export function DocFlow({ findings, sapDocuments }: { findings: Findings; sapDoc
               n.warn ? 'border-warn/50 bg-warn-soft' : n.hi ? 'border-accent bg-accent-soft' : 'border-line bg-surface'
             }`}
           >
-            <div className="text-[10px] uppercase tracking-wider text-muted">{n.k}</div>
+            <div className="text-[10px] text-muted">{n.k}</div>
             <div className="font-mono text-sm">{n.v}</div>
           </div>
         </li>

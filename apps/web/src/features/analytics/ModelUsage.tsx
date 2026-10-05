@@ -64,7 +64,7 @@ export function ModelUsage({ data }: { data: Analytics }) {
         <div className="min-w-0 overflow-x-auto">
           <div className="mb-2 text-xs text-muted">By purpose</div>
           <table className="w-full min-w-[22rem] text-sm">
-            <thead className="text-[11px] uppercase tracking-wider text-muted">
+            <thead className="text-xs font-medium text-muted">
               <tr><th className="text-left font-semibold">Call</th><th className="text-right font-semibold">Calls</th><th className="text-right font-semibold">In</th><th className="text-right font-semibold">Out</th><th className="text-right font-semibold">Avg time</th><th className="text-right font-semibold">Cost</th></tr>
             </thead>
             <tbody>

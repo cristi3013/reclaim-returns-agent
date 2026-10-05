@@ -32,7 +32,7 @@ function SortTh({
       <button
         type="button"
         onClick={() => onSort(toggleSort(sort, k))}
-        className={`inline-flex items-center gap-1 uppercase tracking-wider hover:text-fg ${on ? 'text-fg' : ''}`}
+        className={`inline-flex items-center gap-1 hover:text-fg ${on ? 'text-fg' : ''}`}
       >
         {children}
         {on && <Arrow className="size-3" aria-hidden />}
@@ -56,7 +56,7 @@ export function InboxTable({
   return (
     <div className="overflow-x-auto rounded-lg border border-line bg-surface shadow-card">
       <table className="w-full min-w-[1040px] text-sm">
-        <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-muted">
+        <thead className="bg-surface-2 text-xs font-medium text-muted">
           <tr>
             <SortTh k="received" sort={sort} onSort={onSort}>
               Received
