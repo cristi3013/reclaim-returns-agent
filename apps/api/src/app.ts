@@ -16,7 +16,7 @@ import { RulesOnlyAi } from './ai/rules-only'
 import { ResilientAi } from './ai/resilient'
 import { ClaudeAi, detectProvider } from './ai/claude'
 import type { Gateway } from './gateway/types'
-import type { Ai } from './ai/types'
+import { mimeFromName, type Ai } from './ai/types'
 import { SupabasePersistence } from './persistence'
 import { supabaseVerifier, type Principal, type Verifier } from './auth'
 import { ControlTower } from './control-tower'
@@ -114,8 +114,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
         const rel = url.startsWith(publicBase) ? url.slice(publicBase.length) : url
         const file = rel.startsWith('/uploads/') ? path.join(UPLOADS_DIR, rel.slice('/uploads/'.length)) : path.join(ATTACHMENT_ROOT, rel.replace(/^\//, ''))
         const base64 = (await readFile(file)).toString('base64')
-        const mimeType = url.endsWith('.png') ? 'image/png' : url.endsWith('.jpg') || url.endsWith('.jpeg') ? 'image/jpeg' : 'application/octet-stream'
-        return { mimeType, base64 }
+        return { mimeType: mimeFromName(file) ?? 'application/octet-stream', base64 }
       } catch {
         return null
       }

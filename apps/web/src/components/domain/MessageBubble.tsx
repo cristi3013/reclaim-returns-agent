@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ThreadMessage } from '@reclaim/shared'
+import { FileText } from 'lucide-react'
 import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -45,7 +46,10 @@ export function Attachments({ list }: { list: ThreadMessage['attachments'] }) {
       </figure>
     ) : (
       <div key={a.name} className="mt-2 text-xs">
-        {a.name}
+        <a href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline hover:text-fg">
+          <FileText className="size-3.5" aria-hidden /> {a.name}
+        </a>
+        <span className="text-muted"> · {a.mimeType === 'application/pdf' ? 'read by the model as evidence' : 'kept with the case, not read by the model'}</span>
       </div>
     ),
   )

@@ -3,7 +3,7 @@ import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
 import { FactsSchema, RULES, RootCauseNarrationsSchema, narrate as templateNarrate, type RootCauseNarration, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
-import type { Ai } from './types'
+import { MODEL_IMAGE_TYPES, type Ai } from './types'
 import type { Answer } from '@reclaim/shared'
 
 const NarrativeSchema = z.object({
@@ -20,7 +20,7 @@ const SYSTEM_PHRASE = `You word answers for the O2C Control Tower, a read-only a
 Write a short reply to the manager who asked (plain prose, at most 160 words, no headings, no markdown). Use ONLY the figures, documents, customers, routes and owners in the COMPUTED ANSWER; never add, round or infer a number, a cause or a customer. Keep every amount with its currency; never add EUR and RON. If the computed answer says there is no data for the subject, say so plainly and do not invent a cause. If the request was refused because the Control Tower only reads, say that first, then the facts and the route. Name the fixing agent as given (e.g. "6 POD Chaser"). Say that nothing was changed in SAP.`
 
 const SYSTEM_EXTRACT = `You read customer complaint emails for the returns desk of a chemicals distributor that uses SAP.
-Extract only what the email (and the photo, if any) actually says. Do not guess numbers.
+Extract only what the email and its attachments (photos, PDFs such as a signed delivery note) actually say. Do not guess numbers.
 - invoiceNumber: the 8-digit SAP invoice number if the email names one, else null.
 - material: the material number if named (e.g. "54"), else null.
 - claimedQuantity and unit: the quantity the customer complains about (damaged, missing, to return), not the invoiced total.
@@ -28,7 +28,7 @@ Extract only what the email (and the photo, if any) actually says. Do not guess 
 - claimedUnitPrice: only for price complaints, the price the customer says was agreed.
 - wantsReplacement: true only if the customer asks for new goods and does NOT want a credit (e.g. "please send a replacement", "we need the material, not a credit note"). false when they ask for a credit, or offer a choice such as "credit or replace" / "credit note or new delivery": a credit is always acceptable to them then.
 - goodsReturnable: false if the goods are lost/leaked/consumed and cannot be sent back; true if they say the goods can be collected; null if unclear.
-- evidence: one sentence with the facts you relied on, including what the photo shows.
+- evidence: one sentence with the facts you relied on, including what the photo or document shows (e.g. the quantity signed for on a delivery note).
 - language: ISO code of the email language.`
 
 const SYSTEM_NARRATE = `You write for the returns desk of a chemicals distributor that uses SAP. A rules engine has already made the decision; you never change a number, a document type or a reason code.
@@ -156,8 +156,10 @@ export class ClaudeAi implements Ai {
   async extractFacts(c: Case, attachments: { mimeType: string; base64: string }[]): Promise<{ facts: Facts; usage?: ModelUsage }> {
     const content: Anthropic.ContentBlockParam[] = []
     for (const a of attachments) {
-      if (a.mimeType === 'image/png' || a.mimeType === 'image/jpeg' || a.mimeType === 'image/webp' || a.mimeType === 'image/gif') {
-        content.push({ type: 'image', source: { type: 'base64', media_type: a.mimeType, data: a.base64 } })
+      if ((MODEL_IMAGE_TYPES as readonly string[]).includes(a.mimeType)) {
+        content.push({ type: 'image', source: { type: 'base64', media_type: a.mimeType as (typeof MODEL_IMAGE_TYPES)[number], data: a.base64 } })
+      } else if (a.mimeType === 'application/pdf') {
+        content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.base64 } })
       }
     }
     content.push({ type: 'text', text: `From: ${c.from}\nSubject: ${c.subject}\nReceived: ${c.receivedAt}\n\n${c.bodyText}` })
