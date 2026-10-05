@@ -36,8 +36,8 @@ export function ValueCalculator({ measured }: { measured?: Measured }) {
     setInput({ ...input, [k]: percent ? n / 100 : n })
   }
   return (
-    <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
-      <div className="flex items-baseline justify-between gap-4">
+    <section className="rounded-lg border border-line bg-surface p-4 shadow-card sm:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="text-base font-semibold">What is this agent worth?</h2>
         <button type="button" onClick={() => setInput(DEFAULT_VALUE_INPUT)} className="text-xs text-muted underline hover:text-fg">
           Reset assumptions
@@ -51,13 +51,13 @@ export function ValueCalculator({ measured }: { measured?: Measured }) {
           <span className="font-semibold">Measured in this system:</span> the agent needs{' '}
           <span className="tnum font-mono">{measured.agentSeconds == null ? '–' : `${Math.round(measured.agentSeconds)} s`}</span> per complaint; a person decided after{' '}
           <span className="tnum font-mono">{measured.minutesToDecision == null ? '–' : `${Math.round(measured.minutesToDecision)} min`}</span> (median);{' '}
-          {measured.duplicatesPrevented} duplicate credit(s) and {measured.intercompanyFlagged} intercompany case(s) caught in {measured.cases} complaint(s). Compare with the assumptions on the left.
+          {measured.duplicatesPrevented} duplicate credit(s) and {measured.intercompanyFlagged} intercompany case(s) caught in {measured.cases} complaint(s). Compare with the assumptions below.
         </p>
       )}
-      <div className="mt-4 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-6">
+      <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="space-y-2">
           {FIELDS.map((f) => (
-            <label key={f.key} className="grid grid-cols-[1fr_7rem] items-center gap-3 text-sm">
+            <label key={f.key} className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 text-sm">
               <span>
                 {f.label}
                 {f.hint && <span className="block text-xs text-muted">{f.hint}</span>}
@@ -65,6 +65,8 @@ export function ValueCalculator({ measured }: { measured?: Measured }) {
               <span className="flex items-center gap-1">
                 <input
                   type="number"
+                  inputMode="decimal"
+                  aria-label={f.label}
                   value={f.percent ? Math.round(input[f.key] * 100) : input[f.key]}
                   onChange={(e) => set(f.key, e.target.value, f.percent)}
                   className="h-8 w-full rounded-md border border-line bg-surface px-2 text-right tnum"
@@ -75,12 +77,12 @@ export function ValueCalculator({ measured }: { measured?: Measured }) {
           ))}
         </div>
         <div>
-          <div className="rounded-lg border border-accent bg-accent-soft p-5">
+          <div className="rounded-lg border border-accent bg-accent-soft p-4 sm:p-5">
             <div className="text-[11px] uppercase tracking-wider text-muted">Value per year</div>
-            <div className="mt-1 text-4xl font-semibold tnum">{formatMoney(Math.round(r.valuePerYear), 'EUR')}</div>
+            <div className="mt-1 break-words text-3xl font-semibold tnum sm:text-4xl">{formatMoney(Math.round(r.valuePerYear), 'EUR')}</div>
             <div className="mt-1 text-xs text-muted">labour value + financing gain + errors avoided</div>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <KpiTile label="Hours saved / year" value={Math.round(r.hoursSavedPerYear).toLocaleString('en-GB').replace(/,/g, ' ')} />
             <KpiTile label="Labour value / year" value={formatMoney(Math.round(r.labourValuePerYear), 'EUR')} />
             <KpiTile label="People freed (FTE)" value={r.fteFreed.toFixed(1)} />
