@@ -78,7 +78,7 @@ export function ValueCalculator({ measured }: { measured?: Measured }) {
         </div>
         <div>
           <div className="rounded-lg border border-accent bg-accent-soft p-4 sm:p-5">
-            <div className="text-[11px] uppercase tracking-wider text-muted">Value per year</div>
+            <div className="text-xs font-medium text-muted">Value per year</div>
             <div className="mt-1 break-words text-3xl font-semibold tnum sm:text-4xl">{formatMoney(Math.round(r.valuePerYear), 'EUR')}</div>
             <div className="mt-1 text-xs text-muted">labour value + financing gain + errors avoided</div>
           </div>

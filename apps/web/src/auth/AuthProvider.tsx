@@ -40,3 +40,8 @@ export function useAuth(): AuthState {
   if (!v) throw new Error('AuthProvider missing')
   return v
 }
+
+/** The signed-in user, or null when there is no session or no AuthProvider (isolated page tests). */
+export function useSignedInUser(): AuthState['user'] {
+  return useContext(Ctx)?.user ?? null
+}

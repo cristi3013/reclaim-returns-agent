@@ -1,6 +1,7 @@
-import { FlaskConical } from 'lucide-react'
+import { FlaskConical, ShieldCheck } from 'lucide-react'
 import { useEval, useRunEval } from '@/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/domain/PageHeader'
 import { EmptyState } from '@/components/domain/EmptyState'
 
 const COLS = ['rule', 'document', 'reason', 'quantity', 'amount', 'approver', 'option A']
@@ -12,24 +13,20 @@ export function EvaluationPage() {
   const passed = res?.filter((r) => r.pass).length ?? 0
   return (
     <div>
-      <div className="mb-4 flex items-end gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Evaluation</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            The eight demo complaints against the organizers' expected results. The decision object is scored field by field: rule, document type, reason code, quantity, amount, approver. The model's prose is not scored, so the result is deterministic.
-          </p>
-        </div>
-        <div className="ml-auto flex shrink-0 items-center gap-3">
+      <PageHeader
+        title="Quality check"
+        description="Does the agent decide correctly? The eight demo complaints are checked against the organizers' expected results, field by field: rule, document, reason, quantity, amount and approver. The wording is not scored, so the result is the same every run."
+        actions={<div className="flex items-center gap-3">
           {res && (
             <span className={`text-lg font-semibold tnum ${passed === res.length ? 'text-ok' : 'text-bad'}`}>
               {passed} of {res.length} passing
             </span>
           )}
           <Button onClick={() => run.mutate()} disabled={run.isPending}>
-            <FlaskConical className="size-4" /> {run.isPending ? 'Running…' : 'Run evaluation'}
+            <FlaskConical className="size-4" /> {run.isPending ? 'Checking…' : 'Run the check'}
           </Button>
-        </div>
-      </div>
+        </div>}
+      />
       {run.error && (
         <div role="alert" className="mb-3 rounded-md border border-bad bg-bad-soft p-3 text-sm text-bad">
           {run.error instanceof Error ? run.error.message : String(run.error)}
@@ -37,18 +34,19 @@ export function EvaluationPage() {
       )}
       {!res ? (
         <EmptyState
-          title="No evaluation yet"
-          description="Runs every demo case that has no proposal yet, then compares the decision with expected-results.json."
+          icon={ShieldCheck}
+          title="Not checked yet"
+          description="Investigates every demo complaint that has no proposal yet, then compares each decision with the expected results."
           action={
             <Button onClick={() => run.mutate()} disabled={run.isPending}>
-              Run evaluation
+              Run the check
             </Button>
           }
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-line bg-surface shadow-card">
           <table className="w-full text-sm">
-            <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-muted">
+            <thead className="bg-surface-2 text-xs font-medium text-muted">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold">Case</th>
                 {COLS.map((c) => (

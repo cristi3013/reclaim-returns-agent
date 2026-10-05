@@ -8,7 +8,7 @@ export function SapFindingsPanel({ c }: { c: Case }) {
   if (!f) {
     return (
       <section className="rounded-lg border border-line bg-surface p-4 text-sm text-muted shadow-card">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">What we found in SAP</h2>
+        <h2 className="text-base font-semibold text-fg">What we found in SAP</h2>
         <p className="mt-2">Not investigated yet. Run the agent to look up the invoice, its history and any existing credits.</p>
       </section>
     )
@@ -19,7 +19,7 @@ export function SapFindingsPanel({ c }: { c: Case }) {
   const ic = !!f.plantCompanyCode && !!inv && f.plantCompanyCode !== inv.companyCode
   return (
     <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
-      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">What we found in SAP</h2>
+      <h2 className="text-base font-semibold text-fg">What we found in SAP</h2>
       {!f.invoice && f.candidateInvoices.length > 0 && (
         <p className="mt-2 rounded bg-warn-soft px-3 py-2 text-sm text-warn">
           No invoice number in the email. Searched the customer's invoices for material {c.facts?.material} and found{' '}

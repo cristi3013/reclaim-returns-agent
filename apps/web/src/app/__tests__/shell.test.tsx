@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiProvider } from '@/api'
 import { MockApiClient } from '@/api/mock/MockApiClient'
@@ -9,7 +9,7 @@ import { AuthProvider, fakeAuth } from '@/auth'
 const dana = { id: 'u1', email: 'dana@acme.example', name: 'Dana Credit', role: 'credit_manager' as const }
 
 describe('TopBar', () => {
-  it('shows product name, who is signed in, and mode switches', async () => {
+  it('shows the current modes, who is signed in, and the mode switches behind one button', async () => {
     const qc = new QueryClient()
     render(
       <QueryClientProvider client={qc}>
@@ -20,7 +20,8 @@ describe('TopBar', () => {
         </AuthProvider>
       </QueryClientProvider>,
     )
-    expect(screen.getByText(/Returns & Credit Note agent/)).toBeInTheDocument()
+    expect(await screen.findByText(/SAP Mock/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /demo controls/i }))
     expect(await screen.findByLabelText('SAP')).toBeInTheDocument()
     expect(screen.getByLabelText('AI')).toBeInTheDocument()
     expect(screen.getByLabelText('Conflict')).toBeInTheDocument()

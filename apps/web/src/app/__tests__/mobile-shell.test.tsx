@@ -32,12 +32,12 @@ const wrap = (ui: React.ReactNode) =>
   )
 
 describe('BottomTabs', () => {
-  it('shows the four sections and marks the current one', async () => {
+  it('shows the five sections and marks the current one', async () => {
     wrap(routed(<BottomTabs />, '/approvals'))
     const nav = await screen.findByRole('navigation', { name: /primary/i })
     const links = nav.querySelectorAll('a')
-    expect([...links].map((a) => a.textContent)).toEqual(['Dashboard', 'Inbox', 'Approvals', 'Analytics', 'Evaluation'])
-    expect(nav.querySelector('a[aria-current="page"]')?.textContent).toBe('Approvals')
+    expect([...links].map((a) => a.textContent)).toEqual(['Home', 'Complaints', 'Approve', 'Insights', 'Quality'])
+    expect(nav.querySelector('a[aria-current="page"]')?.textContent).toBe('Approve')
   })
 })
 

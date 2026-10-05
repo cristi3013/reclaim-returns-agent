@@ -1,5 +1,5 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { FileText, Play } from 'lucide-react'
+import { ChevronRight, FileText, Play } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCase, useChoose, useRunCase, useStatus } from '@/api'
 import { ROLE_LABELS, primaryProposal } from '@reclaim/shared'
@@ -47,15 +47,16 @@ export function CasePage() {
   const waiting = c.status === 'awaiting_approval'
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-start gap-4">
+      <div className="mb-6 flex flex-wrap items-start gap-4">
         <div className="min-w-0">
-          <div className="text-xs text-muted">
-            <Link to="/" className="underline hover:text-fg">
-              Inbox
-            </Link>{' '}
-            / <span className="font-mono">{c.id}</span>
-          </div>
-          <h1 className="truncate text-xl font-semibold">{c.subject}</h1>
+          <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1 text-xs text-muted">
+            <Link to="/inbox" className="hover:text-fg hover:underline">
+              Complaints
+            </Link>
+            <ChevronRight className="size-3" aria-hidden />
+            <span className="font-mono">{c.id}</span>
+          </nav>
+          <h1 className="truncate text-2xl font-semibold tracking-tight">{c.subject}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
             <StatusChip status={c.status} />
             {c.invoiceNumber && <span className="font-mono">invoice {c.invoiceNumber}</span>}
@@ -80,12 +81,12 @@ export function CasePage() {
             }
             title="Download this case's proposal, approvals, SAP documents and audit log as a PDF"
           >
-            <FileText className="size-4" /> Audit pack
+            <FileText className="size-4" /> Audit PDF
           </Button>
           <StatusMenu c={c} role={role} actor={ROLE_LABELS[role]} size="default" />
           {c.status === 'awaiting_approval' && (
             <Button asChild variant="ghost">
-              <Link to="/approvals">Approvals queue</Link>
+              <Link to="/approvals" search={{ case: c.id }}>Open in To approve</Link>
             </Button>
           )}
           <Button
@@ -100,7 +101,7 @@ export function CasePage() {
             }
           >
             <Play className="size-4" />{' '}
-            {running ? 'Running…' : c.proposals.length ? 'Run again' : 'Run agent'}
+            {running ? 'Investigating…' : c.proposals.length ? 'Investigate again' : 'Investigate'}
           </Button>
         </div>
       </div>
@@ -139,7 +140,7 @@ export function CasePage() {
       </div>
 
       <section className="mt-4">
-        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <h2 className="mb-2 text-base font-semibold text-fg">
           {two ? 'Proposal · two options, a person chooses' : 'Proposal'}
         </h2>
         {c.proposals.length === 0 ? (

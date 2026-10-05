@@ -18,7 +18,7 @@ const wrap = (ui: React.ReactNode) =>
 it('shows the empty state, seeds, lists eight rows', async () => {
   localStorage.clear()
   wrap(<InboxView onOpen={() => {}} />)
-  const seedButtons = await screen.findAllByRole('button', { name: /seed demo cases/i })
+  const seedButtons = await screen.findAllByRole('button', { name: /load demo complaints/i })
   fireEvent.click(seedButtons[seedButtons.length - 1]!)
   await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(9))
   expect(screen.getAllByText(/Complaint on invoice 90000353/)).toHaveLength(2)
@@ -27,7 +27,7 @@ it('shows the empty state, seeds, lists eight rows', async () => {
 it('filters by status chip, remembers it, and clears', async () => {
   localStorage.clear()
   wrap(<InboxView onOpen={() => {}} />)
-  const seedButtons = await screen.findAllByRole('button', { name: /seed demo cases/i })
+  const seedButtons = await screen.findAllByRole('button', { name: /load demo complaints/i })
   fireEvent.click(seedButtons[seedButtons.length - 1]!)
   await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(9))
   fireEvent.click(screen.getByRole('button', { name: /^Open \d+$/ }))
