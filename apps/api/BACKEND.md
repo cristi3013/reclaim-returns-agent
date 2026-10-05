@@ -153,7 +153,7 @@ Ideas that fit later, in order of value: a chat endpoint over one case (read-onl
 
 Three channels, all ending in `service.ingestInbound()` and, unless `INBOUND_AUTORUN=false`, an automatic run:
 
-1. **Mailbox (IMAP).** Set `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` (Gmail: enable IMAP, two-step verification, app password). `src/intake/mailbox.ts` polls for unseen messages every `IMAP_POLL_MS`, parses them with mailparser, saves image attachments under `apps/api/uploads` (served at `/uploads/…`, linked with `PUBLIC_URL`), marks them seen. Duplicate message ids are ignored. This is the demo path: send the complaint from a phone, watch it appear.
+1. **Mailbox (IMAP, push).** Set `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` (Gmail: enable IMAP, two-step verification, app password). `src/intake/mailbox.ts` keeps one connection open in IDLE mode: the server notifies it the moment a message arrives, it fetches the unseen messages, parses them with mailparser, saves image attachments under `apps/api/uploads` (served at `/uploads/…`, linked with `PUBLIC_URL`) and marks them seen. It reconnects with backoff if the connection drops and runs a safety sweep every `IMAP_POLL_MS` (min 60 s). Duplicate message ids are ignored. This is the demo path: send the complaint from a phone, watch it appear within seconds.
 2. **Webhook.** `POST /api/inbound` with JSON `{from, subject, text, receivedAt?, messageId?, attachments?}` or a raw email as `message/rfc822`. Returns 201 with the case summary, or `{duplicate: true}`. Works from Postman or any email-to-webhook service.
 3. **Upload / seed.** `POST /api/cases/ingest` (multipart `.eml` files, parsed with mailparser) and `POST /api/cases/seed` for the eight demo cases.
 

@@ -17,7 +17,7 @@ import { ClaudeAi, detectProvider } from './ai/claude'
 import type { Gateway } from './gateway/types'
 import type { Ai } from './ai/types'
 import { SupabasePersistence } from './persistence'
-import { MailboxPoller, mailboxConfigFromEnv, parseEml } from './intake/mailbox'
+import { MailboxListener, mailboxConfigFromEnv, parseEml } from './intake/mailbox'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 /** Attachments referenced by the demo cases live in the web app's public folder. */
@@ -200,7 +200,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
 
   const mailboxCfg = opts.noSideCars ? null : mailboxConfigFromEnv()
   const poller = mailboxCfg
-    ? new MailboxPoller(
+    ? new MailboxListener(
         mailboxCfg,
         async (mail) => {
           const s = service.ingestInbound(mail)

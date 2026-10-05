@@ -20,6 +20,7 @@ export interface MailboxConfig {
   user: string
   password: string
   folder: string
+  /** Safety sweep interval; push delivery does not depend on it. */
   pollMs: number
 }
 
@@ -33,7 +34,7 @@ export function mailboxConfigFromEnv(): MailboxConfig | null {
     user: IMAP_USER,
     password: IMAP_PASSWORD,
     folder: process.env.IMAP_FOLDER ?? 'INBOX',
-    pollMs: Number(process.env.IMAP_POLL_MS ?? 20000),
+    pollMs: Number(process.env.IMAP_POLL_MS ?? 60000),
   }
 }
 
@@ -68,12 +69,17 @@ function stripHtml(html: string): string {
 }
 
 /**
- * Polls an IMAP mailbox for unseen messages and hands each one to `onEmail`. Marks them seen afterwards.
- * Gmail: enable IMAP, two-step verification and an app password. Runs forever until `stop()`.
+ * Listens to an IMAP mailbox in push mode. One connection stays open; the server sends an EXISTS notification the
+ * moment a message arrives (IMAP IDLE, handled by imapflow when the connection is inactive), and the listener fetches
+ * the unseen messages right away, hands each to `onEmail`, and marks it seen. If the connection drops it reconnects,
+ * and a slow safety sweep (every `pollMs`, at least 60 s) catches anything missed. Gmail: enable IMAP, two-step
+ * verification and an app password.
  */
-export class MailboxPoller {
-  private timer: NodeJS.Timeout | null = null
-  private busy = false
+export class MailboxListener {
+  private client: ImapFlow | null = null
+  private stopped = false
+  private draining: Promise<number> | null = null
+  private sweep: NodeJS.Timeout | null = null
   constructor(
     private cfg: MailboxConfig,
     private onEmail: (mail: InboundEmail) => Promise<void>,
@@ -83,22 +89,61 @@ export class MailboxPoller {
   ) {}
 
   start() {
-    void this.poll()
-    this.timer = setInterval(() => void this.poll(), this.cfg.pollMs)
-    this.log(`Mailbox poller: ${this.cfg.user}@${this.cfg.host} every ${this.cfg.pollMs / 1000}s`)
+    this.stopped = false
+    void this.connectLoop()
+    const every = Math.max(this.cfg.pollMs, 60000)
+    this.sweep = setInterval(() => void this.drain('sweep'), every)
+    this.log(`Mailbox listener: ${this.cfg.user}@${this.cfg.host}, push (IDLE) with a safety sweep every ${every / 1000}s`)
   }
 
   stop() {
-    if (this.timer) clearInterval(this.timer)
+    this.stopped = true
+    if (this.sweep) clearInterval(this.sweep)
+    const c = this.client
+    this.client = null
+    if (c) void c.logout().catch(() => undefined)
   }
 
-  async poll(): Promise<number> {
-    if (this.busy) return 0
-    this.busy = true
-    let count = 0
-    const client = new ImapFlow({ host: this.cfg.host, port: this.cfg.port, secure: this.cfg.secure, auth: { user: this.cfg.user, pass: this.cfg.password }, logger: false })
-    try {
-      await client.connect()
+  private async connectLoop() {
+    let backoff = 2000
+    while (!this.stopped) {
+      const client = new ImapFlow({ host: this.cfg.host, port: this.cfg.port, secure: this.cfg.secure, auth: { user: this.cfg.user, pass: this.cfg.password }, logger: false })
+      const closed = new Promise<void>((resolve) => {
+        client.once('close', () => resolve())
+        client.once('error', (e: Error) => {
+          this.log(`Mailbox connection error: ${e.message}`)
+          resolve()
+        })
+      })
+      try {
+        await client.connect()
+        await client.mailboxOpen(this.cfg.folder)
+        this.client = client
+        backoff = 2000
+        this.log('Mailbox connected; waiting for new messages')
+        client.on('exists', (ev: { count: number; prevCount: number }) => {
+          if (ev.count > ev.prevCount) void this.drain('push')
+        })
+        await this.drain('connect')
+        await closed // imapflow idles on its own while nothing else runs on the connection
+      } catch (e) {
+        this.log(`Mailbox connect failed: ${(e as Error).message}`)
+      }
+      this.client = null
+      if (this.stopped) return
+      this.log(`Mailbox: reconnecting in ${backoff / 1000}s`)
+      await new Promise((r) => setTimeout(r, backoff))
+      backoff = Math.min(backoff * 2, 60000)
+    }
+  }
+
+  /** Fetches every unseen message, ingests it and marks it seen. Serialised so push and sweep never overlap. */
+  drain(reason: 'connect' | 'push' | 'sweep'): Promise<number> {
+    if (this.draining) return this.draining
+    this.draining = (async () => {
+      const client = this.client
+      if (!client || !client.usable) return 0
+      let count = 0
       const lock = await client.getMailboxLock(this.cfg.folder)
       try {
         for await (const msg of client.fetch({ seen: false }, { source: true, uid: true })) {
@@ -112,20 +157,16 @@ export class MailboxPoller {
             this.log(`Mailbox: could not ingest a message: ${(e as Error).message}`)
           }
         }
+      } catch (e) {
+        this.log(`Mailbox ${reason} fetch failed: ${(e as Error).message}`)
       } finally {
         lock.release()
       }
-      await client.logout()
-    } catch (e) {
-      this.log(`Mailbox poll failed: ${(e as Error).message}`)
-      try {
-        await client.logout()
-      } catch {
-        /* already closed */
-      }
-    } finally {
-      this.busy = false
-    }
-    return count
+      if (count) this.log(`Mailbox: ${count} new complaint(s) ingested (${reason})`)
+      return count
+    })().finally(() => {
+      this.draining = null
+    })
+    return this.draining
   }
 }
