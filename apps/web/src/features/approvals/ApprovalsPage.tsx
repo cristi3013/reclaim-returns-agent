@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useSearch } from '@tanstack/react-router'
 import { APPROVAL_THRESHOLDS, ROLE_LABELS, primaryProposal, type CaseSummary, type Role } from '@reclaim/shared'
 import { useCase, useCases } from '@/api'
@@ -13,7 +13,21 @@ import { EmptyState } from '@/components/domain/EmptyState'
 import { formatMoney, formatRelative } from '@/lib/format'
 
 const RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
-const QUEUE_STATUSES = ['awaiting_approval', 'approved', 'written_to_sap', 'sap_write_failed', 'closed', 'rejected']
+const QUEUE_STATUSES = ['awaiting_approval', 'approved', 'written_to_sap', 'sap_write_failed', 'closed']
+
+/** The outcome at a glance: green approved, red rejected or failed, amber still waiting. */
+const WAITING = { bar: 'border-l-warn', idle: 'bg-surface', active: 'bg-warn-soft/70' }
+const GOOD = { bar: 'border-l-ok', idle: 'bg-ok-soft/30', active: 'bg-ok-soft' }
+const BAD = { bar: 'border-l-bad', idle: 'bg-bad-soft/30', active: 'bg-bad-soft' }
+const NEUTRAL = { bar: 'border-l-muted/50', idle: 'bg-surface', active: 'bg-surface-2' }
+const look = (r: CaseSummary) =>
+  r.status === 'awaiting_approval'
+    ? WAITING
+    : r.status === 'sap_write_failed' || r.outcome === 'rejected'
+      ? BAD
+      : r.outcome === 'approved'
+        ? GOOD
+        : NEUTRAL
 
 export function ApprovalsPage() {
   const { role } = useUi()
@@ -78,8 +92,13 @@ export function ApprovalsPage() {
                     setOpened(true)
                   }}
                   aria-current={selected === r.id ? 'true' : undefined}
-                  className={`w-full rounded-lg border p-3 text-left ${
-                    selected === r.id ? 'border-accent bg-accent-soft/50' : 'border-line bg-surface hover:bg-surface-2'
+                  // Selected: the same outcome colour, only stronger, lifted towards the panel. Never another colour.
+                  className={`relative w-full rounded-lg border border-y-line border-r-line p-3 text-left transition-all duration-150 ${
+                    look(r).bar
+                  } ${
+                    selected === r.id
+                      ? `border-l-8 pr-8 shadow-md md:translate-x-1 ${look(r).active}`
+                      : `border-l-4 hover:shadow-card hover:brightness-[0.97] ${look(r).idle}`
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -92,6 +111,12 @@ export function ApprovalsPage() {
                     <span className="font-mono tnum">{r.amount ? formatMoney(r.amount, r.currency) : 'no credit'}</span>
                     <span className="ml-auto">{formatRelative(r.updatedAt)}</span>
                   </div>
+                  {selected === r.id && (
+                    <ChevronRight
+                      className="absolute right-2 top-1/2 size-5 -translate-y-1/2 text-fg/60 max-md:hidden"
+                      aria-hidden
+                    />
+                  )}
                 </button>
               </li>
             ))}

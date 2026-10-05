@@ -32,7 +32,7 @@ describe('buildReport', () => {
     expect(r.meta).toMatchObject({ caseCount: 2, generatedBy: 'Dana', sapMode: 'mock', generatedAt: '2026-10-05T12:00:00.000Z' })
     const cases = r.tables[1]!.rows
     expect(cases.map((c) => c.id)).toEqual(['case-b', 'case-a'])
-    expect(cases[1]).toMatchObject({ rule: 'R3', document: 'YCR', amount: 540, approverRole: 'Credit manager', status: 'Written to SAP', sapDocuments: 'YCR 60000200' })
+    expect(cases[1]).toMatchObject({ rule: 'R3', document: 'YCR', amount: 540, approverRole: 'Credit manager', status: 'Processed', sapDocuments: 'YCR 60000200' })
     expect(r.tables[2]!.rows[0]).toMatchObject({ actor: 'Dana', decision: 'approved', rule: 'R3', amount: 540 })
     expect(r.tables[3]!.rows[0]).toMatchObject({ number: '60000200', released: true, gatewayLogId: 'log-1' })
     const events = r.tables[4]!.rows

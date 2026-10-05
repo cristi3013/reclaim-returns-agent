@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { primaryProposal, type Case, type CaseSummary, type SapDocument } from '@reclaim/shared'
+import { caseOutcome, primaryProposal, type Case, type CaseSummary, type SapDocument } from '@reclaim/shared'
 import { buildApp } from '../src/app'
 import { mailerFromEnv, parseAddress, type Mailer, type OutboundEmail } from '../src/intake/mailer'
 
@@ -85,7 +85,8 @@ describe('send the reply to the customer', () => {
     await post(`/api/cases/${s.id}/run`)
     const p = primaryProposal(await theCase(s.id))!
     expect((await post(`/api/proposals/${p.id}/reject`, { ...cm, comment: 'The delivery note shows 20 KG signed for.' })).statusCode).toBe(204)
-    expect((await theCase(s.id)).status).toBe('rejected')
+    expect((await theCase(s.id)).status).toBe('closed')
+    expect(caseOutcome(await theCase(s.id))).toBe('rejected')
 
     // The generated draft promises the credit that was just refused: it is never the default here.
     const noText = await post(`/api/cases/${s.id}/reply`, cm)
@@ -113,6 +114,35 @@ describe('send the reply to the customer', () => {
     const none = setup(null)
     const s = (await none.post('/api/inbound', complaint)).json() as CaseSummary
     expect((await none.post(`/api/cases/${s.id}/reply`, cm)).statusCode).toBe(503)
+  })
+
+  it('an invoice not found in SAP still goes to a person, who approves or rejects, then replies', async () => {
+    for (const decision of ['approve', 'reject'] as const) {
+      const { m, sent } = fakeMailer()
+      const { post, theCase } = setup(m)
+      const s = (
+        await post('/api/inbound', {
+          ...complaint,
+          subject: 'Complaint on invoice 90009999',
+          text: 'Invoice 90009999: 2 KG of material 54 arrived damaged. Please credit.',
+        })
+      ).json() as CaseSummary
+      await post(`/api/cases/${s.id}/run`)
+      const c = await theCase(s.id)
+      expect(c.status).toBe('awaiting_approval')
+      const p = primaryProposal(c)!
+      expect(p.decision).toMatchObject({ ruleId: 'NONE', documentType: 'NONE' })
+      const lead = { actor: 'Lead', role: 'customer_service_lead' as const }
+      const r = await post(`/api/proposals/${p.id}/${decision}`, { ...lead, comment: 'Not in SAP' })
+      expect(r.statusCode).toBeLessThan(300)
+      expect((await theCase(s.id)).status).toBe('closed')
+      expect(caseOutcome(await theCase(s.id))).toBe(decision === 'approve' ? 'approved' : 'rejected')
+      const reply = await post(`/api/cases/${s.id}/reply`, { ...lead, text: 'We cannot find this invoice.' })
+      expect(reply.statusCode).toBe(200)
+      expect(sent).toHaveLength(1)
+      await ctx.app.close()
+    }
+    setup(null)
   })
 
   it('a failed send is recorded and can be retried', async () => {

@@ -24,13 +24,12 @@ export interface PipelineHost {
 
 const TERMINAL_OR_IDLE: CaseStatus[] = [
   'received',
-  'rejected',
   'closed',
   'duplicate',
   'needs_customer_input',
   'handed_over',
 ]
-const RUNNABLE: CaseStatus[] = ['received', 'awaiting_approval', 'needs_customer_input', 'handed_over', 'duplicate', 'rejected', 'sap_write_failed']
+const RUNNABLE: CaseStatus[] = ['received', 'awaiting_approval', 'needs_customer_input', 'handed_over', 'duplicate', 'sap_write_failed']
 
 function summarise(name: string, f: Findings): Record<string, unknown> {
   switch (name) {
