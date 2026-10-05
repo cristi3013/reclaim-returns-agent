@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { APPROVAL_THRESHOLDS, ROLE_LABELS, primaryProposal, type CaseSummary, type Role } from '@reclaim/shared'
 import { useCase, useCases } from '@/api'
 import { useUi } from '@/store/ui'
@@ -20,7 +20,11 @@ export function ApprovalsPage() {
   const rows = (q.data ?? [])
     .filter((r) => QUEUE_STATUSES.includes(r.status) && mine(r))
     .sort((a, b) => (a.status === 'awaiting_approval' ? 0 : 1) - (b.status === 'awaiting_approval' ? 0 : 1))
+  // Selection sticks to the case the person is working on, even after its status changes and it moves down the list.
   const selected = sel && rows.some((r) => r.id === sel) ? sel : (rows[0]?.id ?? '')
+  useEffect(() => {
+    if (!sel && rows[0]) setSel(rows[0].id)
+  }, [sel, rows])
   const detail = useCase(selected)
   const c = detail.data
   const p = c ? primaryProposal(c) : undefined
