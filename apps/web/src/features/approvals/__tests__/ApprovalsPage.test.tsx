@@ -103,3 +103,26 @@ describe('ApprovalsPage and roles', () => {
     expect((await api.getCase('case-08')).sapDocuments[0]!.goodsReceivedAt).toBeTruthy()
   })
 })
+
+describe('ApprovalsPage with two options', () => {
+  beforeEach(() => stubViewport('desktop'))
+
+  it('shows both options, the person picks one, then sends it to approval or decides it', async () => {
+    useUi.setState({ role: 'credit_manager' })
+    const api = await clientWithOneCaseAwaitingApproval()
+    mount(api)
+    const a = await screen.findByRole('radio', { name: /Option A/ })
+    const b = screen.getByRole('radio', { name: /Option B/ })
+    // The recommended option is picked to start with, with its policy text, and can be decided straight away.
+    expect(b.getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('button', { name: /^Approve/ })).toBeInTheDocument()
+
+    fireEvent.click(a)
+    expect(a.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Send to approval' }))
+    expect(await screen.findByRole('button', { name: /Option A sent to approval/ })).toBeInTheDocument()
+    const c = await api.getCase('case-01')
+    expect(c.proposals.find((p) => p.chosen)?.option).toBe('A')
+    expect(c.status).toBe('awaiting_approval')
+  })
+})

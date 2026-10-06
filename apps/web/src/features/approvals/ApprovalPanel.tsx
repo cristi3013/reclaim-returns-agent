@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { approverFor, caseOutcome, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
-import { useApprove, useConfirmGoodsReceipt, useReject, useRelease, useReturnStatus, type ApproveResult, type ReleaseResult } from '@/api'
+import { useApprove, useChoose, useConfirmGoodsReceipt, useReject, useRelease, useReturnStatus, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
-import { OptionPicker } from './OptionPicker'
+import { defaultOption } from './defaultOption'
+import { ProposalCard } from '@/features/case/ProposalCard'
 import { ReplyPanel } from '@/features/case/ReplyPanel'
 import { PayloadView } from '@/components/domain/PayloadView'
 import { StatusMenu } from '@/components/domain/StatusMenu'
@@ -12,16 +13,19 @@ import { RuleBadge } from '@/components/domain/RuleBadge'
 import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
 import { Button } from '@/components/ui/button'
 import { formatMoney, formatQty, formatRelative } from '@/lib/format'
-import { Archive, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react'
+import { Archive, Check, CheckCircle2, Clock, Send, XCircle, AlertTriangle } from 'lucide-react'
 
 const RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
 /** The case as an approver sees it: what happened, what we propose, then the decision. */
 export function ApprovalPanel({ c, p: first, role, actor }: { c: Case; p: Proposal; role: Role; actor: string }) {
-  // Two options: the person picks one, then approves or rejects that one.
-  const [pick, setPick] = useState(first.id)
+  // Two options: the person picks one, then sends it to approval, or approves or rejects it.
+  const [pick, setPick] = useState(defaultOption(c.proposals) ?? first.id)
+  const choose = useChoose()
   const p = c.proposals.find((x) => x.id === pick) ?? first
   const d = p.decision
+  const waiting = c.status === 'awaiting_approval'
+  const options = waiting && c.proposals.length > 1
   return (
     <aside className="rounded-lg border border-line bg-surface p-4 shadow-card">
       <div className="flex items-start gap-2">
@@ -37,7 +41,40 @@ export function ApprovalPanel({ c, p: first, role, actor }: { c: Case; p: Propos
         · {c.customerName} · invoice <span className="font-mono">{c.invoiceNumber ?? 'none'}</span>
       </div>
       <h2 className="mt-1 text-lg font-semibold">{c.subject}</h2>
-      {c.status === 'awaiting_approval' && <OptionPicker proposals={c.proposals} value={p.id} onChange={setPick} />}
+      {options && (
+        <div role="radiogroup" aria-label="Options" className="mt-3 space-y-3">
+          {c.proposals.map((x) => (
+            <ProposalCard
+              key={x.id}
+              proposal={x}
+              selected={x.id === p.id}
+              onSelect={choose.isPending ? undefined : () => setPick(x.id)}
+            />
+          ))}
+        </div>
+      )}
+      {options && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold">Option {p.option} selected</span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={p.chosen || choose.isPending}
+            onClick={() =>
+              choose.mutate(p.id, {
+                onSuccess: () => toast.success(`Option ${p.option} sent to approval`),
+                onError: (e) => toast.error(e instanceof Error ? e.message : 'Not sent'),
+              })
+            }
+          >
+            {p.chosen ? <Check className="size-4" /> : <Send className="size-4" />}
+            {p.chosen ? `Option ${p.option} sent to approval` : 'Send to approval'}
+          </Button>
+          <span className="text-xs text-muted">
+            {p.chosen ? 'It waits here for the approver.' : 'Or approve or reject it yourself, below.'}
+          </span>
+        </div>
+      )}
 
       <div className="mt-3 space-y-1.5 rounded-md border border-line border-l-4 border-l-muted/50 bg-surface-2 p-3 text-sm leading-relaxed">
         <div>
@@ -51,6 +88,7 @@ export function ApprovalPanel({ c, p: first, role, actor }: { c: Case; p: Propos
         </div>
       </div>
 
+      {!options && (
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <RuleBadge ruleId={d.ruleId} />
         <DocTypeBadge type={d.documentType} />
@@ -61,8 +99,9 @@ export function ApprovalPanel({ c, p: first, role, actor }: { c: Case; p: Propos
         )}
         {d.intercompany && <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Intercompany: flag for finance</span>}
       </div>
+      )}
 
-      <ApprovalActions key={p.id} c={c} p={p} role={role} actor={actor} showPayload showOutcome={false} />
+      <ApprovalActions key={p.id} c={c} p={p} role={role} actor={actor} showPayload={!options} showOutcome={false} />
     </aside>
   )
 }

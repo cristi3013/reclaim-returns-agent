@@ -1,9 +1,9 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useQueries } from '@tanstack/react-query'
-import { Check, ChevronRight, FileText, Play, Send } from 'lucide-react'
+import { ArrowRight, ChevronRight, FileText, Play } from 'lucide-react'
 import { toast } from 'sonner'
-import { useApi, useCase, useCases, useChoose, useRunCase, useStatus } from '@/api'
+import { useApi, useCase, useCases, useRunCase, useStatus } from '@/api'
 import {
   COMPLAINT_LABELS,
   ROLE_LABELS,
@@ -28,8 +28,6 @@ import { Conversation } from '@/components/domain/Conversation'
 import { Attachments } from '@/components/domain/Attachments'
 import { ReplyPanel } from './ReplyPanel'
 import { ApprovalActions } from '@/features/approvals/ApprovalPanel'
-import { defaultOption } from '@/features/approvals/OptionPicker'
-import { RuleBadge } from '@/components/domain/RuleBadge'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { AuditTimeline } from '@/features/audit/AuditTimeline'
@@ -45,10 +43,8 @@ export function CasePage() {
   const q = useCase(id)
   const list = useCases()
   const run = useRunCase()
-  const choose = useChoose()
   const status = useStatus()
   const { role } = useUi()
-  const [pick, setPick] = useState<string>()
   const api = useApi()
   const c = q.data
   // One case per invoice: the other complaints on it, for the switcher and the whole conversation.
@@ -68,15 +64,11 @@ export function CasePage() {
   const running = c.status === 'investigating' || c.status === 'proposed' || run.isPending
   const locked = c.sapDocuments.length > 0
   const waiting = c.status === 'awaiting_approval'
-  // Two options: while it waits, the person picks one, then sends it to approval or decides it here.
-  const primary = waiting
-    ? (c.proposals.find((p) => p.id === (pick ?? defaultOption(c.proposals))) ?? primaryProposal(c))
-    : primaryProposal(c)
+  const primary = primaryProposal(c)
   // No invoice number, nothing to decide: the case is only its emails until the customer names one.
   const noInvoice = !c.invoiceNumber
-  // Decide here as well as in the approvals queue: approve or reject, then the SAP result and the reply.
+  // Picking an option and approving happen in To approve; once decided, the SAP result and the reply are here.
   const decidable = !noInvoice && !!primary && DECISION_STATUSES.includes(c.status)
-  const sent = !!primary?.chosen
   // Once decided, the chosen option is what matters; the other folds away.
   const decided = two && !waiting && c.proposals.some((p) => p.chosen)
   const shown = decided ? c.proposals.filter((p) => p.chosen) : c.proposals
@@ -146,13 +138,6 @@ export function CasePage() {
             <FileText className="size-4" /> Audit PDF
           </Button>
           <StatusMenu c={c} role={role} actor={ROLE_LABELS[role]} size="default" />
-          {c.status === 'awaiting_approval' && (
-            <Button asChild variant="ghost">
-              <Link to="/approvals" search={{ case: c.id }}>
-                Open in To approve
-              </Link>
-            </Button>
-          )}
           <Button
             onClick={() =>
               run.mutate(id, {
@@ -230,9 +215,7 @@ export function CasePage() {
               title={two ? 'The options' : 'The proposal'}
               hint={
                 two
-                  ? waiting
-                    ? 'The agent found two options, each applying a policy rule. Select the one to go ahead with.'
-                    : 'The agent found two options, each applying a policy rule.'
+                  ? 'The agent found two options, each applying a policy rule.'
                   : 'The policy rule the agent applied, and what it would write to SAP.'
               }
             >
@@ -243,20 +226,9 @@ export function CasePage() {
                     : 'No proposal yet. Press Investigate.'}
                 </div>
               ) : (
-                <div
-                  role={two && waiting ? 'radiogroup' : undefined}
-                  aria-label={two && waiting ? 'Options' : undefined}
-                  className={shown.length > 1 ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}
-                >
+                <div className={shown.length > 1 ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
                   {shown.map((p) => (
-                    <ProposalCard
-                      key={p.id}
-                      proposal={p}
-                      selected={two && waiting && p.id === primary?.id}
-                      onSelect={
-                        two && waiting && !choose.isPending ? () => setPick(p.id) : undefined
-                      }
-                    />
+                    <ProposalCard key={p.id} proposal={p} />
                   ))}
                 </div>
               )}
@@ -273,64 +245,33 @@ export function CasePage() {
               ))}
             </Step>
 
-            {decidable && primary ? (
-              <Step
-                n={3}
-                title={waiting ? 'Your decision' : 'Decision'}
-                hint={
-                  waiting && primary.decision.approverRole
-                    ? `Needs a ${ROLE_LABELS[primary.decision.approverRole]} or above to approve.`
-                    : undefined
-                }
-              >
+            {decidable && primary && waiting ? (
+              <Step n={3} title="Your decision">
                 <section
                   aria-label="Decision"
-                  className={`rounded-lg border bg-surface p-4 shadow-card ${
-                    waiting ? 'border-accent border-l-4' : 'border-line'
-                  }`}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-l-4 border-accent bg-surface p-4 shadow-card"
                 >
-                  {waiting && two && (
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <span className="font-semibold">Option {primary.option} selected</span>
-                      <RuleBadge ruleId={primary.decision.ruleId} />
-                      <DocTypeBadge type={primary.decision.documentType} />
-                      <span className="text-xs text-muted">
-                        Select the other card above to change it.
-                      </span>
-                    </div>
-                  )}
-                  {waiting && <p className="mt-2 text-sm">{primary.briefing.whatWePropose}</p>}
-                  {waiting && two && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Button
-                        variant="outline"
-                        disabled={sent || choose.isPending}
-                        onClick={() =>
-                          choose.mutate(primary.id, {
-                            onSuccess: () =>
-                              toast.success(`Option ${primary.option} sent to approval`),
-                            onError: (e) =>
-                              toast.error(e instanceof Error ? e.message : 'Not sent'),
-                          })
-                        }
-                      >
-                        {sent ? <Check className="size-4" /> : <Send className="size-4" />}
-                        {sent ? `Option ${primary.option} sent to approval` : 'Send to approval'}
-                      </Button>
-                      <span className="text-xs text-muted">
-                        {sent
-                          ? 'It waits in To approve for the approver.'
-                          : 'Or approve or reject it yourself, below.'}
-                      </span>
-                    </div>
-                  )}
-                  <ApprovalActions
-                    key={primary.id}
-                    c={c}
-                    p={primary}
-                    role={role}
-                    actor={ROLE_LABELS[role]}
-                  />
+                  <p className="min-w-0 flex-1 text-sm">
+                    {two
+                      ? 'Pick an option, send it to approval, or approve or reject it, in To approve.'
+                      : 'Approve or reject the proposal in To approve.'}
+                    {primary.decision.approverRole &&
+                      ` Needs a ${ROLE_LABELS[primary.decision.approverRole]} or above to approve.`}
+                  </p>
+                  <Button asChild>
+                    <Link to="/approvals" search={{ case: c.id }}>
+                      Decide in To approve <ArrowRight className="size-4" />
+                    </Link>
+                  </Button>
+                </section>
+              </Step>
+            ) : decidable && primary ? (
+              <Step n={3} title="Decision">
+                <section
+                  aria-label="Decision"
+                  className="rounded-lg border border-line bg-surface p-4 shadow-card"
+                >
+                  <ApprovalActions c={c} p={primary} role={role} actor={ROLE_LABELS[role]} />
                 </section>
               </Step>
             ) : (

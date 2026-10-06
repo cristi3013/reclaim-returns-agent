@@ -113,7 +113,7 @@ it('a customer reply in the same thread joins the case and shows as a conversati
   expect(emails.textContent).not.toContain('Which invoice?')
 })
 
-it('two options: both are shown, the person picks one, then sends it to approval or decides it', async () => {
+it('two options: both are shown on the case, the decision is in To approve', async () => {
   localStorage.clear()
   useUi.getState().setRole('credit_manager')
   const api = new MockApiClient({ fast: true })
@@ -147,19 +147,13 @@ it('two options: both are shown, the person picks one, then sends it to approval
     </QueryClientProvider>,
   )
 
-  const a = await screen.findByRole('radio', { name: /Option A/ })
-  const b = screen.getByRole('radio', { name: /Option B/ })
-  // The recommended option is picked to start with, and it can be approved or rejected straight away.
-  expect(b.getAttribute('aria-checked')).toBe('true')
-  expect(screen.getByRole('button', { name: /Approve/ })).toBeTruthy()
-
-  fireEvent.click(a)
-  expect(a.getAttribute('aria-checked')).toBe('true')
-  fireEvent.click(screen.getByRole('button', { name: 'Send to approval' }))
-  expect(await screen.findByRole('button', { name: /Option A sent to approval/ })).toBeTruthy()
-  const c = await api.getCase('case-01')
-  expect(c.proposals.find((p) => p.chosen)?.option).toBe('A')
-  expect(c.status).toBe('awaiting_approval')
+  // Both options are shown here, read only; picking one and deciding happen in To approve.
+  expect(await screen.findByRole('article', { name: 'Option A' })).toBeTruthy()
+  expect(screen.getByRole('article', { name: 'Option B' })).toBeTruthy()
+  expect(screen.queryByRole('radio')).toBeNull()
+  expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull()
+  const link = screen.getByRole('link', { name: /Decide in To approve/ })
+  expect(link.getAttribute('href')).toBe('/approvals?case=case-01')
 })
 
 it('one case per invoice: a later email shows the switcher and every email on the invoice', async () => {
