@@ -180,6 +180,8 @@ Three channels, all ending in `service.ingestInbound()` and, unless `INBOUND_AUT
 
 **Pending and back to Open.** `statusAfterProposal` in `rules.ts`: with no invoice named and no likely match, the case goes to Pending (`needs_customer_input`) and the suggested reply asks for the invoice. R7 and R9 go to Pending too. Only the customer's answer moves a Pending case back to Open (`received`), and the automatic run investigates it again with the whole thread, so an invoice number in the reply takes it on to approval. An invoice named but not in SAP still goes to a person (it may be a typo).
 
+**Replying.** Two kinds of email leave a case (`packages/shared/src/reply.ts`). The decision reply goes once, after a person approved or rejected, with the SAP reference added by code. A message (`POST /api/cases/:id/reply` with `kind: 'message'`) goes at any status and as often as needed, in the same thread, without touching SAP or the decision reply. `GET /api/cases/:id/reply-suggestion` drafts the next email from every email with the customer about the invoice (this thread and the other cases on the invoice from the same domain): the facts come from code (`replyFacts`), the model only words them, and wording with a number that is in none of the emails or facts falls back to the template.
+
 ## 10. Live updates
 
 `GET /api/events` is Server-Sent Events: `data: {"type":"case_changed","id":"case-01"}` or `{"type":"status_changed"}`, with `: ping` comments every 25 s. The frontend invalidates its queries on every event and falls back to polling if SSE is unavailable.
