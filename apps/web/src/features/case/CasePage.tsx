@@ -1,8 +1,9 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { ChevronRight, FileText, Play } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCase, useChoose, useRunCase, useStatus } from '@/api'
-import { ROLE_LABELS, conversation, primaryProposal } from '@reclaim/shared'
+import { useCase, useCases, useChoose, useRunCase, useStatus } from '@/api'
+import { ROLE_LABELS, caseStatusByComplaint, conversation, primaryProposal } from '@reclaim/shared'
+import { CHIP } from '@/features/invoice-cases/status'
 import { useUi } from '@/store/ui'
 import { StatusMenu } from '@/components/domain/StatusMenu'
 import { exportCaseAuditPack } from '@/features/reports/export'
@@ -26,6 +27,7 @@ const DECISION_STATUSES = ['awaiting_approval', 'written_to_sap', 'sap_write_fai
 export function CasePage() {
   const { id } = useParams({ from: '/cases/$id' })
   const q = useCase(id)
+  const list = useCases()
   const run = useRunCase()
   const choose = useChoose()
   const status = useStatus()
@@ -57,7 +59,10 @@ export function CasePage() {
           </nav>
           <h1 className="truncate text-2xl font-semibold tracking-tight">{c.subject}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
-            <StatusChip status={c.status} />
+            {/* The status of the case: the same for every complaint and email on this invoice. */}
+            <StatusChip
+              status={CHIP[caseStatusByComplaint(list.data ?? []).get(c.id) ?? 'pending']}
+            />
             {c.invoiceNumber && (
               <Link
                 to="/invoices/$invoice"

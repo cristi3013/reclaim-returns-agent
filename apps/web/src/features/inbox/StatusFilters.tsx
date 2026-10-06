@@ -1,23 +1,26 @@
-import { CASE_STATUSES, STATUS_LABELS, type CaseSummary } from '@reclaim/shared'
+import { INVOICE_CASE_LABELS, type CaseSummary, type InvoiceCaseStatus } from '@reclaim/shared'
 import { cn } from '@/lib/utils'
-import { matchesStatus, type StatusFilter } from './view'
+import { CASE_FILTERS, matchesStatus, type StatusFilter } from './view'
 
-/** One chip per status that has cases, with its count; "Needs action" groups what waits on a person. */
+/** One chip per case status (Open, Pending, Closed) with its count; "Needs action" groups what waits on a person. */
 export function StatusFilters({
   rows,
+  caseStatus,
   value,
   onChange,
 }: {
   rows: CaseSummary[]
+  caseStatus: Map<string, InvoiceCaseStatus>
   value: StatusFilter
   onChange: (f: StatusFilter) => void
 }) {
-  const count = (f: StatusFilter) => rows.filter((r) => matchesStatus(r, f)).length
-  const present = CASE_STATUSES.filter((s) => s === value || rows.some((r) => r.status === s))
+  const count = (f: StatusFilter) =>
+    rows.filter((r) => matchesStatus(r, f, caseStatus.get(r.id))).length
+  const present = CASE_FILTERS.filter((s) => s === value || count(s) > 0)
   const chips: { f: StatusFilter; label: string }[] = [
     { f: '', label: 'All' },
     { f: 'action', label: 'Needs action' },
-    ...present.map((s) => ({ f: s, label: STATUS_LABELS[s] })),
+    ...present.map((s) => ({ f: s, label: INVOICE_CASE_LABELS[s] })),
   ]
   return (
     <div role="group" aria-label="Filter by status" className="mb-3 flex flex-wrap gap-1.5">

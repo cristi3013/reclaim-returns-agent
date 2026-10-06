@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
+import { caseStatusByComplaint } from '@reclaim/shared'
 import { useCases, useSeed, useStatus } from '@/api'
 import { InboxToolbar } from './InboxToolbar'
 import { InboxTable } from './InboxTable'
@@ -30,9 +31,11 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
   const [intercompany, setIntercompany] = useState(initialIntercompany)
   const { inboxSort: sort, setInboxSort, inboxStatus: status, setInboxStatus } = useUi()
   const all = useMemo(() => q.data ?? [], [q.data])
+  // One status per case: every email on the same invoice shows, and filters by, the status of its case.
+  const caseStatus = useMemo(() => caseStatusByComplaint(all), [all])
   const searched = all.filter((r) => matchesQuery(r, query) && (!intercompany || r.intercompany))
   const rows = sortRows(
-    searched.filter((r) => matchesStatus(r, status)),
+    searched.filter((r) => matchesStatus(r, status, caseStatus.get(r.id))),
     sort,
   )
   const filtered = Boolean(query.trim() || status || intercompany)
@@ -53,7 +56,7 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
             {pending > 0 && (
               <button
                 type="button"
-                onClick={() => setInboxStatus('awaiting_approval')}
+                onClick={() => setInboxStatus('action')}
                 className="rounded-full bg-warn-soft px-2.5 py-1 font-medium text-warn hover:underline"
               >
                 {pending} waiting for approval
@@ -85,7 +88,7 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
         onIntercompany={setIntercompany}
         hasCases={all.length > 0}
       />
-      {all.length > 0 && <StatusFilters rows={searched} value={status} onChange={setInboxStatus} />}
+      {all.length > 0 && <StatusFilters rows={searched} caseStatus={caseStatus} value={status} onChange={setInboxStatus} />}
       {q.isLoading ? (
         <Skeleton className="h-64" />
       ) : q.error ? (
@@ -108,7 +111,7 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
         />
       ) : (
         <>
-          <InboxTable rows={pager.pageRows} onOpen={onOpen} sort={sort} onSort={setInboxSort} />
+          <InboxTable rows={pager.pageRows} caseStatus={caseStatus} onOpen={onOpen} sort={sort} onSort={setInboxSort} />
           <Pagination page={pager.page} pages={pager.pages} pageSize={pager.pageSize} total={pager.total} onPage={pager.setPage} onPageSize={pager.setPageSize} noun="complaints" />
           {filtered && (
             <p className="mt-1 text-xs text-muted">

@@ -101,3 +101,14 @@ export function invoiceConversation(cases: Case[]): InvoiceMessage[] {
     )
     .sort((a, b) => a.at.localeCompare(b.at))
 }
+
+/**
+ * The status of the case each complaint belongs to, by complaint id: one status for every email on the invoice.
+ * A complaint without an invoice yet waits for the customer to name one: Pending.
+ */
+export function caseStatusByComplaint(rows: CaseSummary[]): Map<string, InvoiceCaseStatus> {
+  const out = new Map<string, InvoiceCaseStatus>()
+  for (const ic of groupByInvoice(rows)) for (const c of ic.complaints) out.set(c.id, ic.status)
+  for (const r of rows) if (!out.has(r.id)) out.set(r.id, 'pending')
+  return out
+}

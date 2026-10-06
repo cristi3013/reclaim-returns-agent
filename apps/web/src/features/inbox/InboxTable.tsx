@@ -1,9 +1,10 @@
-import { COMPLAINT_LABELS, ROLE_LABELS, type CaseSummary } from '@reclaim/shared'
+import { COMPLAINT_LABELS, ROLE_LABELS, type CaseSummary, type InvoiceCaseStatus } from '@reclaim/shared'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { RuleBadge } from '@/components/domain/RuleBadge'
 import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { formatDateTime, formatMoney, formatRelative } from '@/lib/format'
+import { CHIP } from '@/features/invoice-cases/status'
 import { isFresh, lastActivity, toggleSort, type InboxSort, type SortKey } from './view'
 
 const th = 'px-3 py-2 text-left font-semibold'
@@ -43,11 +44,13 @@ function SortTh({
 
 export function InboxTable({
   rows,
+  caseStatus,
   onOpen,
   sort,
   onSort,
 }: {
   rows: CaseSummary[]
+  caseStatus?: Map<string, InvoiceCaseStatus>
   onOpen: (id: string) => void
   sort: InboxSort
   onSort: (s: InboxSort) => void
@@ -62,7 +65,7 @@ export function InboxTable({
               Received
             </SortTh>
             <th className={th}>Complaint</th>
-            <th className={th}>Status</th>
+            <th className={th}>Case status</th>
             <th className={th}>Invoice</th>
             <th className={th}>Type</th>
             <th className={th}>Rule</th>
@@ -107,7 +110,7 @@ export function InboxTable({
                 <div className="max-w-[17rem] truncate text-xs text-muted">{r.from}</div>
               </td>
               <td className="px-3 py-2">
-                <StatusChip status={r.status} />
+                <StatusChip status={CHIP[caseStatus?.get(r.id) ?? 'pending']} />
               </td>
               <td className="px-3 py-2 font-mono">
                 {r.invoiceNumber ?? <span className="text-muted">none</span>}

@@ -48,7 +48,12 @@ export const useUi = create<UiState>((set) => ({
   theme: initialTheme,
   navCollapsed: read<boolean>('reclaim.nav', false),
   inboxSort: read<InboxSort>('reclaim.inbox.sort', DEFAULT_SORT),
-  inboxStatus: read<StatusFilter>('reclaim.inbox.status', ''),
+  // An older build saved a complaint status here; only the case filters are valid now.
+  inboxStatus: (['action', 'open', 'pending', 'closed'] as string[]).includes(
+    read<string>('reclaim.inbox.status', ''),
+  )
+    ? read<StatusFilter>('reclaim.inbox.status', '')
+    : '',
   setRole: (role) => {
     write('reclaim.role', role)
     set({ role })
