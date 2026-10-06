@@ -9,8 +9,11 @@ export function ProposalCard({
   proposal: p,
   canChoose = false,
   onChoose,
+  selected = false,
 }: {
   proposal: Proposal
+  /** The option picked in the decision box. */
+  selected?: boolean
   canChoose?: boolean
   onChoose?: (id: string) => void
 }) {
@@ -18,7 +21,8 @@ export function ProposalCard({
   const twoOption = p.option !== 'single'
   return (
     <article
-      className={`rounded-lg border bg-surface p-4 shadow-card ${twoOption && p.recommended ? 'border-accent' : 'border-line'}`}
+      aria-label={twoOption ? `Option ${p.option}` : 'Proposal'}
+      className={`rounded-lg border bg-surface p-4 shadow-card ${twoOption && p.recommended ? 'border-accent' : 'border-line'} ${selected ? 'ring-2 ring-accent' : ''}`}
     >
       <header className="flex flex-wrap items-center gap-2">
         {twoOption && <span className="font-semibold">Option {p.option}</span>}
@@ -28,6 +32,7 @@ export function ProposalCard({
           <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-medium text-green">Recommended</span>
         )}
         {twoOption && p.chosen && <span className="rounded bg-ok-soft px-2 py-0.5 text-xs text-ok">Chosen</span>}
+        {selected && <span className="rounded bg-surface-2 px-2 py-0.5 text-xs font-medium">Picked</span>}
         {d.intercompany && <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Intercompany</span>}
         {d.requiresCustomerConfirmation && (
           <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Customer must confirm</span>

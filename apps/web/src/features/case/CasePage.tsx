@@ -275,11 +275,11 @@ export function CasePage() {
           <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />
         </section>
       ) : (
-        // The conversation and the proposal get the room; SAP and what the agent read sit beside them.
+        // The proposal and the conversation get the room; SAP and what the agent read sit beside them.
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
-            <ComplaintPanel c={c} invoiceMessages={invoiceMessages} />
-            <section className="mt-4">
+            {/* The options in full, policy text and all, right under the decision. */}
+            <section>
               <h2 className="mb-2 text-base font-semibold text-fg">
                 {two ? 'Proposal · two options, a person chooses' : 'Proposal'}
               </h2>
@@ -292,12 +292,19 @@ export function CasePage() {
               ) : (
                 <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
                   {c.proposals.map((p) => (
-                    <ProposalCard key={p.id} proposal={p} />
+                    <ProposalCard
+                      key={p.id}
+                      proposal={p}
+                      selected={two && waiting && p.id === primary?.id}
+                    />
                   ))}
                 </div>
               )}
-              {!decidable && <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />}
             </section>
+            <div className="mt-4">
+              <ComplaintPanel c={c} invoiceMessages={invoiceMessages} />
+            </div>
+            {!decidable && <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />}
           </div>
           <aside aria-label="Case facts" className="space-y-4 lg:sticky lg:top-4">
             <AgentReadPanel c={c} />
