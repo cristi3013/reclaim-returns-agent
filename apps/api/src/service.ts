@@ -551,6 +551,17 @@ export class Service {
   /** Removing billing block 08 is the credit decision itself: same role as the approval, once, and for a return only after the goods arrived. */
   async release(documentId: string, input: ReleaseInput): Promise<Outcome<SapDocument>> {
     const { c, d } = this.store.locateDocument(documentId)
+    // The check below and the write happen across an await: hold the case so a second click cannot release twice.
+    if (this.writing.has(c.id)) return { ok: false, status: 409, message: `${d.type} ${d.number} is being released. Try again in a moment.` }
+    this.writing.add(c.id)
+    try {
+      return await this.releaseHeld(c, d, input)
+    } finally {
+      this.writing.delete(c.id)
+    }
+  }
+
+  private async releaseHeld(c: Case, d: SapDocument, input: ReleaseInput): Promise<Outcome<SapDocument>> {
     const step = d.type === 'YRE' ? '5.1.3' : '5.2.1'
     if (d.released) return { ok: false, status: 409, message: `${d.type} ${d.number} is already released.` }
     const required = primaryProposal(c)?.decision.approverRole ?? 'credit_manager'
@@ -563,7 +574,7 @@ export class Service {
     let goodsReceipt: 'not required' | 'confirmed by SAP' | 'confirmed by the Returns desk' = 'not required'
     let warehouse: ReturnStatus | null = null
     if (d.type === 'YRE') {
-      warehouse = await this.returnStatus(documentId)
+      warehouse = await this.returnStatus(d.id)
       if (warehouse.received && warehouse.source === 'sap') goodsReceipt = 'confirmed by SAP'
       else if (d.goodsReceivedAt) goodsReceipt = 'confirmed by the Returns desk'
       else {
