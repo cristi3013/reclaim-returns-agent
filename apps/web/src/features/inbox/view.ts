@@ -1,4 +1,4 @@
-import type { CaseStatus, CaseSummary, InvoiceCaseStatus } from '@reclaim/shared'
+import type { CaseSummary } from '@reclaim/shared'
 
 export type SortKey = 'activity' | 'received' | 'amount'
 export type SortDir = 'asc' | 'desc'
@@ -16,27 +16,9 @@ export const SORT_OPTIONS: { value: string; label: string; sort: InboxSort }[] =
   { value: 'amount:desc', label: 'Highest amount', sort: { key: 'amount', dir: 'desc' } },
 ]
 
-/** Statuses that wait on us: approve, or retry the SAP write. Pending waits on the customer. */
-export const NEEDS_ACTION: readonly CaseStatus[] = ['awaiting_approval', 'sap_write_failed']
-
-/** '' is every email, 'action' the ones in NEEDS_ACTION, anything else the status of their case. */
-export type StatusFilter = '' | 'action' | InvoiceCaseStatus
-
-export const CASE_FILTERS: readonly InvoiceCaseStatus[] = ['open', 'pending', 'closed']
-
 /** The last time anything happened on the case: received, or updated since. */
 export function lastActivity(r: CaseSummary): string {
   return r.updatedAt > r.receivedAt ? r.updatedAt : r.receivedAt
-}
-
-export function matchesStatus(
-  r: CaseSummary,
-  f: StatusFilter,
-  caseStatus: InvoiceCaseStatus | undefined,
-): boolean {
-  if (!f) return true
-  if (f === 'action') return NEEDS_ACTION.includes(r.status)
-  return caseStatus === f
 }
 
 export function matchesQuery(r: CaseSummary, query: string): boolean {

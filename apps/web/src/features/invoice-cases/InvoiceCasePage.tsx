@@ -73,11 +73,6 @@ export function InvoiceCasePage() {
         </h1>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
           <StatusChip status={CHIP[ic.status]} />
-          {ic.reopened && (
-            <span className="rounded bg-info-soft px-1.5 py-0.5 text-xs font-medium text-info">
-              Reopened
-            </span>
-          )}
           <span>{ic.customerName}</span>
           <span>
             {ic.complaints.length} complaint{ic.complaints.length === 1 ? '' : 's'} ·{' '}
@@ -161,7 +156,6 @@ export function InvoiceCasePage() {
                   <span>
                     Complaint {i + 1} · {formatDateTime(s.receivedAt)}
                   </span>
-                  <StatusChip status={s.status} />
                 </div>
                 <div className="mt-1 truncate text-sm font-medium">{s.subject}</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">

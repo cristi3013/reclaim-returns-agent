@@ -1,26 +1,22 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { ArrowRight, ChevronRight } from 'lucide-react'
-import { caseStatusByComplaint, conversation } from '@reclaim/shared'
-import { useCase, useCases } from '@/api'
+import { conversation } from '@reclaim/shared'
+import { useCase } from '@/api'
 import { Attachments } from '@/components/domain/Attachments'
 import { ErrorState } from '@/components/domain/ErrorState'
-import { StatusChip } from '@/components/domain/StatusChip'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/format'
-import { CHIP } from '@/features/invoice-cases/status'
 
 /** One email from the Inbox, as it arrived. The conversation, the proposal and the decision are on the case. */
 export function EmailPage() {
   const { id } = useParams({ from: '/inbox/$id' })
   const q = useCase(id)
-  const list = useCases()
   const c = q.data
   if (q.isLoading) return <Skeleton className="h-96" />
   if (q.error || !c)
     return <ErrorState error={q.error ?? 'Email not found'} onRetry={() => q.refetch()} />
   const more = conversation(c).length - 1
-  const status = caseStatusByComplaint(list.data ?? []).get(c.id) ?? 'pending'
   return (
     <div>
       <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1 text-xs text-muted">
@@ -47,10 +43,6 @@ export function EmailPage() {
           <dt className="text-muted">Invoice</dt>
           <dd className="font-mono">
             {c.invoiceNumber ?? <span className="font-sans text-warn">none yet</span>}
-          </dd>
-          <dt className="text-muted">Case</dt>
-          <dd>
-            <StatusChip status={CHIP[status]} />
           </dd>
         </dl>
         <pre className="mt-4 whitespace-pre-wrap border-t border-line pt-4 font-sans text-sm leading-relaxed">

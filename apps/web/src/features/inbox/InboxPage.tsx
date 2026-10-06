@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { caseStatusByComplaint } from '@reclaim/shared'
 import { useCases, useSeed, useStatus } from '@/api'
 import { InboxToolbar } from './InboxToolbar'
 import { InboxTable } from './InboxTable'
 import { Pagination, usePagination } from '@/components/domain/Pagination'
-import { StatusFilters } from './StatusFilters'
-import { matchesQuery, matchesStatus, sortRows } from './view'
+import { matchesQuery, sortRows } from './view'
 import { useUi } from '@/store/ui'
 import { EmptyState } from '@/components/domain/EmptyState'
 import { PageHeader } from '@/components/domain/PageHeader'
@@ -18,31 +16,40 @@ import { formatRelative } from '@/lib/format'
 export function InboxPage() {
   const nav = useNavigate()
   const search = useSearch({ strict: false }) as { filter?: 'intercompany' }
-  return <InboxView onOpen={(id) => nav({ to: '/inbox/$id', params: { id } })} initialIntercompany={search.filter === 'intercompany'} />
+  return (
+    <InboxView
+      onOpen={(id) => nav({ to: '/inbox/$id', params: { id } })}
+      onApprovals={() => nav({ to: '/approvals' })}
+      initialIntercompany={search.filter === 'intercompany'}
+    />
+  )
 }
 
 /** Hooks, toolbar and table without a router dependency, so it can be tested on its own. */
-export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id: string) => void; initialIntercompany?: boolean }) {
+export function InboxView({
+  onOpen,
+  onApprovals,
+  initialIntercompany = false,
+}: {
+  onOpen: (id: string) => void
+  onApprovals?: () => void
+  initialIntercompany?: boolean
+}) {
   const q = useCases()
   const seed = useSeed()
   const { data: agent } = useStatus()
   const [query, setQuery] = useState('')
   // Intercompany (step 5.2.2): the finance view, reachable from the dashboard tile.
   const [intercompany, setIntercompany] = useState(initialIntercompany)
-  const { inboxSort: sort, setInboxSort, inboxStatus: status, setInboxStatus } = useUi()
+  const { inboxSort: sort, setInboxSort } = useUi()
   const all = useMemo(() => q.data ?? [], [q.data])
-  // One status per case: every email on the same invoice shows, and filters by, the status of its case.
-  const caseStatus = useMemo(() => caseStatusByComplaint(all), [all])
   const searched = all.filter((r) => matchesQuery(r, query) && (!intercompany || r.intercompany))
-  const rows = sortRows(
-    searched.filter((r) => matchesStatus(r, status, caseStatus.get(r.id))),
-    sort,
-  )
-  const filtered = Boolean(query.trim() || status || intercompany)
-  const pager = usePagination(rows, 25, `${query}|${status}|${intercompany}|${sort.key}:${sort.dir}`)
+  // Emails have no status of their own: the status belongs to the case, on the Cases page.
+  const rows = sortRows(searched, sort)
+  const filtered = Boolean(query.trim() || intercompany)
+  const pager = usePagination(rows, 25, `${query}|${intercompany}|${sort.key}:${sort.dir}`)
   const clear = () => {
     setQuery('')
-    setInboxStatus('')
     setIntercompany(false)
   }
   const pending = all.filter((r) => r.status === 'awaiting_approval').length
@@ -56,7 +63,7 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
             {pending > 0 && (
               <button
                 type="button"
-                onClick={() => setInboxStatus('action')}
+                onClick={onApprovals}
                 className="rounded-full bg-warn-soft px-2.5 py-1 font-medium text-warn hover:underline"
               >
                 {pending} waiting for approval
@@ -88,7 +95,6 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
         onIntercompany={setIntercompany}
         hasCases={all.length > 0}
       />
-      {all.length > 0 && <StatusFilters rows={searched} caseStatus={caseStatus} value={status} onChange={setInboxStatus} />}
       {q.isLoading ? (
         <Skeleton className="h-64" />
       ) : q.error ? (
@@ -111,7 +117,7 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
         />
       ) : (
         <>
-          <InboxTable rows={pager.pageRows} caseStatus={caseStatus} onOpen={onOpen} sort={sort} onSort={setInboxSort} />
+          <InboxTable rows={pager.pageRows} onOpen={onOpen} sort={sort} onSort={setInboxSort} />
           <Pagination page={pager.page} pages={pager.pages} pageSize={pager.pageSize} total={pager.total} onPage={pager.setPage} onPageSize={pager.setPageSize} noun="complaints" />
           {filtered && (
             <p className="mt-1 text-xs text-muted">

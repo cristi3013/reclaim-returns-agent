@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Role } from '@reclaim/shared'
-import { DEFAULT_SORT, type InboxSort, type StatusFilter } from '@/features/inbox/view'
+import { DEFAULT_SORT, type InboxSort } from '@/features/inbox/view'
 
 export type Theme = 'light' | 'dark' | 'system'
 
@@ -9,12 +9,10 @@ interface UiState {
   theme: Theme
   navCollapsed: boolean
   inboxSort: InboxSort
-  inboxStatus: StatusFilter
   setRole: (r: Role) => void
   setTheme: (t: Theme) => void
   toggleNav: () => void
   setInboxSort: (s: InboxSort) => void
-  setInboxStatus: (f: StatusFilter) => void
 }
 
 function applyTheme(t: Theme) {
@@ -48,12 +46,6 @@ export const useUi = create<UiState>((set) => ({
   theme: initialTheme,
   navCollapsed: read<boolean>('reclaim.nav', false),
   inboxSort: read<InboxSort>('reclaim.inbox.sort', DEFAULT_SORT),
-  // An older build saved a complaint status here; only the case filters are valid now.
-  inboxStatus: (['action', 'open', 'pending', 'closed'] as string[]).includes(
-    read<string>('reclaim.inbox.status', ''),
-  )
-    ? read<StatusFilter>('reclaim.inbox.status', '')
-    : '',
   setRole: (role) => {
     write('reclaim.role', role)
     set({ role })
@@ -71,9 +63,5 @@ export const useUi = create<UiState>((set) => ({
   setInboxSort: (inboxSort) => {
     write('reclaim.inbox.sort', inboxSort)
     set({ inboxSort })
-  },
-  setInboxStatus: (inboxStatus) => {
-    write('reclaim.inbox.status', inboxStatus)
-    set({ inboxStatus })
   },
 }))

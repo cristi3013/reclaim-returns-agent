@@ -71,19 +71,7 @@ export function InvoiceCasesPage() {
                 >
                   <td className="px-3 py-2 font-mono font-medium">{c.invoice}</td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    <span className="inline-flex items-center gap-1.5">
-                      <StatusChip status={CHIP[c.status]} />
-                      {c.reopened && (
-                        <span className="rounded bg-info-soft px-1.5 py-0.5 text-[11px] font-medium text-info">
-                          Reopened
-                        </span>
-                      )}
-                      {c.awaitingApproval > 0 && (
-                        <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-warn">
-                          {c.awaitingApproval} to approve
-                        </span>
-                      )}
-                    </span>
+                    <StatusChip status={CHIP[c.status]} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
                     {c.customerName ?? '–'}
@@ -92,7 +80,14 @@ export function InvoiceCasesPage() {
                     )}
                   </td>
                   <td className="max-w-[20rem] truncate px-3 py-2">{c.subject}</td>
-                  <td className="px-3 py-2 text-right tnum">{c.complaints.length}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tnum">
+                    {c.complaints.length}
+                    {c.awaitingApproval > 0 && (
+                      <span className="ml-1 text-xs text-muted">
+                        · {c.awaitingApproval} to approve
+                      </span>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 tnum text-muted">
                     {formatDateTime(c.openedAt).replace(/ \d{4}/, '')}
                   </td>

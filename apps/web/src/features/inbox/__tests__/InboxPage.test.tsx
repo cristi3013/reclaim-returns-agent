@@ -24,23 +24,12 @@ it('shows the empty state, seeds, lists eight rows', async () => {
   expect(screen.getAllByText(/Complaint on invoice 90000353/)).toHaveLength(2)
 })
 
-it('filters by status chip, remembers it, and clears', async () => {
+it('emails have no status of their own: no status column, no status filters', async () => {
   localStorage.clear()
   wrap(<InboxView onOpen={() => {}} />)
   const seedButtons = await screen.findAllByRole('button', { name: /load demo complaints/i })
   fireEvent.click(seedButtons[seedButtons.length - 1]!)
   await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(9))
-  // The chips are case statuses: an email without an invoice yet belongs to a Pending case.
-  const open = screen.getByRole('button', { name: /^Open \d+$/ })
-  const n = Number(open.textContent!.replace(/\D/g, ''))
-  expect(n).toBeGreaterThan(0)
-  expect(screen.getByRole('button', { name: /^Pending \d+$/ })).toBeTruthy()
-  fireEvent.click(open)
-  expect(localStorage.getItem('reclaim.inbox.status')).toBe('"open"')
-  expect(screen.getByText(new RegExp(`${n} of 8 complaints match`))).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: /^Needs action 0$/ }))
-  expect(await screen.findByText('No matches')).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-  await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(9))
-  expect(localStorage.getItem('reclaim.inbox.status')).toBe('""')
+  expect(screen.queryByRole('columnheader', { name: /status/i })).toBeNull()
+  expect(screen.queryByRole('group', { name: 'Filter by status' })).toBeNull()
 })
