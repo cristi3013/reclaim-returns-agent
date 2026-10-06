@@ -32,7 +32,7 @@ it('filters by status chip, remembers it, and clears', async () => {
   await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(9))
   fireEvent.click(screen.getByRole('button', { name: /^Open \d+$/ }))
   expect(localStorage.getItem('reclaim.inbox.status')).toBe('"received"')
-  expect(screen.getByText(/Showing 8 of 8/)).toBeTruthy()
+  expect(screen.getByText(/8 of 8 complaints match/)).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: /^Needs action 0$/ }))
   expect(await screen.findByText('No matches')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))

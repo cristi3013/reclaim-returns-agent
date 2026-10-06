@@ -10,6 +10,7 @@ import { ApprovalPanel } from './ApprovalPanel'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { RuleBadge } from '@/components/domain/RuleBadge'
 import { EmptyState } from '@/components/domain/EmptyState'
+import { Pagination, usePagination } from '@/components/domain/Pagination'
 import { PageHeader } from '@/components/domain/PageHeader'
 import { formatMoney, formatRelative } from '@/lib/format'
 
@@ -55,6 +56,7 @@ export function ApprovalsPage() {
   const c = detail.data
   const p = c ? primaryProposal(c) : undefined
   const waiting = rows.filter((r) => r.status === 'awaiting_approval').length
+  const pager = usePagination(rows, 10, `${role}|${all}`)
   const panel = c && p ? <ApprovalPanel key={c.id} c={c} p={p} role={role} actor={ROLE_LABELS[role]} /> : <div />
   if (mobile && opened) {
     return (
@@ -109,8 +111,9 @@ export function ApprovalsPage() {
         )
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="min-w-0">
           <ul className="space-y-2">
-            {rows.map((r) => (
+            {pager.pageRows.map((r) => (
               <li key={r.id}>
                 <button
                   type="button"
@@ -148,6 +151,8 @@ export function ApprovalsPage() {
               </li>
             ))}
           </ul>
+          <Pagination page={pager.page} pages={pager.pages} pageSize={pager.pageSize} total={pager.total} onPage={pager.setPage} onPageSize={pager.setPageSize} noun="cases" />
+          </div>
           {!mobile && panel}
         </div>
       )}

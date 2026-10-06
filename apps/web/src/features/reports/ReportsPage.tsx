@@ -5,6 +5,7 @@ import { buildReport, ROLE_LABELS, type Report } from '@reclaim/shared'
 import { useFullCases, useStatus } from '@/api'
 import { useUi } from '@/store/ui'
 import { KpiTile } from '@/components/domain/KpiTile'
+import { Pagination, usePagination } from '@/components/domain/Pagination'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
@@ -64,7 +65,9 @@ export function ReportsPage() {
     setBusy(null)
   }
 
-  const events = report?.tables.find((t) => t.key === 'events')?.rows ?? []
+  const events = useMemo(() => report?.tables.find((t) => t.key === 'events')?.rows ?? [], [report])
+  const newestFirst = useMemo(() => [...events].reverse(), [events])
+  const pager = usePagination(newestFirst, 25, `${from}|${to}`)
 
   return (
     <div>
@@ -121,7 +124,7 @@ export function ReportsPage() {
           </div>
 
           <div className="mt-4">
-            <Card title="Audit log preview" reading={`Latest ${Math.min(events.length, 15)} of ${events.length} events in this period. The exports hold all of them.`}>
+            <Card title="Audit log" reading={`${events.length} events in this period, newest first. The exports hold the same.`}>
               {events.length === 0 ? (
                 <p className="text-sm text-muted">No events in this period.</p>
               ) : (
@@ -137,7 +140,7 @@ export function ReportsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {events.slice(-15).reverse().map((e, i) => (
+                      {pager.pageRows.map((e, i) => (
                         <tr key={i} className="border-t border-line">
                           <td className="tnum whitespace-nowrap py-1 pr-3">{formatDateTime(String(e.at))}</td>
                           <td className="whitespace-nowrap py-1 pr-3 font-mono text-xs">{e.caseId}</td>
@@ -148,6 +151,7 @@ export function ReportsPage() {
                       ))}
                     </tbody>
                   </table>
+                  <Pagination page={pager.page} pages={pager.pages} pageSize={pager.pageSize} total={pager.total} onPage={pager.setPage} onPageSize={pager.setPageSize} noun="events" />
                 </div>
               )}
             </Card>
