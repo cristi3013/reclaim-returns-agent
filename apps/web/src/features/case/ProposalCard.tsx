@@ -2,37 +2,55 @@ import { REASON_CODES, ROLE_LABELS, type Proposal } from '@reclaim/shared'
 import { RuleBadge } from '@/components/domain/RuleBadge'
 import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
 import { PayloadView } from '@/components/domain/PayloadView'
-import { Button } from '@/components/ui/button'
 import { formatMoney, formatQty } from '@/lib/format'
 
 export function ProposalCard({
   proposal: p,
-  canChoose = false,
-  onChoose,
   selected = false,
+  onSelect,
 }: {
   proposal: Proposal
-  /** The option picked in the decision box. */
+  /** The option selected for the decision below. */
   selected?: boolean
-  canChoose?: boolean
-  onChoose?: (id: string) => void
+  /** Given while a person still picks between two options: the card selects itself on click. */
+  onSelect?: () => void
 }) {
   const d = p.decision
   const twoOption = p.option !== 'single'
   return (
     <article
       aria-label={twoOption ? `Option ${p.option}` : 'Proposal'}
-      className={`rounded-lg border bg-surface p-4 shadow-card ${twoOption && p.recommended ? 'border-accent' : 'border-line'} ${selected ? 'ring-2 ring-accent' : ''}`}
+      onClick={onSelect}
+      className={`rounded-lg border bg-surface p-4 shadow-card ${twoOption && p.recommended ? 'border-accent' : 'border-line'} ${selected ? 'ring-2 ring-accent' : ''} ${onSelect && !selected ? 'cursor-pointer hover:bg-surface-2' : ''}`}
     >
       <header className="flex flex-wrap items-center gap-2">
-        {twoOption && <span className="font-semibold">Option {p.option}</span>}
+        {twoOption && onSelect ? (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect()
+            }}
+            className="inline-flex items-center gap-2 font-semibold"
+          >
+            <span
+              aria-hidden
+              className={`size-4 rounded-full border ${selected ? 'border-[5px] border-accent' : 'border-line bg-surface'}`}
+            />
+            Option {p.option}
+          </button>
+        ) : (
+          twoOption && <span className="font-semibold">Option {p.option}</span>
+        )}
         <RuleBadge ruleId={d.ruleId} />
         <DocTypeBadge type={d.documentType} />
         {twoOption && p.recommended && (
           <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-medium text-green">Recommended</span>
         )}
         {twoOption && p.chosen && <span className="rounded bg-ok-soft px-2 py-0.5 text-xs text-ok">Chosen</span>}
-        {selected && <span className="rounded bg-surface-2 px-2 py-0.5 text-xs font-medium">Picked</span>}
+        {selected && <span className="rounded bg-surface-2 px-2 py-0.5 text-xs font-medium">Selected</span>}
         {d.intercompany && <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Intercompany</span>}
         {d.requiresCustomerConfirmation && (
           <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Customer must confirm</span>
@@ -80,13 +98,6 @@ export function ProposalCard({
         <pre className="mt-2 whitespace-pre-wrap rounded bg-surface-2 p-3 font-sans leading-relaxed">{p.replyDraft}</pre>
       </details>
 
-      {canChoose && onChoose && !p.chosen && (
-        <div className="mt-4">
-          <Button onClick={() => onChoose(p.id)} variant={p.recommended ? 'default' : 'outline'}>
-            Choose option {p.option}
-          </Button>
-        </div>
-      )}
     </article>
   )
 }
