@@ -7,9 +7,10 @@ import {
   invoiceConversation,
   primaryProposal,
   type Case,
+  type InvoiceMessage,
 } from '@reclaim/shared'
 import { useApi, useCases } from '@/api'
-import { MessageBubble } from '@/components/domain/MessageBubble'
+import { Conversation } from '@/components/domain/Conversation'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
 import { ErrorState } from '@/components/domain/ErrorState'
@@ -42,6 +43,7 @@ export function InvoiceCasePage() {
   const messages = invoiceConversation(cases)
   const index = new Map(ic.complaints.map((c, i) => [c.id, i + 1]))
   const byId = new Map(cases.map((c) => [c.id, c]))
+  const ordered = [...cases].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
 
   return (
     <div>
@@ -77,39 +79,38 @@ export function InvoiceCasePage() {
         <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
           <h2 className="text-base font-semibold">Conversation</h2>
           {full.some((q) => q.isLoading) && <Skeleton className="mt-3 h-40" />}
-          <ol className="mt-3 space-y-3" aria-label="Emails on this invoice">
-            {messages.flatMap((m) => [
-              ...(m.startsComplaint
-                ? [
-                    <li
-                      key={`${m.id}-sep`}
-                      className="flex items-center gap-2 py-1 text-xs text-muted"
-                      role="separator"
-                    >
-                      <span className="h-px flex-1 bg-line" />
-                      <RotateCcw className="size-3.5" aria-hidden />
-                      {m.reopens
-                        ? 'New email on this invoice · case reopened'
-                        : 'New complaint on this invoice'}
-                      <span className="h-px flex-1 bg-line" />
-                    </li>,
-                  ]
-                : []),
-              <MessageBubble
-                key={m.id}
-                m={m}
-                footer={
+          <Conversation
+            messages={messages}
+            customerFrom={ordered[0]?.from ?? ''}
+            label="Emails on this invoice"
+            extras={(m) => {
+              const x = m as InvoiceMessage
+              return {
+                before: x.startsComplaint ? (
+                  <li
+                    className="flex items-center gap-2 py-1 text-xs text-muted"
+                    role="separator"
+                  >
+                    <span className="h-px flex-1 bg-line" />
+                    <RotateCcw className="size-3.5" aria-hidden />
+                    {x.reopens
+                      ? 'New email on this invoice · case reopened'
+                      : 'New complaint on this invoice'}
+                    <span className="h-px flex-1 bg-line" />
+                  </li>
+                ) : undefined,
+                footer: (
                   <Link
                     to="/cases/$id"
-                    params={{ id: m.caseId }}
+                    params={{ id: x.caseId }}
                     className="hover:text-fg hover:underline"
                   >
-                    Complaint {index.get(m.caseId)} · {byId.get(m.caseId)?.subject}
+                    Complaint {index.get(x.caseId)} · {byId.get(x.caseId)?.subject}
                   </Link>
-                }
-              />,
-            ])}
-          </ol>
+                ),
+              }
+            }}
+          />
         </section>
 
         <aside aria-label="Complaints on this invoice" className="space-y-3">

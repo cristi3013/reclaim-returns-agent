@@ -43,6 +43,8 @@ const InboundBody = z.object({
   text: z.string(),
   receivedAt: z.string().optional(),
   messageId: z.string().optional(),
+  inReplyTo: z.string().optional(),
+  references: z.array(z.string()).optional(),
   attachments: z.array(z.object({ name: z.string(), mimeType: z.string(), url: z.string() })).default([]),
 })
 
@@ -178,13 +180,14 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     let s
     if (ct.includes('application/json')) {
       const b = InboundBody.parse(req.body)
-      s = await service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, sourceFile: null })
+      s = await service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, inReplyTo: b.inReplyTo ?? null, references: b.references ?? [], sourceFile: null })
     } else {
       const mail = await parseEml(req.body as Buffer, UPLOADS_DIR, publicBase, null)
       s = await service.ingestInbound(mail)
     }
     if (!s) return reply.status(200).send({ duplicate: true })
-    if (process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
+    // A new complaint, or a Pending case the customer just answered (back to Open): investigate it. Other replies only join the thread.
+    if (s.status === 'received' && process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
     return reply.status(201).send(s)
   })
   app.post<{ Params: { id: string } }>('/api/cases/:id/run', async (req, reply) => {
@@ -295,7 +298,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
         async (mail) => {
           const s = await service.ingestInbound(mail)
           // The run takes seconds with the model; it must not block the mailbox fetch or the next email.
-          if (s && process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
+          if (s?.status === 'received' && process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
         },
         UPLOADS_DIR,
         publicBase,

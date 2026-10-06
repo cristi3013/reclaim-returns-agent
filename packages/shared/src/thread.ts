@@ -59,6 +59,17 @@ export function emailAddress(s: string): string {
   return (/<([^>]+)>/.exec(s)?.[1] ?? s).trim().toLowerCase()
 }
 
+/** "jane@acme.com" → "acme.com". */
+export function emailDomain(s: string): string {
+  return emailAddress(s).split('@')[1] ?? ''
+}
+
+/** True when the email comes from the customer's side: the same domain as the person who sent the complaint. */
+export function fromCustomerSide(c: Pick<Case, 'from'>, from: string): boolean {
+  const d = emailDomain(from)
+  return !!d && d === emailDomain(c.from)
+}
+
 /** The new part of a reply: drops the quoted earlier message ("On … wrote:", "> …", Outlook headers). */
 export function stripQuoted(text: string): string {
   const lines = text.replace(/\r\n/g, '\n').split('\n')
@@ -116,17 +127,22 @@ export function findThreadCase(cases: Case[], mail: ThreadMail): Case | undefine
 }
 
 /**
- * Adds a customer reply to its case. A case waiting for the customer (Pending) goes back to Open so it can be
- * investigated again with what they sent; in any other status the message is added and the status stays.
+ * Adds a reply to its case: from the customer, or from anyone else in the thread (a warehouse, a colleague, a carrier).
+ * A case waiting for the customer (Pending) goes back to Open when the customer answers, so it is investigated again
+ * with what they sent; in any other case the message is added and the status stays.
  */
 export function addCustomerReply(c: Case, mail: ThreadMail, ev: AddEvent): { reopened: boolean } {
   c.attachments.push(...mail.attachments)
+  const customer = fromCustomerSide(c, mail.from)
   ev(
     c,
     'intake',
-    `Customer replied: ${mail.subject}`,
+    customer
+      ? `Customer replied: ${mail.subject}`
+      : `${senderName(mail.from)} wrote: ${mail.subject}`,
     {
       followUp: true,
+      party: customer ? 'customer' : 'other',
       from: mail.from,
       subject: mail.subject,
       text: mail.text,
@@ -138,7 +154,8 @@ export function addCustomerReply(c: Case, mail: ThreadMail, ev: AddEvent): { reo
     },
     '5.1.1',
   )
-  if (c.status !== 'needs_customer_input') return { reopened: false }
+  // Only the customer's answer reopens a Pending case; a colleague or the warehouse writing in the thread does not.
+  if (c.status !== 'needs_customer_input' || !customer) return { reopened: false }
   c.status = 'received'
   ev(c, 'status', 'The customer answered; back to Open', {
     from: 'needs_customer_input',
@@ -204,12 +221,13 @@ export function conversation(c: Case): ThreadMessage[] {
 
 /** What the agent reads: the complaint plus the new part of every customer reply, in order. */
 export function complaintText(c: Case): string {
-  const replies = c.events
-    .filter(isCustomerReply)
-    .map(
-      (e) =>
-        `--- Customer reply, ${String(e.detail.receivedAt ?? e.at).slice(0, 10)} ---\n${stripQuoted(String(e.detail.text ?? ''))}`,
-    )
+  const replies = c.events.filter(isCustomerReply).map((e) => {
+    const day = String(e.detail.receivedAt ?? e.at).slice(0, 10)
+    const who = fromCustomerSide(c, String(e.detail.from ?? c.from))
+      ? 'Customer reply'
+      : `Email from ${String(e.detail.from)}, not the customer`
+    return `--- ${who}, ${day} ---\n${stripQuoted(String(e.detail.text ?? ''))}`
+  })
   return [c.bodyText, ...replies].join('\n\n')
 }
 
@@ -221,4 +239,67 @@ export function latestCustomerMessageId(c: Case): string | null {
       (x) => x.kind === 'intake' && typeof x.detail.messageId === 'string' && x.detail.messageId,
     )
   return (e?.detail.messageId as string | undefined) ?? null
+}
+
+/** "Jane Doe <jane@acme.com>" → "Jane Doe"; a bare address → its local part. */
+export function senderName(from: string): string {
+  const name = from
+    .replace(/<[^>]*>/, '')
+    .replace(/"/g, '')
+    .trim()
+  return name && !name.includes('@') ? name : (emailAddress(from).split('@')[0] ?? from)
+}
+
+/** Someone writing in a case's conversation. Our own replies are one participant: the returns desk. */
+export interface Participant {
+  /** The email address, or "us" for our replies. */
+  key: string
+  name: string
+  address: string | null
+  side: 'customer' | 'us' | 'other'
+  /** The sender's domain, e.g. "warehouse-north.example". */
+  organisation: string | null
+  messages: number
+  lastAt: string
+}
+
+export function participantKey(m: Pick<ThreadMessage, 'direction' | 'from'>): string {
+  return m.direction === 'out' ? 'us' : emailAddress(m.from)
+}
+
+/** Everyone who wrote in the conversation, in the order they first wrote. `customerFrom` is the complaint's sender. */
+export function participants(messages: ThreadMessage[], customerFrom: string): Participant[] {
+  const by = new Map<string, Participant>()
+  for (const m of messages) {
+    const key = participantKey(m)
+    const p = by.get(key)
+    if (p) {
+      p.messages++
+      if (m.at > p.lastAt) p.lastAt = m.at
+      continue
+    }
+    by.set(
+      key,
+      m.direction === 'out'
+        ? {
+            key,
+            name: 'Reclaim returns desk',
+            address: null,
+            side: 'us',
+            organisation: null,
+            messages: 1,
+            lastAt: m.at,
+          }
+        : {
+            key,
+            name: senderName(m.from),
+            address: emailAddress(m.from),
+            side: fromCustomerSide({ from: customerFrom }, m.from) ? 'customer' : 'other',
+            organisation: emailDomain(m.from) || null,
+            messages: 1,
+            lastAt: m.at,
+          },
+    )
+  }
+  return [...by.values()]
 }

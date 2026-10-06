@@ -113,6 +113,9 @@ function ReplyForm({ c, role, actor }: { c: Case; role: Role; actor: string }) {
       {tone && (
         <div className="mb-1.5 flex items-center gap-2 text-xs">
           <span className="font-semibold text-muted">Reply to the customer</span>
+          <span className="text-muted">
+            to <span className="font-medium text-fg">{c.from}</span>
+          </span>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium ${tone.cls}`}
           >

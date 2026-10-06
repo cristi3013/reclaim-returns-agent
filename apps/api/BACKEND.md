@@ -154,7 +154,7 @@ Two calls, both with `client.messages.parse` and `zodOutputFormat` from `@anthro
 
 The acceptance test runs rules-only by default. With `ANTHROPIC_API_KEY` set and `AI_MODE=assisted`, it runs with the model and the decisions must still match: that is the proof that the model never decides.
 
-Ideas that fit later, in order of value: a chat endpoint over one case (read-only tools over cases/events), language detection and replies in the customer's language (the facts already carry `language`), anomaly hints from case history (partly done), policy-gap detection (done: rule NONE → `awaiting_approval` for the customer service lead), policy retrieval with embeddings (Supabase pgvector) to ground the explanation on a larger corpus.
+Ideas that fit later, in order of value: a chat endpoint over one case (read-only tools over cases/events), language detection and replies in the customer's language (the facts already carry `language`), anomaly hints from case history (partly done), policy-gap detection (done: rule NONE → `awaiting_approval` for the customer service lead; with no invoice named it waits for the customer instead, see §9), policy retrieval with embeddings (Supabase pgvector) to ground the explanation on a larger corpus.
 
 ## 7b. Who is calling (Supabase Auth)
 
@@ -175,6 +175,10 @@ Three channels, all ending in `service.ingestInbound()` and, unless `INBOUND_AUT
 1. **Mailbox (IMAP, push).** Set `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` (Gmail: enable IMAP, two-step verification, app password). `src/intake/mailbox.ts` keeps one connection open in IDLE mode: the server notifies it the moment a message arrives, it fetches the unseen messages, parses them with mailparser, saves the attachments under `apps/api/uploads` (local disk: on Railway they do not survive a redeploy without a volume) (served at `/uploads/…`, linked with `PUBLIC_URL`) and marks them seen. It reconnects with backoff if the connection drops and runs a safety sweep every `IMAP_POLL_MS` (min 60 s). Duplicate message ids are ignored. This is the demo path: send the complaint from a phone, watch it appear within seconds.
 2. **Webhook.** `POST /api/inbound` with JSON `{from, subject, text, receivedAt?, messageId?, attachments?}` or a raw email as `message/rfc822`. Returns 201 with the case summary, or `{duplicate: true}`. Works from Postman or any email-to-webhook service.
 3. **Upload / seed.** `POST /api/cases/ingest` (multipart `.eml` files, parsed with mailparser) and `POST /api/cases/seed` for the eight demo cases.
+
+**Threads.** A reply joins its case instead of opening a new one (`findThreadCase` in `packages/shared/src/thread.ts`): by `In-Reply-To`/`References` first, otherwise a `Re:` from the same sender with the same subject. The webhook takes `inReplyTo` and `references` too. Anyone can write in a case's thread: the customer, a colleague, a warehouse or carrier on reply-all. An email from the customer's domain is a customer reply; any other is shown under its sender and company, and the model reads it as context, never as the claim.
+
+**Pending and back to Open.** `statusAfterProposal` in `rules.ts`: with no invoice named and no likely match, the case goes to Pending (`needs_customer_input`) and the suggested reply asks for the invoice. R7 and R9 go to Pending too. Only the customer's answer moves a Pending case back to Open (`received`), and the automatic run investigates it again with the whole thread, so an invoice number in the reply takes it on to approval. An invoice named but not in SAP still goes to a person (it may be a typo).
 
 ## 10. Live updates
 
