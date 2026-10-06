@@ -1,5 +1,5 @@
 import { it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   createMemoryHistory,
@@ -108,4 +108,53 @@ it('a customer reply in the same thread joins the case and shows as a conversati
   expect(emails.textContent).toContain('Two drums arrived damaged.')
   expect(emails.textContent).toContain('It was invoice 90000355.')
   expect(emails.textContent).not.toContain('Which invoice?')
+})
+
+it('two options: both are shown, the person picks one, then sends it to approval or decides it', async () => {
+  localStorage.clear()
+  useUi.getState().setRole('credit_manager')
+  const api = new MockApiClient({ fast: true })
+  await api.seedCases()
+  await api.runCase('case-01')
+
+  const root = createRootRoute({
+    component: () => (
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
+    ),
+  })
+  const caseRoute = createRoute({
+    getParentRoute: () => root,
+    path: '/cases/$id',
+    component: CasePage,
+  })
+  const others = ['/', '/approvals', '/invoices', '/invoices/$invoice'].map((path) =>
+    createRoute({ getParentRoute: () => root, path }),
+  )
+  const router = createRouter({
+    routeTree: root.addChildren([caseRoute, ...others]),
+    history: createMemoryHistory({ initialEntries: ['/cases/case-01'] }),
+  })
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ApiProvider client={api}>
+        <RouterProvider router={router} />
+      </ApiProvider>
+    </QueryClientProvider>,
+  )
+
+  const a = await screen.findByRole('radio', { name: /Option A/ })
+  const b = screen.getByRole('radio', { name: /Option B/ })
+  // The recommended option is picked to start with, and it can be approved or rejected straight away.
+  expect(b.getAttribute('aria-checked')).toBe('true')
+  expect(screen.getByRole('button', { name: /Approve/ })).toBeTruthy()
+
+  fireEvent.click(a)
+  expect(a.getAttribute('aria-checked')).toBe('true')
+  fireEvent.click(screen.getByRole('button', { name: 'Send to approval' }))
+  expect(await screen.findByRole('button', { name: /Option A sent to approval/ })).toBeTruthy()
+  const c = await api.getCase('case-01')
+  expect(c.proposals.find((p) => p.chosen)?.option).toBe('A')
+  expect(c.status).toBe('awaiting_approval')
 })

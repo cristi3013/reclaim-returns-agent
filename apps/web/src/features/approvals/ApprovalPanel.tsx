@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { approverFor, caseOutcome, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
 import { useApprove, useConfirmGoodsReceipt, useReject, useRelease, useReturnStatus, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
+import { OptionPicker } from './OptionPicker'
 import { ReplyPanel } from '@/features/case/ReplyPanel'
 import { PayloadView } from '@/components/domain/PayloadView'
 import { StatusMenu } from '@/components/domain/StatusMenu'
@@ -16,7 +17,10 @@ import { Archive, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-rea
 const RANK: Record<Role, number> = { customer_service_lead: 0, credit_manager: 1, finance_director: 2, returns_desk: -1 }
 
 /** The case as an approver sees it: what happened, what we propose, then the decision. */
-export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; role: Role; actor: string }) {
+export function ApprovalPanel({ c, p: first, role, actor }: { c: Case; p: Proposal; role: Role; actor: string }) {
+  // Two options: the person picks one, then approves or rejects that one.
+  const [pick, setPick] = useState(first.id)
+  const p = c.proposals.find((x) => x.id === pick) ?? first
   const d = p.decision
   return (
     <aside className="rounded-lg border border-line bg-surface p-4 shadow-card">
@@ -33,6 +37,7 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
         · {c.customerName} · invoice <span className="font-mono">{c.invoiceNumber ?? 'none'}</span>
       </div>
       <h2 className="mt-1 text-lg font-semibold">{c.subject}</h2>
+      {c.status === 'awaiting_approval' && <OptionPicker proposals={c.proposals} value={p.id} onChange={setPick} />}
 
       <div className="mt-3 space-y-1.5 rounded-md border border-line border-l-4 border-l-muted/50 bg-surface-2 p-3 text-sm leading-relaxed">
         <div>
@@ -57,7 +62,7 @@ export function ApprovalPanel({ c, p, role, actor }: { c: Case; p: Proposal; rol
         {d.intercompany && <span className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">Intercompany: flag for finance</span>}
       </div>
 
-      <ApprovalActions c={c} p={p} role={role} actor={actor} showPayload showOutcome={false} />
+      <ApprovalActions key={p.id} c={c} p={p} role={role} actor={actor} showPayload showOutcome={false} />
     </aside>
   )
 }

@@ -7,12 +7,12 @@ import { formatMoney, formatQty } from '@/lib/format'
 
 export function ProposalCard({
   proposal: p,
-  canChoose,
+  canChoose = false,
   onChoose,
 }: {
   proposal: Proposal
-  canChoose: boolean
-  onChoose: (id: string) => void
+  canChoose?: boolean
+  onChoose?: (id: string) => void
 }) {
   const d = p.decision
   const twoOption = p.option !== 'single'
@@ -75,7 +75,7 @@ export function ProposalCard({
         <pre className="mt-2 whitespace-pre-wrap rounded bg-surface-2 p-3 font-sans leading-relaxed">{p.replyDraft}</pre>
       </details>
 
-      {canChoose && !p.chosen && (
+      {canChoose && onChoose && !p.chosen && (
         <div className="mt-4">
           <Button onClick={() => onChoose(p.id)} variant={p.recommended ? 'default' : 'outline'}>
             Choose option {p.option}

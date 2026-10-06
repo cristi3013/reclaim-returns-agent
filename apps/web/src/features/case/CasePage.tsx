@@ -1,5 +1,6 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ChevronRight, FileText, Play } from 'lucide-react'
+import { useState } from 'react'
+import { Check, ChevronRight, FileText, Play, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCase, useCases, useChoose, useRunCase, useStatus } from '@/api'
 import { ROLE_LABELS, caseStatusByComplaint, conversation, primaryProposal } from '@reclaim/shared'
@@ -14,6 +15,7 @@ import { Conversation } from '@/components/domain/Conversation'
 import { Attachments } from '@/components/domain/Attachments'
 import { ReplyPanel } from './ReplyPanel'
 import { ApprovalActions } from '@/features/approvals/ApprovalPanel'
+import { OptionPicker, defaultOption } from '@/features/approvals/OptionPicker'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { AuditTimeline } from '@/features/audit/AuditTimeline'
@@ -32,6 +34,7 @@ export function CasePage() {
   const choose = useChoose()
   const status = useStatus()
   const { role } = useUi()
+  const [pick, setPick] = useState<string>()
   const c = q.data
   if (q.isLoading) return <Skeleton className="h-96" />
   if (q.error || !c)
@@ -39,13 +42,16 @@ export function CasePage() {
   const two = c.proposals.length > 1
   const running = c.status === 'investigating' || c.status === 'proposed' || run.isPending
   const locked = c.sapDocuments.length > 0
-  const canChoose = two && c.status === 'awaiting_approval' && !c.proposals.some((p) => p.chosen)
-  const primary = primaryProposal(c)
+  const waiting = c.status === 'awaiting_approval'
+  // Two options: while it waits, the person picks one, then sends it to approval or decides it here.
+  const primary = waiting
+    ? (c.proposals.find((p) => p.id === (pick ?? defaultOption(c.proposals))) ?? primaryProposal(c))
+    : primaryProposal(c)
   // No invoice number, nothing to decide: the case is only its emails until the customer names one.
   const noInvoice = !c.invoiceNumber
   // Decide here as well as in the approvals queue: approve or reject, then the SAP result and the reply.
-  const decidable = !noInvoice && !!primary && !canChoose && DECISION_STATUSES.includes(c.status)
-  const waiting = c.status === 'awaiting_approval'
+  const decidable = !noInvoice && !!primary && DECISION_STATUSES.includes(c.status)
+  const sent = !!primary?.chosen
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start gap-4">
@@ -150,7 +156,42 @@ export function CasePage() {
               </span>
             )}
           </div>
-          {waiting && <p className="mt-1 text-sm">{primary.briefing.whatWePropose}</p>}
+          {waiting && two && (
+            <>
+              <p className="mt-1 text-sm text-muted">
+                The agent found two options. Pick one, then send it to approval or decide it now.
+              </p>
+              <OptionPicker
+                proposals={c.proposals}
+                value={primary.id}
+                onChange={setPick}
+                disabled={choose.isPending}
+              />
+            </>
+          )}
+          {waiting && <p className="mt-3 text-sm">{primary.briefing.whatWePropose}</p>}
+          {waiting && two && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={sent || choose.isPending}
+                onClick={() =>
+                  choose.mutate(primary.id, {
+                    onSuccess: () => toast.success(`Option ${primary.option} sent to approval`),
+                    onError: (e) => toast.error(e instanceof Error ? e.message : 'Not sent'),
+                  })
+                }
+              >
+                {sent ? <Check className="size-4" /> : <Send className="size-4" />}
+                {sent ? `Option ${primary.option} sent to approval` : 'Send to approval'}
+              </Button>
+              <span className="text-xs text-muted">
+                {sent
+                  ? 'It waits in To approve. Pick the other option to change it.'
+                  : 'or approve or reject it yourself below.'}
+              </span>
+            </div>
+          )}
           <ApprovalActions
             key={primary.id}
             c={c}
@@ -196,16 +237,7 @@ export function CasePage() {
               ) : (
                 <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
                   {c.proposals.map((p) => (
-                    <ProposalCard
-                      key={p.id}
-                      proposal={p}
-                      canChoose={canChoose}
-                      onChoose={(pid) =>
-                        choose.mutate(pid, {
-                          onSuccess: () => toast.success('Option chosen; ready for approval'),
-                        })
-                      }
-                    />
+                    <ProposalCard key={p.id} proposal={p} />
                   ))}
                 </div>
               )}
