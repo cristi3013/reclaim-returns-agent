@@ -29,6 +29,7 @@ declare module 'fastify' {
   }
 }
 import { MailboxListener, mailboxConfigFromEnv, parseEml } from './intake/mailbox'
+import { Files, LocalFiles, SupabaseFiles } from './files'
 import { mailerFromEnv, type Mailer } from './intake/mailer'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -80,6 +81,9 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   const publicBase = opts.publicBase ?? process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 3000}`
   const log = (msg: string) => (process.env.NODE_ENV === 'test' ? undefined : console.error(msg))
   const persistence = opts.noSideCars ? null : SupabasePersistence.fromEnv(log)
+  const local = new LocalFiles(UPLOADS_DIR, publicBase)
+  const cloud = opts.noSideCars ? null : SupabaseFiles.fromEnv()
+  const files = cloud ? new Files(cloud, local) : local
   const hub = new EventHub()
   const mailer = opts.mailer !== undefined ? opts.mailer : opts.noSideCars ? null : mailerFromEnv()
   const mock = new MockGateway({ simulateConflict: () => store.settings.simulateConflict, delayMs: opts.mockDelayMs })
@@ -113,10 +117,9 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     log,
     readAttachment: async (url) => {
       try {
-        const rel = url.startsWith(publicBase) ? url.slice(publicBase.length) : url
-        const file = rel.startsWith('/uploads/') ? path.join(UPLOADS_DIR, rel.slice('/uploads/'.length)) : path.join(ATTACHMENT_ROOT, rel.replace(/^\//, ''))
-        const base64 = (await readFile(file)).toString('base64')
-        return { mimeType: mimeFromName(file) ?? 'application/octet-stream', base64 }
+        // Fixture photos ('/mock/…') ship with the web app; everything else is in the file store.
+        const bytes = url.startsWith('/') && !url.startsWith('/uploads/') ? await readFile(path.join(ATTACHMENT_ROOT, url.slice(1))) : await files.read(url)
+        return bytes ? { mimeType: mimeFromName(url) ?? 'application/octet-stream', base64: bytes.toString('base64') } : null
       } catch {
         return null
       }
@@ -164,7 +167,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   app.post('/api/cases/ingest', async (req) => {
     const out = []
     for await (const part of req.files()) {
-      const mail = await parseEml(await part.toBuffer(), UPLOADS_DIR, publicBase, part.filename)
+      const mail = await parseEml(await part.toBuffer(), files, part.filename)
       const s = await service.ingestInbound(mail)
       if (s) out.push(s)
     }
@@ -182,7 +185,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
       const b = InboundBody.parse(req.body)
       s = await service.ingestInbound({ from: b.from, subject: b.subject, text: b.text, receivedAt: b.receivedAt ?? new Date().toISOString(), attachments: b.attachments, messageId: b.messageId ?? null, inReplyTo: b.inReplyTo ?? null, references: b.references ?? [], sourceFile: null })
     } else {
-      const mail = await parseEml(req.body as Buffer, UPLOADS_DIR, publicBase, null)
+      const mail = await parseEml(req.body as Buffer, files, null)
       s = await service.ingestInbound(mail)
     }
     if (!s) return reply.status(200).send({ duplicate: true })
@@ -300,8 +303,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
           // The run takes seconds with the model; it must not block the mailbox fetch or the next email.
           if (s?.status === 'received' && process.env.INBOUND_AUTORUN !== 'false') void service.runCase(s.id).catch(() => undefined)
         },
-        UPLOADS_DIR,
-        publicBase,
+        files,
         log,
       )
     : null
