@@ -7,7 +7,7 @@ import { CHIP } from '@/features/invoice-cases/status'
 import { useUi } from '@/store/ui'
 import { StatusMenu } from '@/components/domain/StatusMenu'
 import { exportCaseAuditPack } from '@/features/reports/export'
-import { ComplaintPanel } from './ComplaintPanel'
+import { AgentReadPanel, ComplaintPanel } from './ComplaintPanel'
 import { SapFindingsPanel } from './SapFindingsPanel'
 import { ProposalCard } from './ProposalCard'
 import { Conversation } from '@/components/domain/Conversation'
@@ -167,41 +167,44 @@ export function CasePage() {
           <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />
         </section>
       ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        // The conversation and the proposal get the room; SAP and what the agent read sit beside them.
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0">
             <ComplaintPanel c={c} />
-            <SapFindingsPanel c={c} />
+            <section className="mt-4">
+              <h2 className="mb-2 text-base font-semibold text-fg">
+                {two ? 'Proposal · two options, a person chooses' : 'Proposal'}
+              </h2>
+              {c.proposals.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-line p-8 text-center text-muted">
+                  {running
+                    ? 'The agent is reading the complaint and looking up SAP…'
+                    : 'No proposal yet. Run the agent.'}
+                </div>
+              ) : (
+                <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
+                  {c.proposals.map((p) => (
+                    <ProposalCard
+                      key={p.id}
+                      proposal={p}
+                      canChoose={canChoose}
+                      onChoose={(pid) =>
+                        choose.mutate(pid, {
+                          onSuccess: () => toast.success('Option chosen; ready for approval'),
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+              {!decidable && <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />}
+            </section>
           </div>
-
-          <section className="mt-4">
-            <h2 className="mb-2 text-base font-semibold text-fg">
-              {two ? 'Proposal · two options, a person chooses' : 'Proposal'}
-            </h2>
-            {c.proposals.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-line p-8 text-center text-muted">
-                {running
-                  ? 'The agent is reading the complaint and looking up SAP…'
-                  : 'No proposal yet. Run the agent.'}
-              </div>
-            ) : (
-              <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
-                {c.proposals.map((p) => (
-                  <ProposalCard
-                    key={p.id}
-                    proposal={p}
-                    canChoose={canChoose}
-                    onChoose={(pid) =>
-                      choose.mutate(pid, {
-                        onSuccess: () => toast.success('Option chosen; ready for approval'),
-                      })
-                    }
-                  />
-                ))}
-              </div>
-            )}
-            {!decidable && <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />}
-          </section>
-        </>
+          <aside aria-label="Case facts" className="space-y-4 lg:sticky lg:top-4">
+            <AgentReadPanel c={c} />
+            <SapFindingsPanel c={c} />
+          </aside>
+        </div>
       )}
 
       <Tabs defaultValue="timeline" className="mt-6">
