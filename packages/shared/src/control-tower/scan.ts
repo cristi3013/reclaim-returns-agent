@@ -205,8 +205,8 @@ export function runScan(input: ScanInput, rules: ScanRules = DEFAULT_RULES, sour
     for (const f of c.findings) {
       const delivery = c.deliveries[0]
       const known = delivery ? findings.find((x) => x.document === delivery) : undefined
-      if (f.l4 === '4.1.1' && known) {
-        // Already a delivery finding (counted once); only note the deviation.
+      if (known) {
+        // The delivery is already a finding (counted once, with our severity); only note the deviation, whatever the tool's L4.
         kc.deviationsByL4[f.l4] = (kc.deviationsByL4[f.l4] ?? 0) + (known.severity === 'watch' ? 0 : 1)
         continue
       }

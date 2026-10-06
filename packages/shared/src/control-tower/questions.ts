@@ -67,7 +67,8 @@ export function answerQuestion(question: string, s: Snapshot, customers: Custome
 
   if (q.topic === 'conformance' && q.order) {
     const c = conformance.find((x) => x.order === q.order)
-    const f = s.findings.find((x) => x.documentType === 'order' && x.document === q.order) ?? s.findings.find((x) => c?.deliveries.includes(x.document))
+    // The delivery's own finding first (our severity and route); an order-level deviation only when there is no delivery.
+    const f = s.findings.find((x) => c?.deliveries.includes(x.document)) ?? s.findings.find((x) => x.documentType === 'order' && x.document === q.order)
     if (!c) return { ...base, headline: `Order ${q.order} was not walked in this run.`, facts: [], findings: [], routeTo: 'person', noData: true, refused: false, text: `Order ${q.order} is not among the orders walked in this run, so I cannot show its document chain. Ask for a conformance check of that order.` }
     const chain = `order ${c.order}${c.deliveries.length ? ` → delivery ${c.deliveries.join(', ')}` : ' (no delivery yet)'}${c.billingDocuments.length ? ` → invoice ${c.billingDocuments.join(', ')}` : c.deliveries.length ? ' → no invoice' : ''}`
     if (c.conforms) return { ...base, headline: `Yes: ${chain}. No deviation.`, facts: [`Chain: ${chain}.`, c.billingDocuments.length ? 'Delivered and invoiced: it follows the reference process end to end.' : 'Not delivered yet: nothing deviates.'], findings: [], routeTo: 'none', noData: false, refused: false, text: `Yes. ${chain}: no deviation from the reference process.` }

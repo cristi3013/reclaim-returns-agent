@@ -146,8 +146,13 @@ describe('Control Tower questions against the oracle', () => {
 
 describe('Control Tower, the same order a week later', () => {
   it('04 order 1876 on 6 Oct: past the grace, a POD finding of medium severity for the POD Chaser, not a billing leak', () => {
-    const later = packToScanInput({ ...pack(), asOf: '2026-10-06' })
+    // The gateway's walk now reports this deviation under 3.4.1 (POD), as the live tool does since 6 Oct.
+    const p6 = { ...pack(), asOf: '2026-10-06' }
+    p6.conformance = p6.conformance!.map((c) => (c.response.salesOrder === '1876' ? { ...c, response: { ...c.response, findings: [{ severity: 'high', l4: '3.4.1', step: 'Proof of Delivery: Confirm POD (VLPOD)', finding: 'Goods issued, proof of delivery still open (80608983): billing waits for POD.', routeTo: 'pod' }] } } : c))
+    const later = packToScanInput(p6)
     const s6 = runScan(later)
+    expect(s6.findings.filter((x) => x.document === '1876')).toHaveLength(0)
+    expect(s6.kpis.conformance.deviationsByL4['3.4.1']).toBe(1)
     const f = s6.findings.find((x) => x.document === '80608983')!
     expect(f).toMatchObject({ kind: 'pod_pending', l4: '3.4.1', severity: 'medium', ageDays: 6, routeTo: 'pod' })
     const a = answerQuestion('Order 1876 is flagged as delivered, not billed. Is this revenue leakage? Who should fix it?', s6, later.customers, later.conformance, later.blockedOrders.rows)
