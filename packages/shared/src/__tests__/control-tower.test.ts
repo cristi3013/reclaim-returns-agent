@@ -143,3 +143,18 @@ describe('Control Tower questions against the oracle', () => {
     expect(a.facts[1]).toMatch(/178 deliveries \(144 of this period; 59 within grace, 31 past 14 days: 30 wait for POD, 1 billing\); 34 legacy/)
   })
 })
+
+describe('Control Tower, the same order a week later', () => {
+  it('04 order 1876 on 6 Oct: past the grace, a POD finding of medium severity for the POD Chaser, not a billing leak', () => {
+    const later = packToScanInput({ ...pack(), asOf: '2026-10-06' })
+    const s6 = runScan(later)
+    const f = s6.findings.find((x) => x.document === '80608983')!
+    expect(f).toMatchObject({ kind: 'pod_pending', l4: '3.4.1', severity: 'medium', ageDays: 6, routeTo: 'pod' })
+    const a = answerQuestion('Order 1876 is flagged as delivered, not billed. Is this revenue leakage? Who should fix it?', s6, later.customers, later.conformance, later.blockedOrders.rows)
+    expect(a.routeTo).toBe('pod')
+    expect(a.text).toMatch(/POD finding \(3\.4\.1\) of severity medium, high after 14 days, routed to 6 POD Chaser/)
+    expect(a.text).toMatch(/not a billing leak/)
+    expect(a.text).not.toMatch(/4\.1\.1.*high/)
+    expect(a.facts.join(' ')).not.toMatch(/severity high/)
+  })
+})
