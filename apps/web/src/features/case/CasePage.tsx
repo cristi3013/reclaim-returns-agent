@@ -51,10 +51,22 @@ export function CasePage() {
       <div className="mb-6 flex flex-wrap items-start gap-4">
         <div className="min-w-0">
           <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1 text-xs text-muted">
-            <Link to="/inbox" className="hover:text-fg hover:underline">
-              Inbox
+            <Link to="/invoices" className="hover:text-fg hover:underline">
+              Cases
             </Link>
             <ChevronRight className="size-3" aria-hidden />
+            {c.invoiceNumber && (
+              <>
+                <Link
+                  to="/invoices/$invoice"
+                  params={{ invoice: c.invoiceNumber }}
+                  className="font-mono hover:text-fg hover:underline"
+                >
+                  {c.invoiceNumber}
+                </Link>
+                <ChevronRight className="size-3" aria-hidden />
+              </>
+            )}
             <span className="font-mono">{c.id}</span>
           </nav>
           <h1 className="truncate text-2xl font-semibold tracking-tight">{c.subject}</h1>

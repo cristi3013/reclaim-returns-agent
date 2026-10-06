@@ -63,7 +63,8 @@ export function navCounts(rows: CaseSummary[]) {
 export function isActive(to: string, path: string) {
   return to === '/'
     ? path === '/'
-    : to === '/inbox'
-      ? path.startsWith('/inbox') || path.startsWith('/cases')
+    : to === '/invoices'
+      ? // A complaint's page belongs to its case, not to the Inbox.
+        path.startsWith('/invoices') || path.startsWith('/cases')
       : path.startsWith(to)
 }
