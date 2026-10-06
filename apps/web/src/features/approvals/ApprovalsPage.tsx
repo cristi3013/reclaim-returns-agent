@@ -31,6 +31,10 @@ const look = (r: CaseSummary) =>
         ? GOOD
         : NEUTRAL
 
+const waitingFirst = (r: CaseSummary) => (r.status === 'awaiting_approval' ? 0 : 1)
+/** When the case last moved: received, or changed since. Newest first in the queue. */
+const latest = (r: CaseSummary) => (r.updatedAt > r.receivedAt ? r.updatedAt : r.receivedAt)
+
 export function ApprovalsPage() {
   const { role } = useUi()
   const q = useCases()
@@ -46,7 +50,7 @@ export function ApprovalsPage() {
     returnsDesk ? r.status === 'written_to_sap' && r.documentType === 'YRE' : all || r.id === search.case || !r.approverRole || RANK[role] >= RANK[r.approverRole]
   const rows = (q.data ?? [])
     .filter((r) => QUEUE_STATUSES.includes(r.status) && mine(r))
-    .sort((a, b) => (a.status === 'awaiting_approval' ? 0 : 1) - (b.status === 'awaiting_approval' ? 0 : 1))
+    .sort((a, b) => waitingFirst(a) - waitingFirst(b) || latest(b).localeCompare(latest(a)))
   // Selection sticks to the case the person is working on, even after its status changes and it moves down the list.
   const selected = sel && rows.some((r) => r.id === sel) ? sel : (rows[0]?.id ?? '')
   useEffect(() => {

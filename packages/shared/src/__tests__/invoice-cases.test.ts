@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { groupByInvoice, invoiceCaseStatus, invoiceConversation } from '../invoice-cases'
+import {
+  caseHome,
+  caseStatusByComplaint,
+  groupByInvoice,
+  invoiceCaseStatus,
+  invoiceConversation,
+} from '../invoice-cases'
 import type { CaseStatus } from '../enums'
 import type { Case, CaseSummary } from '../schemas'
 
@@ -28,6 +34,35 @@ describe('invoice cases', () => {
     expect(invoiceCaseStatus(['written_to_sap', 'awaiting_approval'])).toBe('open')
     expect(invoiceCaseStatus(['closed', 'needs_customer_input'])).toBe('pending')
     expect(invoiceCaseStatus(['written_to_sap', 'closed', 'duplicate'])).toBe('closed')
+  })
+
+  it('every complaint shows the status of its case; no invoice yet is Pending', () => {
+    const s = caseStatusByComplaint([
+      row('a', '90000353', 'written_to_sap', '2026-10-01T10:00:00Z'),
+      row('b', '90000353', 'awaiting_approval', '2026-10-02T10:00:00Z'),
+      row('c', '90000354', 'closed', '2026-10-03T10:00:00Z'),
+      row('d', null, 'received', '2026-10-04T10:00:00Z'),
+    ])
+    expect(Object.fromEntries(s)).toEqual({ a: 'open', b: 'open', c: 'closed', d: 'pending' })
+  })
+
+  it('every complaint on an invoice opens the same case: the one waiting, else the open one, never a duplicate', () => {
+    const rows = [
+      row('a', '90000353', 'written_to_sap', '2026-10-01T10:00:00Z'),
+      row('b', '90000353', 'awaiting_approval', '2026-10-02T10:00:00Z'),
+      row('c', '90000353', 'duplicate', '2026-10-03T10:00:00Z'),
+      row('d', null, 'received', '2026-10-04T10:00:00Z'),
+      row('e', '90000354', 'written_to_sap', '2026-10-01T10:00:00Z'),
+      row('f', '90000354', 'duplicate', '2026-10-02T10:00:00Z'),
+    ]
+    expect(['a', 'b', 'c', 'd', 'e', 'f'].map((id) => caseHome(rows, id))).toEqual([
+      'b',
+      'b',
+      'b',
+      'd',
+      'e',
+      'e',
+    ])
   })
 
   it('one case per invoice; a new complaint on a finished invoice reopens it', () => {

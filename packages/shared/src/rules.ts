@@ -199,6 +199,19 @@ export function decide(facts: Facts, findings: Findings, ctx: DecideContext): De
  * Never out of "Processed" (written_to_sap): the SAP document stays whatever we do here, and a reopened case could be
  * written a second time. Never while the agent is working on it.
  */
+/**
+ * The status a case takes once the agent has proposed. Pending means we wait for the customer: to confirm or correct
+ * (R7, R9), or to tell us the invoice when the email names none and no likely match was found. Their answer reopens
+ * the case. An invoice that is named but not in SAP still goes to a person: it may be a typo worth a look.
+ */
+export function statusAfterProposal(top: Decision, facts: Facts): CaseStatus {
+  if (top.ruleId === 'R6') return 'handed_over'
+  if (top.ruleId === 'R8') return 'duplicate'
+  if (top.ruleId === 'R7' || top.ruleId === 'R9') return 'needs_customer_input'
+  if (top.ruleId === 'NONE' && !facts.invoiceNumber) return 'needs_customer_input'
+  return 'awaiting_approval'
+}
+
 export const MANUAL_STATUSES: { to: CaseStatus; label: string; hint: string }[] = [
   { to: 'received', label: 'Open', hint: 'Our turn. Run the agent again for a new proposal.' },
   { to: 'needs_customer_input', label: 'Pending', hint: 'Waiting for the customer to answer.' },
@@ -250,3 +263,7 @@ export function currentReply(events: CaseEvent[]): CaseEvent | undefined {
   })
   return events.slice(reopened + 1).find((e) => e.kind === 'status' && e.detail.replySent === true)
 }
+
+/** Without an invoice there is no money decision: approve and reject are refused until the customer names one. */
+export const NO_INVOICE =
+  'No invoice number on this case: nothing can be approved or rejected until the customer gives one.'

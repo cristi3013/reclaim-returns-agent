@@ -129,6 +129,12 @@ export const useRelease = () => {
   return useMutation({ mutationFn: (v: { id: string; input: ReleaseInput }) => api.release(v.id, v.input), onSettled: () => inv('cases', 'analytics') })
 }
 
+/** Keyed by the number of events: a new email or decision gives a new suggestion. */
+export const useReplySuggestion = (caseId: string, version: number, enabled = true) => {
+  const api = useApi()
+  return useQuery({ queryKey: ['reply-suggestion', caseId, version], queryFn: () => api.replySuggestion(caseId), staleTime: Infinity, enabled })
+}
+
 export const useSendReply = () => {
   const api = useApi()
   const qc = useQueryClient()

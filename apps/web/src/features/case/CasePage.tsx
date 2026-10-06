@@ -1,16 +1,35 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { ChevronRight, FileText, Play } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { useQueries } from '@tanstack/react-query'
+import { Check, ChevronRight, FileText, Play, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCase, useChoose, useRunCase, useStatus } from '@/api'
-import { ROLE_LABELS, primaryProposal } from '@reclaim/shared'
+import { useApi, useCase, useCases, useChoose, useRunCase, useStatus } from '@/api'
+import {
+  COMPLAINT_LABELS,
+  ROLE_LABELS,
+  caseStatusByComplaint,
+  conversation,
+  groupByInvoice,
+  invoiceConversation,
+  primaryProposal,
+  type Case,
+} from '@reclaim/shared'
+import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
+import { formatDateTime } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { CHIP } from '@/features/invoice-cases/status'
 import { useUi } from '@/store/ui'
 import { StatusMenu } from '@/components/domain/StatusMenu'
 import { exportCaseAuditPack } from '@/features/reports/export'
-import { ComplaintPanel } from './ComplaintPanel'
+import { AgentReadPanel, ComplaintPanel } from './ComplaintPanel'
 import { SapFindingsPanel } from './SapFindingsPanel'
 import { ProposalCard } from './ProposalCard'
+import { Conversation } from '@/components/domain/Conversation'
+import { Attachments } from '@/components/domain/Attachments'
 import { ReplyPanel } from './ReplyPanel'
 import { ApprovalActions } from '@/features/approvals/ApprovalPanel'
+import { defaultOption } from '@/features/approvals/OptionPicker'
+import { RuleBadge } from '@/components/domain/RuleBadge'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { AuditTimeline } from '@/features/audit/AuditTimeline'
@@ -24,36 +43,75 @@ const DECISION_STATUSES = ['awaiting_approval', 'written_to_sap', 'sap_write_fai
 export function CasePage() {
   const { id } = useParams({ from: '/cases/$id' })
   const q = useCase(id)
+  const list = useCases()
   const run = useRunCase()
   const choose = useChoose()
   const status = useStatus()
   const { role } = useUi()
+  const [pick, setPick] = useState<string>()
+  const api = useApi()
   const c = q.data
+  // One case per invoice: the other complaints on it, for the switcher and the whole conversation.
+  const ic = c?.invoiceNumber
+    ? groupByInvoice(list.data ?? []).find((x) => x.invoice === c.invoiceNumber)
+    : undefined
+  const siblings = useQueries({
+    queries: (ic && ic.complaints.length > 1 ? ic.complaints : []).map((s) => ({
+      queryKey: ['case', s.id],
+      queryFn: () => api.getCase(s.id),
+    })),
+  })
   if (q.isLoading) return <Skeleton className="h-96" />
   if (q.error || !c)
     return <ErrorState error={q.error ?? 'Case not found'} onRetry={() => q.refetch()} />
   const two = c.proposals.length > 1
   const running = c.status === 'investigating' || c.status === 'proposed' || run.isPending
   const locked = c.sapDocuments.length > 0
-  const canChoose = two && c.status === 'awaiting_approval' && !c.proposals.some((p) => p.chosen)
-  const primary = primaryProposal(c)
-  // Decide here as well as in the approvals queue: approve or reject, then the SAP result and the reply.
-  const decidable = !!primary && !canChoose && DECISION_STATUSES.includes(c.status)
   const waiting = c.status === 'awaiting_approval'
+  // Two options: while it waits, the person picks one, then sends it to approval or decides it here.
+  const primary = waiting
+    ? (c.proposals.find((p) => p.id === (pick ?? defaultOption(c.proposals))) ?? primaryProposal(c))
+    : primaryProposal(c)
+  // No invoice number, nothing to decide: the case is only its emails until the customer names one.
+  const noInvoice = !c.invoiceNumber
+  // Decide here as well as in the approvals queue: approve or reject, then the SAP result and the reply.
+  const decidable = !noInvoice && !!primary && DECISION_STATUSES.includes(c.status)
+  const sent = !!primary?.chosen
+  // Once decided, the chosen option is what matters; the other folds away.
+  const decided = two && !waiting && c.proposals.some((p) => p.chosen)
+  const shown = decided ? c.proposals.filter((p) => p.chosen) : c.proposals
+  const hidden = decided ? c.proposals.filter((p) => !p.chosen) : []
+  const loaded = siblings.map((x) => x.data).filter((x): x is Case => !!x)
+  const invoiceMessages = loaded.length > 1 ? invoiceConversation(loaded) : undefined
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start gap-4">
         <div className="min-w-0">
           <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1 text-xs text-muted">
-            <Link to="/inbox" className="hover:text-fg hover:underline">
-              Inbox
+            <Link to="/invoices" className="hover:text-fg hover:underline">
+              Cases
             </Link>
             <ChevronRight className="size-3" aria-hidden />
+            {c.invoiceNumber && (
+              <>
+                <Link
+                  to="/invoices/$invoice"
+                  params={{ invoice: c.invoiceNumber }}
+                  className="font-mono hover:text-fg hover:underline"
+                >
+                  {c.invoiceNumber}
+                </Link>
+                <ChevronRight className="size-3" aria-hidden />
+              </>
+            )}
             <span className="font-mono">{c.id}</span>
           </nav>
           <h1 className="truncate text-2xl font-semibold tracking-tight">{c.subject}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
-            <StatusChip status={c.status} />
+            {/* The status of the case: the same for every complaint and email on this invoice. */}
+            <StatusChip
+              status={CHIP[caseStatusByComplaint(list.data ?? []).get(c.id) ?? 'pending']}
+            />
             {c.invoiceNumber && (
               <Link
                 to="/invoices/$invoice"
@@ -112,67 +170,181 @@ export function CasePage() {
         </div>
       </div>
 
-      {decidable && primary && (
-        <section
-          aria-labelledby="decision-title"
-          className={`mb-4 rounded-lg border bg-surface p-4 shadow-card ${
-            waiting ? 'border-accent border-l-4' : 'border-line'
-          }`}
+      {ic && ic.complaints.length > 1 && (
+        <nav
+          aria-label="Complaints on this invoice"
+          className="-mt-3 mb-4 flex flex-wrap items-center gap-2 text-xs"
         >
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 id="decision-title" className="font-semibold">
-              {waiting ? 'Your decision' : 'Decision'}
-            </h2>
-            {waiting && primary.decision.approverRole && (
-              <span className="text-xs text-muted">
-                needs a {ROLE_LABELS[primary.decision.approverRole]} or above
+          <span className="font-semibold text-muted">Complaints on this invoice</span>
+          {ic.complaints.map((s, i) => (
+            <Link
+              key={s.id}
+              to="/cases/$id"
+              params={{ id: s.id }}
+              aria-current={s.id === c.id ? 'page' : undefined}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 hover:bg-surface-2',
+                s.id === c.id
+                  ? 'border-fg bg-surface-2 font-medium text-fg'
+                  : 'border-line text-muted',
+              )}
+            >
+              <span>
+                {i + 1} · {COMPLAINT_LABELS[s.complaintType]}
               </span>
-            )}
-          </div>
-          {waiting && <p className="mt-1 text-sm">{primary.briefing.whatWePropose}</p>}
-          <ApprovalActions
-            key={primary.id}
-            c={c}
-            p={primary}
-            role={role}
-            actor={ROLE_LABELS[role]}
-          />
-        </section>
+              {s.ruleId && <DocTypeBadge type={s.documentType} compact />}
+              <span>{formatDateTime(s.receivedAt)}</span>
+            </Link>
+          ))}
+        </nav>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <ComplaintPanel c={c} />
-        <SapFindingsPanel c={c} />
-      </div>
+      {noInvoice ? (
+        <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
+          <h2 className="text-base font-semibold text-fg">
+            Conversation · {conversation(c).length} email{conversation(c).length === 1 ? '' : 's'}
+          </h2>
+          <p className="mt-1 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">
+            No invoice number yet: there is nothing to approve or reject. Ask the customer for it;
+            when they answer, investigate again.
+          </p>
+          <Attachments list={c.attachments} compact />
+          <Conversation
+            messages={conversation(c)}
+            customerFrom={c.from}
+            label="Emails in this case"
+          />
+          <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />
+        </section>
+      ) : (
+        // One flow, top to bottom: what the customer wrote, the options, the decision on the one selected.
+        // SAP and what the agent read sit beside it.
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0 space-y-6">
+            <Step n={1} title="The complaint" hint="What the customer wrote.">
+              <ComplaintPanel c={c} invoiceMessages={invoiceMessages} />
+            </Step>
 
-      <section className="mt-4">
-        <h2 className="mb-2 text-base font-semibold text-fg">
-          {two ? 'Proposal · two options, a person chooses' : 'Proposal'}
-        </h2>
-        {c.proposals.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-line p-8 text-center text-muted">
-            {running
-              ? 'The agent is reading the complaint and looking up SAP…'
-              : 'No proposal yet. Run the agent.'}
-          </div>
-        ) : (
-          <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
-            {c.proposals.map((p) => (
-              <ProposalCard
-                key={p.id}
-                proposal={p}
-                canChoose={canChoose}
-                onChoose={(pid) =>
-                  choose.mutate(pid, {
-                    onSuccess: () => toast.success('Option chosen; ready for approval'),
-                  })
+            <Step
+              n={2}
+              title={two ? 'The options' : 'The proposal'}
+              hint={
+                two
+                  ? waiting
+                    ? 'The agent found two options, each applying a policy rule. Select the one to go ahead with.'
+                    : 'The agent found two options, each applying a policy rule.'
+                  : 'The policy rule the agent applied, and what it would write to SAP.'
+              }
+            >
+              {c.proposals.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-line p-8 text-center text-muted">
+                  {running
+                    ? 'The agent is reading the complaint and looking up SAP…'
+                    : 'No proposal yet. Press Investigate.'}
+                </div>
+              ) : (
+                <div
+                  role={two && waiting ? 'radiogroup' : undefined}
+                  aria-label={two && waiting ? 'Options' : undefined}
+                  className={shown.length > 1 ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}
+                >
+                  {shown.map((p) => (
+                    <ProposalCard
+                      key={p.id}
+                      proposal={p}
+                      selected={two && waiting && p.id === primary?.id}
+                      onSelect={
+                        two && waiting && !choose.isPending ? () => setPick(p.id) : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+              {hidden.map((p) => (
+                <details key={p.id} className="mt-3 rounded-lg border border-line bg-surface p-3">
+                  <summary className="cursor-pointer text-sm text-muted hover:text-fg">
+                    Option {p.option}, not chosen · {p.decision.ruleId} ·{' '}
+                    {p.decision.documentType === 'NONE' ? 'no document' : p.decision.documentType}
+                  </summary>
+                  <div className="mt-3">
+                    <ProposalCard proposal={p} />
+                  </div>
+                </details>
+              ))}
+            </Step>
+
+            {decidable && primary ? (
+              <Step
+                n={3}
+                title={waiting ? 'Your decision' : 'Decision'}
+                hint={
+                  waiting && primary.decision.approverRole
+                    ? `Needs a ${ROLE_LABELS[primary.decision.approverRole]} or above to approve.`
+                    : undefined
                 }
-              />
-            ))}
+              >
+                <section
+                  aria-label="Decision"
+                  className={`rounded-lg border bg-surface p-4 shadow-card ${
+                    waiting ? 'border-accent border-l-4' : 'border-line'
+                  }`}
+                >
+                  {waiting && two && (
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-semibold">Option {primary.option} selected</span>
+                      <RuleBadge ruleId={primary.decision.ruleId} />
+                      <DocTypeBadge type={primary.decision.documentType} />
+                      <span className="text-xs text-muted">
+                        Select the other card above to change it.
+                      </span>
+                    </div>
+                  )}
+                  {waiting && <p className="mt-2 text-sm">{primary.briefing.whatWePropose}</p>}
+                  {waiting && two && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={sent || choose.isPending}
+                        onClick={() =>
+                          choose.mutate(primary.id, {
+                            onSuccess: () =>
+                              toast.success(`Option ${primary.option} sent to approval`),
+                            onError: (e) =>
+                              toast.error(e instanceof Error ? e.message : 'Not sent'),
+                          })
+                        }
+                      >
+                        {sent ? <Check className="size-4" /> : <Send className="size-4" />}
+                        {sent ? `Option ${primary.option} sent to approval` : 'Send to approval'}
+                      </Button>
+                      <span className="text-xs text-muted">
+                        {sent
+                          ? 'It waits in To approve for the approver.'
+                          : 'Or approve or reject it yourself, below.'}
+                      </span>
+                    </div>
+                  )}
+                  <ApprovalActions
+                    key={primary.id}
+                    c={c}
+                    p={primary}
+                    role={role}
+                    actor={ROLE_LABELS[role]}
+                  />
+                </section>
+              </Step>
+            ) : (
+              <Step n={3} title="Reply to the customer">
+                <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />
+              </Step>
+            )}
           </div>
-        )}
-        {!decidable && <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />}
-      </section>
+          <aside aria-label="Case facts" className="space-y-4 lg:sticky lg:top-4">
+            <AgentReadPanel c={c} />
+            <SapFindingsPanel c={c} />
+          </aside>
+        </div>
+      )}
 
       <Tabs defaultValue="timeline" className="mt-6">
         <TabsList>
@@ -189,5 +361,36 @@ export function CasePage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+/** One step of the case flow: a number, a title, a line on what it is for. */
+function Step({
+  n,
+  title,
+  hint,
+  children,
+}: {
+  n: number
+  title: string
+  hint?: string
+  children: ReactNode
+}) {
+  return (
+    <section aria-labelledby={`step-${n}`}>
+      <div className="mb-2 flex items-baseline gap-2">
+        <span
+          aria-hidden
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-fg text-xs font-semibold text-surface"
+        >
+          {n}
+        </span>
+        <h2 id={`step-${n}`} className="text-base font-semibold text-fg">
+          {title}
+        </h2>
+        {hint && <span className="text-sm text-muted">{hint}</span>}
+      </div>
+      {children}
+    </section>
   )
 }

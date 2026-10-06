@@ -1,7 +1,6 @@
 import { ImapFlow } from 'imapflow'
 import { simpleParser, type ParsedMail } from 'mailparser'
-import { writeFile, mkdir } from 'node:fs/promises'
-import path from 'node:path'
+import type { FileStore } from '../files'
 
 export interface InboundEmail {
   from: string
@@ -10,6 +9,9 @@ export interface InboundEmail {
   text: string
   attachments: { name: string; mimeType: string; url: string }[]
   messageId: string | null
+  /** Reply headers: which earlier emails this one answers. They put a reply on its case. */
+  inReplyTo?: string | null
+  references?: string[]
   sourceFile: string | null
 }
 
@@ -59,15 +61,14 @@ export function senderAllowed(from: string, allowedDomains: string[]): boolean {
   return allowedDomains.some((d) => domain === d || domain.endsWith(`.${d}`))
 }
 
-/** Turns a parsed email into the shape the service ingests, saving image attachments to the uploads folder. */
-export async function toInbound(mail: ParsedMail, uploadsDir: string, publicBase: string, sourceFile: string | null): Promise<InboundEmail> {
-  await mkdir(uploadsDir, { recursive: true })
+/** Turns a parsed email into the shape the service ingests, saving its attachments to the file store. */
+export async function toInbound(mail: ParsedMail, files: FileStore, sourceFile: string | null): Promise<InboundEmail> {
   const attachments: InboundEmail['attachments'] = []
   for (const a of mail.attachments ?? []) {
     if (!a.content?.length) continue
-    const safe = `${Date.now().toString(36)}-${(a.filename ?? 'attachment').replace(/[^\w.-]+/g, '_')}`
-    await writeFile(path.join(uploadsDir, safe), a.content)
-    attachments.push({ name: a.filename ?? safe, mimeType: a.contentType || 'application/octet-stream', url: `${publicBase}/uploads/${safe}` })
+    const name = a.filename ?? 'attachment'
+    const mimeType = a.contentType || 'application/octet-stream'
+    attachments.push({ name, mimeType, url: await files.save(name, a.content, mimeType) })
   }
   const fromText = mail.from?.text ?? 'unknown sender'
   return {
@@ -77,12 +78,14 @@ export async function toInbound(mail: ParsedMail, uploadsDir: string, publicBase
     text: (mail.text ?? '').trim() || stripHtml(mail.html || ''),
     attachments,
     messageId: mail.messageId ?? null,
+    inReplyTo: mail.inReplyTo ?? null,
+    references: typeof mail.references === 'string' ? [mail.references] : (mail.references ?? []),
     sourceFile,
   }
 }
 
-export async function parseEml(raw: string | Buffer, uploadsDir: string, publicBase: string, sourceFile: string | null): Promise<InboundEmail> {
-  return toInbound(await simpleParser(raw), uploadsDir, publicBase, sourceFile)
+export async function parseEml(raw: string | Buffer, files: FileStore, sourceFile: string | null): Promise<InboundEmail> {
+  return toInbound(await simpleParser(raw), files, sourceFile)
 }
 
 function stripHtml(html: string): string {
@@ -109,8 +112,7 @@ export class MailboxListener {
   constructor(
     private cfg: MailboxConfig,
     private onEmail: (mail: InboundEmail) => Promise<void>,
-    private uploadsDir: string,
-    private publicBase: string,
+    private files: FileStore,
     private log: (msg: string) => void,
   ) {}
 
@@ -199,7 +201,7 @@ export class MailboxListener {
         for (const m of batch) {
           maxUid = Math.max(maxUid, m.uid)
           try {
-            const mail = await parseEml(m.source, this.uploadsDir, this.publicBase, null)
+            const mail = await parseEml(m.source, this.files, null)
             if (!senderAllowed(mail.from, this.cfg.allowedDomains)) {
               this.log(`Mailbox: skipped a message from ${mail.from} (sender domain not allowed)`)
             } else {

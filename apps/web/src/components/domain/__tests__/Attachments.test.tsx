@@ -42,4 +42,11 @@ describe('Attachments', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View drum.png' }))
     expect(screen.getByRole('dialog', { name: 'drum.png' })).toBeInTheDocument()
   })
+
+  it('says a photo is missing instead of showing a broken image', () => {
+    render(<Attachments list={LIST.slice(0, 1)} />)
+    fireEvent.error(screen.getByRole('img', { name: 'drum.png' }))
+    expect(screen.getByText(/The photo could not be loaded/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Download/ })).toBeInTheDocument()
+  })
 })

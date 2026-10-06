@@ -1,74 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Send } from 'lucide-react'
-import { caseOutcome, currentReply, primaryProposal, type Case, type Role } from '@reclaim/shared'
-import { useSendReply, type SendReplyResult } from '@/api'
+import { Copy, Send, Sparkles } from 'lucide-react'
+import {
+  caseOutcome,
+  currentReply,
+  customerHistory,
+  decisionReplyDue,
+  templateReply,
+  type Case,
+  type ReplyKind,
+  type Role,
+} from '@reclaim/shared'
+import { useReplySuggestion, useSendReply, type SendReplyResult } from '@/api'
 import { Button } from '@/components/ui/button'
 
-/** Statuses where a person has decided and the customer can be told. Mirrors Service.sendReply. */
-const REPLY_STATUSES = [
-  'written_to_sap',
-  'closed',
-  'needs_customer_input',
-  'handed_over',
-  'duplicate',
-]
-
-/** Placeholder suggestions until the generated reply is wired in. */
-const DUMMY_SUGGESTION = `Dear customer,
-
-Thank you for contacting us about your order. We have reviewed your complaint and processed it according to our returns policy.
-
-If you have any further questions, simply reply to this email.
-
-Kind regards,
-Customer Service`
-
-function rejectionSuggestion(c: Case): string {
-  const reason = [...c.approvals]
-    .reverse()
-    .find((a) => a.decision === 'rejected')
-    ?.comment.trim()
-  return `Dear customer,
-
-Thank you for contacting us${c.invoiceNumber ? ` about invoice ${c.invoiceNumber}` : ''}. We have carefully reviewed your complaint, and unfortunately we are unable to issue a credit or return in this case.${reason ? `\n\nReason: ${reason}` : ''}
-
-If you have additional information or evidence, simply reply to this email and we will review it again.
-
-Kind regards,
-Customer Service`
-}
-
-/** Nothing in SAP to credit against: ask for the invoice number instead of a generic answer. */
-function missingInvoiceSuggestion(c: Case): string {
-  const named = c.facts?.invoiceNumber
-  return `Dear customer,
-
-Thank you for contacting us. ${
-    named
-      ? `We could not find invoice ${named} in our system.`
-      : 'To look into your complaint, we need the invoice it relates to.'
-  }
-
-Could you please reply with the correct invoice number, the material and the quantity affected? A photo helps if goods arrived damaged. As soon as we have it, we will review your complaint.
-
-Kind regards,
-Customer Service`
-}
-
-function suggestion(c: Case): string {
-  if (caseOutcome(c) === 'rejected') return rejectionSuggestion(c)
-  const f = c.findings
-  if (f && !f.invoice && f.candidateInvoices.length === 0) return missingInvoiceSuggestion(c)
-  return DUMMY_SUGGESTION
-}
-
-/** The reply to the customer: a suggested answer to edit, then send by email in their thread. */
+/** The reply to the customer: written by a person, with a suggestion on request, then sent by email in their thread. */
 export function ReplyPanel(props: { c: Case; role: Role; actor: string }) {
   const { c } = props
-  if (!primaryProposal(c) || !REPLY_STATUSES.includes(c.status)) return null
-  // Keyed by status: the suggestion is chosen when the decision is made (approved or rejected), not before.
-  return <ReplyForm key={`${c.status}:${caseOutcome(c)}`} {...props} />
+  const kind: ReplyKind = decisionReplyDue(props.c) ? 'decision' : 'message'
+  const sent = currentReply(c.events)
+  // Keyed by kind and status: a decision, or the decision reply going out, starts a fresh suggestion.
+  return (
+    <>
+      {sent && kind === 'message' && (
+        <div className="mt-4 rounded-md border border-ok bg-ok-soft p-3 text-sm text-ok">
+          Reply sent to {String(sent.detail.to)} by {String(sent.detail.actor)} at{' '}
+          {new Date(sent.at).toLocaleTimeString()}.
+        </div>
+      )}
+      <ReplyForm key={`${kind}:${c.status}:${caseOutcome(c)}`} kind={kind} {...props} />
+    </>
+  )
 }
 
 /** What kind of answer this is, so a person sees at a glance whether the customer gets good or bad news. */
@@ -88,63 +50,135 @@ const TONE: Record<string, { label: string; cls: string }> = {
   duplicate: { label: 'Already in progress', cls: 'bg-surface-2 text-muted' },
 }
 
-function ReplyForm({ c, role, actor }: { c: Case; role: Role; actor: string }) {
-  const [text, setText] = useState(() => suggestion(c))
+function ReplyForm({
+  c,
+  role,
+  actor,
+  kind,
+}: {
+  c: Case
+  role: Role
+  actor: string
+  kind: ReplyKind
+}) {
+  // The box starts empty. On request, the template from this case's own thread is there at once, and the
+  // suggestion from every email replaces it.
+  const [text, setText] = useState('')
+  const [asked, setAsked] = useState(false)
+  const [edited, setEdited] = useState(false)
   const [result, setResult] = useState<SendReplyResult | null>(null)
   const send = useSendReply()
+  const suggestion = useReplySuggestion(c.id, c.events.length, asked)
+  const s = asked ? suggestion.data : undefined
 
-  const sent = currentReply(c.events)
+  useEffect(() => {
+    if (s && !edited) setText(s.text)
+  }, [s, edited])
+
+  const suggest = () => {
+    setEdited(false)
+    if (!asked) {
+      setText(templateReply(c, customerHistory(c, [c]), kind))
+      setAsked(true)
+    } else {
+      if (s) setText(s.text)
+      void suggestion.refetch()
+    }
+  }
+
   const byEmail =
     c.events.some((e) => e.kind === 'intake' && e.detail.channel === 'mailbox') &&
     c.from.includes('@')
+  const tone =
+    kind === 'decision' ? TONE[c.status === 'closed' ? `closed:${caseOutcome(c)}` : c.status] : null
 
-  if (sent) {
-    return (
-      <div className="mt-4 rounded-md border border-ok bg-ok-soft p-3 text-sm text-ok">
-        Reply sent to {String(sent.detail.to)} by {String(sent.detail.actor)} at{' '}
-        {new Date(sent.at).toLocaleTimeString()}.
-      </div>
-    )
+  const copy = async () => {
+    await navigator.clipboard?.writeText(text)
+    toast.success('Reply copied')
   }
 
-  const tone = TONE[c.status === 'closed' ? `closed:${caseOutcome(c)}` : c.status]
   return (
     <div className="mt-4">
-      {tone && (
-        <div className="mb-1.5 flex items-center gap-2 text-xs">
-          <span className="font-semibold text-muted">Reply to the customer</span>
+      <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs">
+        <span className="font-semibold text-muted">
+          {kind === 'decision' ? 'Reply to the customer' : 'Message to the customer'}
+        </span>
+        <span className="text-muted">
+          to <span className="font-medium text-fg">{c.from}</span>
+        </span>
+        {tone && (
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium ${tone.cls}`}
           >
             <span className="size-1.5 rounded-full bg-current" aria-hidden />
             {tone.label}
           </span>
-        </div>
-      )}
+        )}
+      </div>
       <textarea
         aria-label="Reply to the customer"
         className="min-h-40 w-full rounded-md border border-line bg-surface p-3 text-sm leading-relaxed"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        placeholder="Write to the customer…"
+        onChange={(e) => {
+          setText(e.target.value)
+          setEdited(true)
+        }}
       />
-      {byEmail && (
-        <Button
-          className="mt-2"
-          disabled={send.isPending || !text.trim()}
-          onClick={() =>
-            send.mutate(
-              { caseId: c.id, input: { actor, role, text } },
-              {
-                onSuccess: (r) => {
-                  setResult(r)
-                  if (r.ok) toast.success(`Reply sent to ${r.to}`)
-                },
-              },
-            )
-          }
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+        <Sparkles className="size-3.5 shrink-0" aria-hidden />
+        {asked && (
+          <span>
+            {suggestion.isFetching
+              ? 'Reading every email with this customer…'
+              : s
+                ? `Suggested from ${s.emails} ${s.emails === 1 ? 'email' : 'emails'} with this customer${
+                    c.invoiceNumber ? ` about invoice ${c.invoiceNumber}` : ''
+                  } · ${s.by === 'model' ? 'worded by the model, facts from the case' : 'standard wording'}`
+                : 'Suggested from this conversation · standard wording'}
+          </span>
+        )}
+        <button
+          type="button"
+          className="font-medium text-fg underline disabled:opacity-50"
+          disabled={asked && suggestion.isFetching}
+          onClick={suggest}
         >
-          <Send className="size-4" /> {send.isPending ? 'Sending…' : 'Send reply'}
+          {!asked ? 'Suggest a reply' : edited ? 'Use the suggestion' : 'Suggest again'}
+        </button>
+        {s?.note && <span className="w-full text-warn">{s.note}</span>}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {byEmail && (
+          <Button
+            disabled={send.isPending || !text.trim()}
+            onClick={() =>
+              send.mutate(
+                { caseId: c.id, input: { actor, role, text, kind } },
+                {
+                  onSuccess: (r) => {
+                    setResult(r)
+                    if (r.ok) {
+                      toast.success(`${kind === 'decision' ? 'Reply' : 'Message'} sent to ${r.to}`)
+                      setEdited(false)
+                    }
+                  },
+                },
+              )
+            }
+          >
+            <Send className="size-4" /> {send.isPending ? 'Sending…' : 'Send reply'}
+          </Button>
+        )}
+        <Button variant="outline" onClick={copy} disabled={!text.trim()}>
+          <Copy className="size-4" /> Copy
         </Button>
+      </div>
+      {!byEmail && (
+        <p className="mt-1 text-xs text-muted">
+          This complaint did not arrive by email, so there is no thread to answer in: copy the reply
+          instead.
+        </p>
       )}
       {result && !result.ok && (
         <div

@@ -1,4 +1,5 @@
 import {
+  addCustomerReply,
   approverFor,
   buildFixtureCases,
   buildSapPayload,
@@ -7,13 +8,25 @@ import {
   caseOutcome,
   computeAnalytics,
   currentReply,
+  customerHistory,
+  decisionReplyDue,
   EXPECTED,
   FIXTURES,
+  findThreadCase,
+  inboundMessage,
+  latestCustomerMessageId,
   primaryProposal,
+  replyGrounded,
+  replyPrompt,
+  REPLY_STATUSES,
+  templateReply,
+  type ReplyKind,
+  type ReplySuggestion,
   RULES,
   MANUAL_STATUSES,
   STATUS_LABELS,
   statusChangeBlocked,
+  threadMessageIds,
   toSummary,
   type AgentStatus,
   type Analytics,
@@ -25,6 +38,7 @@ import {
   type Role,
   type SapDocument,
   type Settings,
+  NO_INVOICE,
 } from '@reclaim/shared'
 import type { Gateway } from './gateway/types'
 import { versionStampOf } from './gateway/real'
@@ -68,9 +82,11 @@ export interface SendReplyInput {
   role: Role
   /** The reply as the person edited it. Default: the proposal's draft. */
   text?: string
+  /** 'decision' (default): the one reply after a person decided. 'message': any other email in the thread. */
+  kind?: ReplyKind
+  /** For a message: the email in the thread it answers (a conversation message id). It goes to that email's sender. */
+  replyTo?: string
 }
-/** Statuses where a person has decided and the customer can be told. */
-const REPLY_STATUSES = ['written_to_sap', 'closed', 'needs_customer_input', 'handed_over', 'duplicate'] as const
 export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; message: string }
 
 export interface ServiceDeps {
@@ -176,13 +192,23 @@ export class Service {
     this.deps.hub.emit({ type: 'status_changed' })
   }
 
-  /** Creates a case from an email that arrived by mailbox or webhook. Duplicate message ids are ignored. */
+  /**
+   * Creates a case from an email that arrived by mailbox or webhook, or, when the email answers an earlier one,
+   * adds it to that case's conversation (see findThreadCase). Duplicate message ids are ignored.
+   */
   async ingestInbound(mail: InboundEmail): Promise<CaseSummary | null> {
     if (mail.messageId) {
       const dup = this.store.list().find((c) => c.events.some((e) => e.kind === 'intake' && e.detail.messageId === mail.messageId))
       if (dup) return null
     }
     const fx = mail.sourceFile ? FIXTURES.find((x) => x.emailFile === mail.sourceFile) : undefined
+    const thread = fx ? undefined : findThreadCase(this.store.list(), mail)
+    if (thread) {
+      const { reopened } = addCustomerReply(thread, mail, ev)
+      this.touch(thread.id)
+      if (reopened) this.deps.hub.emit({ type: 'status_changed' })
+      return toSummary(thread)
+    }
     const now = new Date().toISOString()
     // An email from the mailbox gets an id derived from its Message-ID, so every instance listening on the same
     // mailbox lands on the same case and the database decides who ingests it.
@@ -312,6 +338,7 @@ export class Service {
   async approve(proposalId: string, input: ApproveInput): Promise<Outcome<SapDocument | null>> {
     const { c, p } = this.store.locateProposal(proposalId)
     if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) return { ok: false, status: 409, message: 'This case is not awaiting approval.' }
+    if (!c.invoiceNumber) return { ok: false, status: 409, message: NO_INVOICE }
     this.writing.add(c.id)
     try {
       // 1. Work out the decision that would be approved, without touching the proposal.
@@ -447,6 +474,7 @@ export class Service {
     if (intake?.detail.channel !== 'mailbox' || !c.from.includes('@')) {
       return { ok: false, status: 400, message: 'This complaint did not arrive by email, so there is no address to reply to. Copy the reply instead.' }
     }
+    if (input.kind === 'message') return this.sendMessage(c, mailer, input)
     if (!(REPLY_STATUSES as readonly string[]).includes(c.status)) {
       return { ok: false, status: 409, message: 'A person has not decided this case yet. Approve it first, then send the reply.' }
     }
@@ -463,11 +491,13 @@ export class Service {
       text += `\n\nReference: ${doc.type === 'YRE' ? 'return order' : 'credit memo request'} ${doc.number}${c.invoiceNumber ? ` for invoice ${c.invoiceNumber}` : ''}.`
     }
     const subject = /^re:/i.test(c.subject) ? c.subject : `Re: ${c.subject}`
-    const inReplyTo = typeof intake.detail.messageId === 'string' ? intake.detail.messageId : null
+    // Answer the customer's latest email, and carry the whole thread so their mail client keeps one conversation.
+    const inReplyTo = latestCustomerMessageId(c)
+    const references = threadMessageIds(c)
     this.sending.add(c.id)
     const t = Date.now()
     try {
-      const r = await mailer.send({ to: c.from, subject, text, inReplyTo })
+      const r = await mailer.send({ to: c.from, subject, text, inReplyTo, references })
       ev(c, 'status', `Reply sent to ${c.from} by ${input.actor}`, { replySent: true, to: c.from, from: mailer.from, subject, text, messageId: r.messageId, inReplyTo, actor: input.actor, role: input.role }, null, Date.now() - t)
       this.touch(c.id)
       return { ok: true, value: { to: c.from, messageId: r.messageId } }
@@ -478,6 +508,62 @@ export class Service {
       return { ok: false, status: 502, message: `Sending the reply failed (${message}). Nothing was sent; copy the reply instead or try again.` }
     } finally {
       this.sending.delete(c.id)
+    }
+  }
+
+  /**
+   * A message to the customer in the thread, at any status and as often as needed: a question, an acknowledgement,
+   * a follow-up. It is not the decision reply: no SAP reference is added, and the decision reply stays due.
+   */
+  private async sendMessage(c: Case, mailer: Mailer, input: SendReplyInput): Promise<Outcome<{ to: string; messageId: string }>> {
+    const text = (input.text ?? '').trim()
+    if (!text) return { ok: false, status: 400, message: 'The message is empty.' }
+    // Only someone who wrote in this thread can be answered: the customer by default, or the sender of the chosen email.
+    const target = input.replyTo ? inboundMessage(c, input.replyTo) : undefined
+    if (input.replyTo && !target) return { ok: false, status: 400, message: 'That email is not in this case\'s thread.' }
+    if (this.sending.has(c.id)) return { ok: false, status: 409, message: 'An email to this customer is being sent.' }
+    const to = target?.from ?? c.from
+    const about = target?.subject || c.subject
+    const subject = /^re:/i.test(about) ? about : `Re: ${about}`
+    const inReplyTo = target?.messageId ?? latestCustomerMessageId(c)
+    const references = threadMessageIds(c)
+    this.sending.add(c.id)
+    const t = Date.now()
+    try {
+      const r = await mailer.send({ to, subject, text, inReplyTo, references })
+      ev(c, 'status', `Message sent to ${to} by ${input.actor}`, { messageSent: true, to, from: mailer.from, subject, text, messageId: r.messageId, inReplyTo, replyTo: input.replyTo ?? null, actor: input.actor, role: input.role }, null, Date.now() - t)
+      this.touch(c.id)
+      return { ok: true, value: { to, messageId: r.messageId } }
+    } catch (e) {
+      const message = (e as Error).message
+      ev(c, 'error', `Sending a message to ${to} failed; nothing was sent`, { message, actor: input.actor }, null, Date.now() - t)
+      this.touch(c.id)
+      return { ok: false, status: 502, message: `Sending the message failed (${message}). Nothing was sent; try again.` }
+    } finally {
+      this.sending.delete(c.id)
+    }
+  }
+
+  /**
+   * The suggested next email to the customer, from every email with them about the invoice. The facts come from
+   * code; the model only words them, and wording with a number that is in none of the emails or facts is not used.
+   */
+  async suggestReply(caseId: string): Promise<ReplySuggestion> {
+    const c = this.store.get(caseId)
+    const kind: ReplyKind = decisionReplyDue(c) ? 'decision' : 'message'
+    const history = customerHistory(c, [...this.store.cases.values()])
+    const template = templateReply(c, history, kind)
+    const ai = this.deps.ai(this.store.settings)
+    if (!ai.suggestReply) return { text: template, kind, by: 'template', emails: history.length, note: null }
+    try {
+      const r = await ai.suggestReply(replyPrompt(c, history, kind))
+      if (!r.text) return { text: template, kind, by: 'template', emails: history.length, note: r.fallback ?? null }
+      if (!replyGrounded(r.text, c, history)) {
+        return { text: template, kind, by: 'template', emails: history.length, note: 'The model wrote a number that is in none of the emails or facts; the standard wording is shown instead.' }
+      }
+      return { text: r.text, kind, by: 'model', emails: history.length, note: null }
+    } catch (e) {
+      return { text: template, kind, by: 'template', emails: history.length, note: `The model is not available (${(e as Error).message.slice(0, 100)}).` }
     }
   }
 
@@ -500,6 +586,7 @@ export class Service {
   reject(proposalId: string, input: RejectInput) {
     const { c, p } = this.store.locateProposal(proposalId)
     if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) throw Object.assign(new Error('This case is not awaiting approval.'), { status: 409 })
+    if (!c.invoiceNumber) throw Object.assign(new Error(NO_INVOICE), { status: 409 })
     const required = p.decision.approverRole ?? 'customer_service_lead'
     if (ROLE_RANK[input.role] < ROLE_RANK[required]) throw Object.assign(new Error(`Rejecting this claim needs the ${required.replace(/_/g, ' ')}. Your role cannot decide it.`), { status: 403 })
     if (input.comment.trim().length < 3) throw Object.assign(new Error('A reason is required to reject: it goes to the customer and into the audit trail.'), { status: 400 })

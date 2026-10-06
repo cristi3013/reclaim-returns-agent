@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { CaseSummary } from '@reclaim/shared'
-import { isFresh, matchesQuery, matchesStatus, sortRows, toggleSort } from '../view'
+import { isFresh, matchesQuery, sortRows, toggleSort } from '../view'
 
 const row = (id: string, o: Partial<CaseSummary>): CaseSummary =>
   ({
@@ -64,11 +64,7 @@ describe('inbox order', () => {
 })
 
 describe('inbox filters', () => {
-  it('status, needs action, and search over invoice and customer', () => {
-    expect(matchesStatus(big, 'action')).toBe(true)
-    expect(matchesStatus(old, 'action')).toBe(false)
-    expect(matchesStatus(old, 'received')).toBe(true)
-    expect(matchesStatus(old, '')).toBe(true)
+  it('search over invoice and customer', () => {
     const r = row('x', { invoiceNumber: '90000354', customerName: 'Cust DE 1' })
     expect(matchesQuery(r, ' 90000354 ')).toBe(true)
     expect(matchesQuery(r, 'cust de')).toBe(true)

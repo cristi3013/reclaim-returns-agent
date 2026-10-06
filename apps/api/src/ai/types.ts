@@ -16,4 +16,6 @@ export interface Ai {
   phrase?(question: string, answer: Answer): Promise<{ text: string; usage?: ModelUsage }>
   /** Root causes: name the cause and the fix for each group of similar complaints. Words only; code computes the figures. */
   explainRootCauses?(prompt: string): Promise<{ narrations: RootCauseNarration[]; usage?: ModelUsage; fallback?: string }>
+  /** Reply to the customer: word the next email from the computed facts and the email history. A person edits and sends it. */
+  suggestReply?(prompt: string): Promise<{ text: string; usage?: ModelUsage; fallback?: string }>
 }

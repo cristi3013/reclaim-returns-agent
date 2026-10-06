@@ -10,6 +10,8 @@ import type {
   Answer,
   RoutingNote,
   RootCauseBriefing,
+  ReplyKind,
+  ReplySuggestion,
   Role,
   SapDocument,
   Settings,
@@ -32,6 +34,10 @@ export interface SendReplyInput {
   role: Role
   /** The reply as the person edited it. Default: the proposal's draft. */
   text?: string
+  /** 'decision' (default): the one reply after a person decided. 'message': any other email in the thread. */
+  kind?: ReplyKind
+  /** For a message: the email in the thread it answers. It goes to that email's sender. */
+  replyTo?: string
 }
 
 export type ApiEvent = { type: 'case_changed'; id: string } | { type: 'status_changed' }
@@ -75,6 +81,8 @@ export interface ApiClient {
   runAll(): Promise<void>
   /** Emails the reply to the customer, in their thread. Only after a person decided, once. */
   sendReply(caseId: string, input: SendReplyInput): Promise<SendReplyResult>
+  /** The suggested next email, from every email with the customer about the invoice. */
+  replySuggestion(caseId: string): Promise<ReplySuggestion>
   chooseProposal(proposalId: string): Promise<void>
   approve(proposalId: string, input: ApproveInput): Promise<ApproveResult>
   reject(proposalId: string, input: RejectInput): Promise<void>

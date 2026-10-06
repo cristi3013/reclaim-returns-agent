@@ -9,7 +9,7 @@ import {
   type Findings,
   type Proposal,
 } from '@reclaim/shared'
-import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, keptOnRerun, rankCandidates, regexFacts } from '@reclaim/shared'
+import { AGREED_PRICE, FIXTURES, INVOICES, PLANT_COMPANY, keptOnRerun, rankCandidates, regexFacts, statusAfterProposal } from '@reclaim/shared'
 import { ev, uid } from './events'
 
 export interface PipelineHost {
@@ -278,14 +278,7 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
   h.touch(id)
   await h.delay(250)
 
-  const next: CaseStatus =
-    top.ruleId === 'R6'
-      ? 'handed_over'
-      : top.ruleId === 'R7' || top.ruleId === 'R9'
-        ? 'needs_customer_input'
-        : top.ruleId === 'R8'
-          ? 'duplicate'
-          : 'awaiting_approval'
+  const next = statusAfterProposal(top, facts)
   c.status = next
   ev(c, 'status', `Status: ${next.replace(/_/g, ' ')}`, { approverRole: top.approverRole }, null, null)
   h.setLastRun(new Date().toISOString())

@@ -136,7 +136,7 @@ describe('mock pipeline', () => {
     expect((await d.getCase('case-03')).status).toBe('received')
   })
 
-  it('unknown .eml becomes a received case that runs to a policy-gap proposal', async () => {
+  it('unknown .eml with no invoice becomes a received case that runs to Pending', async () => {
     const c = await mk()
     const f = new File(['From: x@y.example\nSubject: Something odd\n\nHello, the labels on the drums are wrong.'], 'other.eml', { type: 'message/rfc822' })
     const [s] = await c.ingest([f])
@@ -144,7 +144,8 @@ describe('mock pipeline', () => {
     await c.runCase(s!.id)
     const k = await c.getCase(s!.id)
     expect(primaryProposal(k)!.decision.ruleId).toBe('NONE')
-    expect(k.status).toBe('awaiting_approval')
+    // No invoice named and none found: we ask the customer, so the case waits for them (Pending).
+    expect(k.status).toBe('needs_customer_input')
   })
 
   it('eval reports 8 of 8 after running everything', async () => {

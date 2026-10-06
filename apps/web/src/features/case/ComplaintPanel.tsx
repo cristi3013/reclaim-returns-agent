@@ -1,43 +1,59 @@
-import { COMPLAINT_LABELS, conversation, type Case } from '@reclaim/shared'
-import { formatDateTime } from '@/lib/format'
-import { MessageBubble } from '@/components/domain/MessageBubble'
+import { RotateCcw } from 'lucide-react'
+import { COMPLAINT_LABELS, conversation, type Case, type InvoiceMessage } from '@reclaim/shared'
+import { Conversation } from '@/components/domain/Conversation'
 import { Attachments } from '@/components/domain/Attachments'
 
-export function ComplaintPanel({ c }: { c: Case }) {
-  const f = c.facts
-  const messages = conversation(c)
-  const thread = messages.length > 1
+/** The conversation: this complaint's emails, or every email on the invoice when it has more complaints. */
+export function ComplaintPanel({
+  c,
+  invoiceMessages,
+}: {
+  c: Case
+  invoiceMessages?: InvoiceMessage[]
+}) {
+  const messages = invoiceMessages ?? conversation(c)
   return (
     <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
       <h2 className="text-base font-semibold text-fg">
-        {thread ? `Conversation · ${messages.length} emails` : 'Complaint'}
+        Conversation · {messages.length} email{messages.length === 1 ? '' : 's'}
       </h2>
-      {thread ? (
-        <>
-          <div className="mt-1 text-sm font-medium">{c.subject}</div>
-          <Attachments list={c.attachments} compact />
-          <ol className="mt-3 space-y-3" aria-label="Emails in this case">
-            {messages.map((m) => (
-              <MessageBubble key={m.id} m={m} />
-            ))}
-          </ol>
-        </>
-      ) : (
-        <>
-          <div className="mt-2 text-sm">
-            <div className="font-medium">{c.subject}</div>
-            <div className="text-muted">
-              {c.from} · {formatDateTime(c.receivedAt)}
-            </div>
-          </div>
-          <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed">
-            {c.bodyText}
-          </pre>
-          <Attachments list={c.attachments} />
-        </>
-      )}
+      <div className="mt-1 text-sm font-medium">{c.subject}</div>
+      <Attachments list={c.attachments} compact />
+      <Conversation
+        messages={messages}
+        customerFrom={c.from}
+        label="Emails in this case"
+        extras={(m) => {
+          const x = m as InvoiceMessage
+          return x.startsComplaint
+            ? {
+                before: (
+                  <li className="flex items-center gap-2 py-1 text-xs text-muted" role="separator">
+                    <span className="h-px flex-1 bg-line" />
+                    <RotateCcw className="size-3.5" aria-hidden />
+                    {x.reopens
+                      ? 'New email on this invoice · case reopened'
+                      : 'New complaint on this invoice'}
+                    <span className="h-px flex-1 bg-line" />
+                  </li>
+                ),
+              }
+            : {}
+        }}
+      />
+    </section>
+  )
+}
+
+/** What the agent read in the emails: the facts the rules decide on, for the sidebar. */
+export function AgentReadPanel({ c }: { c: Case }) {
+  const f = c.facts
+  if (!f && c.anomalies.length === 0) return null
+  return (
+    <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
+      <h2 className="text-sm font-semibold text-fg">What the agent read</h2>
       {c.anomalies.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
+        <div className="mt-2 flex flex-wrap gap-1">
           {c.anomalies.map((a) => (
             <span key={a} className="rounded bg-warn-soft px-2 py-0.5 text-xs text-warn">
               {a}
@@ -46,8 +62,8 @@ export function ComplaintPanel({ c }: { c: Case }) {
         </div>
       )}
       {f && (
-        <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 border-t border-line pt-3 text-sm">
-          <dt className="text-muted">What the agent read</dt>
+        <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
+          <dt className="text-muted">Complaint</dt>
           <dd>{COMPLAINT_LABELS[f.complaintType]}</dd>
           <dt className="text-muted">Invoice named</dt>
           <dd className="font-mono">

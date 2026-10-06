@@ -90,7 +90,7 @@ describe('Reclaim API acceptance', () => {
     expect((await run('case-03')).statusCode).toBe(409)
   })
 
-  it('ingests an .eml and runs it to a policy-gap proposal', async () => {
+  it('ingests an .eml with no invoice and runs it to Pending, waiting for the customer', async () => {
     const boundary = 'xyz'
     const eml = 'From: x@y.example\r\nSubject: Something odd\r\nDate: Mon, 05 Oct 2026 10:00:00 +0000\r\n\r\nHello, the labels on the drums are wrong.\r\n'
     const payload = `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="other.eml"\r\nContent-Type: message/rfc822\r\n\r\n${eml}\r\n--${boundary}--\r\n`
@@ -100,7 +100,8 @@ describe('Reclaim API acceptance', () => {
     await run(s!.id)
     const k = await theCase(s!.id)
     expect(primaryProposal(k)!.decision.ruleId).toBe('NONE')
-    expect(k.status).toBe('awaiting_approval')
+    // No invoice named and none found: we ask the customer, so the case waits for them (Pending).
+    expect(k.status).toBe('needs_customer_input')
   })
 })
 

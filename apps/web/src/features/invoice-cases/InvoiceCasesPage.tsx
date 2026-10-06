@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { groupByInvoice } from '@reclaim/shared'
+import { groupByInvoice, mainComplaint, type InvoiceCase } from '@reclaim/shared'
 import { useCases } from '@/api'
 import { PageHeader } from '@/components/domain/PageHeader'
 import { StatusChip } from '@/components/domain/StatusChip'
@@ -19,7 +19,9 @@ export function InvoiceCasesPage() {
   const rows = q.data ?? []
   const cases = groupByInvoice(rows)
   const noInvoice = rows.filter((r) => !r.invoiceNumber).length
-  const open = (invoice: string) => navigate({ to: '/invoices/$invoice', params: { invoice } })
+  // The same case page as Inbox → Go to case: the invoice's main complaint.
+  const open = (c: InvoiceCase) =>
+    navigate({ to: '/cases/$id', params: { id: mainComplaint(c.complaints).id } })
   const now = Date.now()
   return (
     <div>
@@ -64,26 +66,14 @@ export function InvoiceCasesPage() {
               {cases.map((c) => (
                 <tr
                   key={c.invoice}
-                  onClick={() => open(c.invoice)}
+                  onClick={() => open(c)}
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && open(c.invoice)}
+                  onKeyDown={(e) => e.key === 'Enter' && open(c)}
                   className="cursor-pointer border-t border-line outline-none hover:bg-surface-2 focus:bg-surface-2"
                 >
                   <td className="px-3 py-2 font-mono font-medium">{c.invoice}</td>
                   <td className="whitespace-nowrap px-3 py-2">
-                    <span className="inline-flex items-center gap-1.5">
-                      <StatusChip status={CHIP[c.status]} />
-                      {c.reopened && (
-                        <span className="rounded bg-info-soft px-1.5 py-0.5 text-[11px] font-medium text-info">
-                          Reopened
-                        </span>
-                      )}
-                      {c.awaitingApproval > 0 && (
-                        <span className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-warn">
-                          {c.awaitingApproval} to approve
-                        </span>
-                      )}
-                    </span>
+                    <StatusChip status={CHIP[c.status]} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
                     {c.customerName ?? '–'}
@@ -92,7 +82,14 @@ export function InvoiceCasesPage() {
                     )}
                   </td>
                   <td className="max-w-[20rem] truncate px-3 py-2">{c.subject}</td>
-                  <td className="px-3 py-2 text-right tnum">{c.complaints.length}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tnum">
+                    {c.complaints.length}
+                    {c.awaitingApproval > 0 && (
+                      <span className="ml-1 text-xs text-muted">
+                        · {c.awaitingApproval} to approve
+                      </span>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 tnum text-muted">
                     {formatDateTime(c.openedAt).replace(/ \d{4}/, '')}
                   </td>

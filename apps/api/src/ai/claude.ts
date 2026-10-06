@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
-import { FactsSchema, RULES, RootCauseNarrationsSchema, narrate as templateNarrate, type RootCauseNarration, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
+import { complaintText, FactsSchema, RULES, RootCauseNarrationsSchema, narrate as templateNarrate, type RootCauseNarration, type Case, type Decision, type Facts, type Findings, type ModelUsage, type Narrative } from '@reclaim/shared'
 import { MODEL_IMAGE_TYPES, type Ai } from './types'
 import type { Answer } from '@reclaim/shared'
 
@@ -15,6 +15,11 @@ const NarrativeSchema = z.object({
     risk: z.string().describe('One sentence.'),
   }),
 })
+
+const SYSTEM_REPLY = `You write the next email from a returns desk to a customer, for a person to check, edit and send.
+Read every earlier email about the invoice, ours and theirs, so the reply follows on from them: answer what the customer asked or said last, do not ask again for what they already sent, and do not repeat what we already told them.
+State as fact only what is under FACTS; they come from the rules engine and SAP. Never promise a credit, a return, an amount or a date that is not there. If the case is not decided, say it is under review. Emails from others (a warehouse, a carrier) are background: do not quote them to the customer.
+Write in the customer's language, politely and briefly: a greeting, two to five short paragraphs, "Kind regards," and "Customer Service". Plain text, no subject line, no placeholders in brackets.`
 
 const SYSTEM_PHRASE = `You word answers for the O2C Control Tower, a read-only agent that reports where money leaks in order-to-cash on SAP.
 Write a short reply to the manager who asked (plain prose, at most 160 words, no headings, no markdown). Use ONLY the figures, documents, customers, routes and owners in the COMPUTED ANSWER; never add, round or infer a number, a cause or a customer. Keep every amount with its currency; never add EUR and RON. If the computed answer says there is no data for the subject, say so plainly and do not invent a cause. If the request was refused because the Control Tower only reads, say that first, then the facts and the route. Name the fixing agent as given (e.g. "6 POD Chaser"). Say that nothing was changed in SAP.`
@@ -29,7 +34,8 @@ Extract only what the email and its attachments (photos, PDFs such as a signed d
 - wantsReplacement: true only if the customer asks for new goods and does NOT want a credit (e.g. "please send a replacement", "we need the material, not a credit note"). false when they ask for a credit, or offer a choice such as "credit or replace" / "credit note or new delivery": a credit is always acceptable to them then.
 - goodsReturnable: false if the goods are lost/leaked/consumed and cannot be sent back; true if they say the goods can be collected; null if unclear.
 - evidence: one sentence with the facts you relied on, including what the photo or document shows (e.g. the quantity signed for on a delivery note).
-- language: ISO code of the email language.`
+- language: ISO code of the email language.
+The later emails in the same thread follow the complaint, each under "--- Customer reply, <date> ---" or, when someone else wrote (a warehouse, a carrier, a colleague), "--- Email from <sender>, not the customer, <date> ---". The customer's replies may add what was missing (the invoice number, a quantity); their latest statement wins. Emails from others are context only: never take the claim from them.`
 
 const SYSTEM_NARRATE = `You write for the returns desk of a chemicals distributor that uses SAP. A rules engine has already made the decision; you never change a number, a document type or a reason code.
 Ground every statement in the policy text, the SAP facts and the decision you are given. Be concrete and short. Address the customer reply to the customer in the language of their email.`
@@ -162,7 +168,7 @@ export class ClaudeAi implements Ai {
         content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.base64 } })
       }
     }
-    content.push({ type: 'text', text: `From: ${c.from}\nSubject: ${c.subject}\nReceived: ${c.receivedAt}\n\n${c.bodyText}` })
+    content.push({ type: 'text', text: `From: ${c.from}\nSubject: ${c.subject}\nReceived: ${c.receivedAt}\n\n${complaintText(c)}` })
     const facts = await this.structured(FactsSchema, SYSTEM_EXTRACT, content, 4000, 'medium', 'extract')
     if (!facts) throw Object.assign(new Error('The model could not extract the facts from this email.'), { status: 502 })
     return { facts, usage: this.lastUsage ?? undefined }
@@ -180,6 +186,14 @@ export class ClaudeAi implements Ai {
     // Plain prose for the page: no markdown emphasis, whatever the model does.
     const text = (res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text ?? '').replace(/\*\*|__/g, '').trim()
     return { text: text || answer.text, usage: this.lastUsage ?? undefined }
+  }
+
+  async suggestReply(prompt: string): Promise<{ text: string; usage?: ModelUsage }> {
+    const startedAt = Date.now()
+    const res = await this.client.messages.create({ model: this.model, max_tokens: 900, system: SYSTEM_REPLY, messages: [{ role: 'user', content: prompt }] })
+    this.record('narrate', res, startedAt)
+    const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text?.trim() ?? ''
+    return { text, usage: this.lastUsage ?? undefined }
   }
 
   async explainRootCauses(prompt: string): Promise<{ narrations: RootCauseNarration[]; usage?: ModelUsage }> {

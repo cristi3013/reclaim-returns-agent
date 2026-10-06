@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Download, ExternalLink, FileText, Image as ImageIcon, Paperclip, X } from 'lucide-react'
+import {
+  Download,
+  ExternalLink,
+  FileText,
+  Image as ImageIcon,
+  ImageOff,
+  Paperclip,
+  X,
+} from 'lucide-react'
 import { attachmentKind, modelReads, type Attachment } from '@reclaim/shared'
 import { cn } from '@/lib/utils'
 
@@ -80,16 +88,7 @@ function AttachmentItem({ a, onView }: { a: Attachment; onView: (a: Attachment) 
   const kind = attachmentKind(a)
   return (
     <li className="rounded-md border border-line bg-surface p-2">
-      {kind === 'image' && (
-        <button
-          type="button"
-          onClick={() => onView(a)}
-          className="mb-2 block cursor-zoom-in"
-          aria-label={`View ${a.name} full size`}
-        >
-          <img src={a.url} alt={a.name} className="max-h-56 rounded border border-line" />
-        </button>
-      )}
+      {kind === 'image' && <Photo a={a} onView={onView} />}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <div className="min-w-0 flex-1">
           <OpenLink a={a} onView={onView} className="font-medium text-fg underline" />
@@ -100,6 +99,33 @@ function AttachmentItem({ a, onView }: { a: Attachment; onView: (a: Attachment) 
         <FileActions a={a} />
       </div>
     </li>
+  )
+}
+
+/** The photo preview; if the file cannot be loaded, says so instead of showing a broken image. */
+function Photo({ a, onView }: { a: Attachment; onView: (a: Attachment) => void }) {
+  const [failed, setFailed] = useState(false)
+  if (failed)
+    return (
+      <div className="mb-2 flex items-center gap-1.5 rounded border border-dashed border-line px-3 py-4 text-xs text-muted">
+        <ImageOff className="size-4 shrink-0" aria-hidden /> The photo could not be loaded: the file
+        is no longer on the server.
+      </div>
+    )
+  return (
+    <button
+      type="button"
+      onClick={() => onView(a)}
+      className="mb-2 block cursor-zoom-in"
+      aria-label={`View ${a.name} full size`}
+    >
+      <img
+        src={a.url}
+        alt={a.name}
+        onError={() => setFailed(true)}
+        className="max-h-56 rounded border border-line"
+      />
+    </button>
   )
 }
 

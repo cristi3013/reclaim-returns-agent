@@ -15,6 +15,7 @@ import {
   type Settings,
 } from '@reclaim/shared'
 import { z } from 'zod'
+import type { ReplySuggestion } from '@reclaim/shared'
 import type { ApiClient, ApiEvent, ApproveInput, ChangeStatusInput, ApproveResult, RejectInput, ReleaseInput, ReleaseResult, SendReplyInput, SendReplyResult } from '../client'
 
 type Routes = typeof API_ROUTES
@@ -89,6 +90,9 @@ export class HttpApiClient implements ApiClient {
       const err = e as Error & { status?: number }
       return { ok: false, status: err.status ?? 500, message: err.message }
     }
+  }
+  async replySuggestion(id: string) {
+    return this.call<ReplySuggestion>('replySuggestion', { id })
   }
   async chooseProposal(id: string) {
     await this.call('chooseProposal', { id })
