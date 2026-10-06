@@ -8,7 +8,7 @@ import { formatDate, formatDateTime } from '@/lib/format'
 export type ExportFormat = 'xlsx' | 'pdf' | 'xml'
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
-const PRINCIPLE = 'The model reads and explains. Code decides about money. A person approves every SAP change.'
+const PRINCIPLE = 'The model reads and explains. Deterministic rules set every amount. A person approves every SAP change.'
 
 export function downloadBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob)

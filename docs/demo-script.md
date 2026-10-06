@@ -4,7 +4,7 @@ Before going on stage: `npm run dev`, open http://localhost:5173, click **Reset 
 
 | # | Time | Screen | What to do | What to say |
 |---|---|---|---|---|
-| 1 | 0:00 | Complaints (empty) | Point at the top bar: agent online, the demo settings button (SAP and AI mode), the role. | "Reclaim turns a complaint email into an approved SAP return or credit. The model reads and explains, code decides about money, a named person approves every SAP change." |
+| 1 | 0:00 | Complaints (empty) | Point at the top bar: agent online, the demo settings button (SAP and AI mode), the role. | "Reclaim turns a complaint email into an approved SAP return or credit. The model reads and explains, deterministic rules set every amount, a named person approves every SAP change." |
 | 2 | 0:40 | Complaints | **Load demo complaints**, then **Investigate all**. Watch statuses move. | "Eight real complaints from the hackathon mailbox. Each one is read, looked up in SAP through the BTP gateway, judged against the nine policy rules, and proposed. Nothing has touched SAP." |
 | 3 | 1:40 | Case 01 | Open the leaking-drums case. Show the photo, the document flow (order → delivery → invoice), the version stamp. Scroll to the two options. | "The policy says leaked goods are a judgement call: take them back (R1) or credit only (R3). The agent proposes both, recommends credit-only because the material is lost and there is a photo, and a person decides. Below each option: the exact SAP payload, built by code." |
 | 4 | 2:40 | Case 01 | **Choose option B**. | "The choice is logged with the L4 step id so the Control Tower can follow it." |

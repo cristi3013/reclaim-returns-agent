@@ -12,7 +12,7 @@ Sources: hackathon guide, `mock-data/` folder, organizer hints, the gateway endp
 
 ## The one sentence to remember
 
-**The model reads and explains. Code decides about money. A named person approves every change to SAP.**
+**The model reads and explains. Deterministic rules set every amount. A named person approves every change to SAP.**
 
 The organizer's own reference app has the same tagline, so this is the baseline the jury expects. Everything below is built so that sentence is visibly true on screen.
 

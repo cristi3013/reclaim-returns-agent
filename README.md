@@ -4,7 +4,7 @@ Returns & Credit Note agent for SAP Order-to-Cash (O2C Agent 8, Deloitte AI Agen
 
 A complaint email comes in. The agent reads it, finds the invoice and its history in SAP, applies the written returns policy (rules R1 to R9), and proposes a customer return (YRE) or a credit memo request (YCR) with the right reason code and billing block 08. A named person approves. Only then is SAP written, with the record's version stamp so a conflicting change is refused, never overwritten.
 
-**The model reads and explains. Code decides about money. A person approves every SAP change.**
+**The model reads and explains. Deterministic rules set every amount. A person approves every SAP change.**
 
 ## Run it
 
