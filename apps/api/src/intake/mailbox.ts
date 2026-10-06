@@ -70,6 +70,15 @@ export async function toInbound(mail: ParsedMail, files: FileStore, sourceFile: 
     const mimeType = a.contentType || 'application/octet-stream'
     attachments.push({ name, mimeType, url: await files.save(name, a.content, mimeType) })
   }
+  // A photo pasted into the email (Outlook, Gmail) can come inside the HTML as a data: URI, not as an attachment.
+  const inline = [...(mail.html || '').matchAll(/<img[^>]+src=["']data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/=\s]+)["']/gi)]
+  for (const [i, m] of inline.entries()) {
+    const mimeType = m[1]!.toLowerCase()
+    const content = Buffer.from(m[2]!.replace(/\s+/g, ''), 'base64')
+    if (content.length < 200) continue // tracking pixels and spacers
+    const name = `pasted-image-${i + 1}.${mimeType.split('/')[1]!.replace('jpeg', 'jpg').replace(/\+.*/, '')}`
+    attachments.push({ name, mimeType, url: await files.save(name, content, mimeType) })
+  }
   const fromText = mail.from?.text ?? 'unknown sender'
   return {
     from: fromText,
