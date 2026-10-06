@@ -177,7 +177,8 @@ export class ClaudeAi implements Ai {
       messages: [{ role: 'user', content: `QUESTION\n${question}\n\nCOMPUTED ANSWER (the only source of numbers, documents and routes)\nHeadline: ${answer.headline}\nFacts:\n${answer.facts.map((f) => `- ${f}`).join('\n')}\nRoute to: ${answer.routeTo}\nNo data for the subject: ${answer.noData}\nRequest refused (read-only): ${answer.refused}\n\nWrite the reply.` }],
     })
     this.record('narrate', res, startedAt)
-    const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text?.trim() ?? ''
+    // Plain prose for the page: no markdown emphasis, whatever the model does.
+    const text = (res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text ?? '').replace(/\*\*|__/g, '').trim()
     return { text: text || answer.text, usage: this.lastUsage ?? undefined }
   }
 
