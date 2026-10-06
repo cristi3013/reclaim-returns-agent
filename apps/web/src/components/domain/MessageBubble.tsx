@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { ThreadMessage } from '@reclaim/shared'
+import { senderName, type ThreadMessage } from '@reclaim/shared'
 import { Attachments } from './Attachments'
 import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -62,6 +62,7 @@ export function MessageBubble({
           <span className="font-medium text-fg">
             {ours ? (m.actor ? `${m.actor} · Reclaim` : 'Reclaim') : m.from}
           </span>
+          {ours && m.to && <span>to {senderName(m.to)}</span>}
           {person && !ours && (
             <span className="font-medium" style={{ color: person.color }}>
               {person.label}

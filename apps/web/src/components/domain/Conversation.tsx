@@ -10,6 +10,11 @@ const OTHERS = ['#7c3aed', '#c2410c', '#be185d', '#4d7c0f', '#0e7490', '#a16207'
 
 const SIDE_LABEL = { customer: 'Customer', us: 'Reclaim' } as const
 
+/** The colour and label of everyone in a conversation, by participant key. */
+export function conversationPeople(messages: ThreadMessage[], customerFrom: string) {
+  return people(participants(messages, customerFrom))
+}
+
 function people(list: Participant[]): Map<string, Person> {
   let n = 0
   return new Map(

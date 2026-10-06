@@ -58,6 +58,25 @@ describe('messages to the customer and the suggested reply', () => {
     expect(sent[2]!.references).toEqual(expect.arrayContaining(['<out-1@test>', '<out-2@test>']))
   })
 
+  it('answers one email in the thread: a colleague who wrote on the invoice gets the reply, not the customer', async () => {
+    const { post, get, sent } = setup()
+    const s = (await post('/api/inbound', complaint)).json() as CaseSummary
+    const warehouse = { from: 'Warehouse <dock@warehouse.example>', subject: 'Re: Short delivery – invoice 90000355', text: 'Invoice 90000355: we loaded 20 KG.', messageId: '<w1@test>', inReplyTo: '<m1@test>' }
+    await post('/api/inbound', warehouse)
+    const c = await get<Case>(`/api/cases/${s.id}`)
+    const theirs = conversation(c).find((m) => m.direction === 'in' && m.from === warehouse.from)
+    expect(theirs).toBeTruthy()
+
+    const r = await post(`/api/cases/${s.id}/reply`, { ...cm, kind: 'message', replyTo: theirs!.id, text: 'Can you send the loading list?' })
+    expect(r.statusCode).toBe(200)
+    expect(sent[0]).toMatchObject({ to: warehouse.from, inReplyTo: '<w1@test>', subject: warehouse.subject })
+    const out = conversation(await get<Case>(`/api/cases/${s.id}`)).filter((m) => m.direction === 'out')
+    expect(out[0]).toMatchObject({ to: warehouse.from, text: 'Can you send the loading list?' })
+
+    expect((await post(`/api/cases/${s.id}/reply`, { ...cm, kind: 'message', replyTo: 'nope', text: 'Hi' })).statusCode).toBe(400)
+    expect(sent).toHaveLength(1)
+  })
+
   it('suggests the reply from every email with the customer about the invoice, worded by the model when it checks out', async () => {
     let wording = 'Dear Quality, Cust DE 1,\n\nThank you. Your complaint about invoice 90000355 is under review.\n\nKind regards,\nCustomer Service'
     const { post, get, prompts } = setup(() => wording)

@@ -130,9 +130,9 @@ export const useRelease = () => {
 }
 
 /** Keyed by the number of events: a new email or decision gives a new suggestion. */
-export const useReplySuggestion = (caseId: string, version: number) => {
+export const useReplySuggestion = (caseId: string, version: number, enabled = true) => {
   const api = useApi()
-  return useQuery({ queryKey: ['reply-suggestion', caseId, version], queryFn: () => api.replySuggestion(caseId), staleTime: Infinity })
+  return useQuery({ queryKey: ['reply-suggestion', caseId, version], queryFn: () => api.replySuggestion(caseId), staleTime: Infinity, enabled })
 }
 
 export const useSendReply = () => {

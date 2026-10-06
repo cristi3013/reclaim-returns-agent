@@ -36,6 +36,8 @@ export interface SendReplyInput {
   text?: string
   /** 'decision' (default): the one reply after a person decided. 'message': any other email in the thread. */
   kind?: ReplyKind
+  /** For a message: the email in the thread it answers. It goes to that email's sender. */
+  replyTo?: string
 }
 
 export type ApiEvent = { type: 'case_changed'; id: string } | { type: 'status_changed' }

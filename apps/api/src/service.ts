@@ -13,6 +13,7 @@ import {
   EXPECTED,
   FIXTURES,
   findThreadCase,
+  inboundMessage,
   latestCustomerMessageId,
   primaryProposal,
   replyGrounded,
@@ -82,6 +83,8 @@ export interface SendReplyInput {
   text?: string
   /** 'decision' (default): the one reply after a person decided. 'message': any other email in the thread. */
   kind?: ReplyKind
+  /** For a message: the email in the thread it answers (a conversation message id). It goes to that email's sender. */
+  replyTo?: string
 }
 export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; message: string }
 
@@ -513,20 +516,25 @@ export class Service {
   private async sendMessage(c: Case, mailer: Mailer, input: SendReplyInput): Promise<Outcome<{ to: string; messageId: string }>> {
     const text = (input.text ?? '').trim()
     if (!text) return { ok: false, status: 400, message: 'The message is empty.' }
+    // Only someone who wrote in this thread can be answered: the customer by default, or the sender of the chosen email.
+    const target = input.replyTo ? inboundMessage(c, input.replyTo) : undefined
+    if (input.replyTo && !target) return { ok: false, status: 400, message: 'That email is not in this case\'s thread.' }
     if (this.sending.has(c.id)) return { ok: false, status: 409, message: 'An email to this customer is being sent.' }
-    const subject = /^re:/i.test(c.subject) ? c.subject : `Re: ${c.subject}`
-    const inReplyTo = latestCustomerMessageId(c)
+    const to = target?.from ?? c.from
+    const about = target?.subject || c.subject
+    const subject = /^re:/i.test(about) ? about : `Re: ${about}`
+    const inReplyTo = target?.messageId ?? latestCustomerMessageId(c)
     const references = threadMessageIds(c)
     this.sending.add(c.id)
     const t = Date.now()
     try {
-      const r = await mailer.send({ to: c.from, subject, text, inReplyTo, references })
-      ev(c, 'status', `Message sent to ${c.from} by ${input.actor}`, { messageSent: true, to: c.from, from: mailer.from, subject, text, messageId: r.messageId, inReplyTo, actor: input.actor, role: input.role }, null, Date.now() - t)
+      const r = await mailer.send({ to, subject, text, inReplyTo, references })
+      ev(c, 'status', `Message sent to ${to} by ${input.actor}`, { messageSent: true, to, from: mailer.from, subject, text, messageId: r.messageId, inReplyTo, replyTo: input.replyTo ?? null, actor: input.actor, role: input.role }, null, Date.now() - t)
       this.touch(c.id)
-      return { ok: true, value: { to: c.from, messageId: r.messageId } }
+      return { ok: true, value: { to, messageId: r.messageId } }
     } catch (e) {
       const message = (e as Error).message
-      ev(c, 'error', `Sending a message to ${c.from} failed; nothing was sent`, { message, actor: input.actor }, null, Date.now() - t)
+      ev(c, 'error', `Sending a message to ${to} failed; nothing was sent`, { message, actor: input.actor }, null, Date.now() - t)
       this.touch(c.id)
       return { ok: false, status: 502, message: `Sending the message failed (${message}). Nothing was sent; try again.` }
     } finally {

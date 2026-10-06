@@ -17,6 +17,10 @@ export interface ThreadMessage {
   attachments: { name: string; mimeType: string; url: string }[]
   /** Who sent our reply (a person), for outgoing messages. */
   actor: string | null
+  /** The email's Message-ID, when it had one: what a reply to it answers. */
+  messageId?: string | null
+  /** Whom our email went to, for outgoing messages. */
+  to?: string | null
 }
 
 export interface ThreadMail {
@@ -168,6 +172,14 @@ export function addCustomerReply(c: Case, mail: ThreadMail, ev: AddEvent): { reo
   return { reopened: true }
 }
 
+const idOf = (e: CaseEvent | undefined) =>
+  typeof e?.detail.messageId === 'string' ? e.detail.messageId : null
+
+/** An email someone sent us in this case's thread, by its conversation id: the one a reply answers. */
+export function inboundMessage(c: Case, id: string): ThreadMessage | undefined {
+  return conversation(c).find((m) => m.id === id && m.direction === 'in')
+}
+
 /** The whole conversation, oldest first: the complaint, the customer's replies and ours. */
 export function conversation(c: Case): ThreadMessage[] {
   const later = new Set(
@@ -185,6 +197,7 @@ export function conversation(c: Case): ThreadMessage[] {
     text: c.bodyText,
     attachments: c.attachments.filter((a) => !later.has(a.url)),
     actor: null,
+    messageId: idOf(c.events.find((e) => e.kind === 'intake' && !isCustomerReply(e))),
   }
   const rest = c.events.flatMap((e): ThreadMessage[] => {
     const d = e.detail
@@ -199,6 +212,7 @@ export function conversation(c: Case): ThreadMessage[] {
           text: stripQuoted(String(d.text ?? '')),
           attachments: (d.attachments as ThreadMessage['attachments'] | undefined) ?? [],
           actor: null,
+          messageId: idOf(e),
         },
       ]
     }
@@ -213,6 +227,8 @@ export function conversation(c: Case): ThreadMessage[] {
           text: String(d.text ?? ''),
           attachments: [],
           actor: typeof d.actor === 'string' ? d.actor : null,
+          messageId: idOf(e),
+          to: typeof d.to === 'string' ? d.to : null,
         },
       ]
     }

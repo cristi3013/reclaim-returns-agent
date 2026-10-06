@@ -1,8 +1,10 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { useQueries } from '@tanstack/react-query'
-import { ChevronRight, RotateCcw } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { ChevronRight, CornerUpLeft, RotateCcw } from 'lucide-react'
 import {
   COMPLAINT_LABELS,
+  ROLE_LABELS,
   groupByInvoice,
   invoiceConversation,
   primaryProposal,
@@ -10,19 +12,24 @@ import {
   type InvoiceMessage,
 } from '@reclaim/shared'
 import { useApi, useCases } from '@/api'
-import { Conversation } from '@/components/domain/Conversation'
+import { Conversation, conversationPeople } from '@/components/domain/Conversation'
 import { StatusChip } from '@/components/domain/StatusChip'
 import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, formatMoney } from '@/lib/format'
+import { useUi } from '@/store/ui'
 import { CHIP } from './status'
+import { ChatComposer, defaultTarget } from './ChatComposer'
 
 /** The case for one invoice: the whole email conversation across its complaints, and each complaint's decision. */
 export function InvoiceCasePage() {
   const { invoice } = useParams({ from: '/invoices/$invoice' })
   const api = useApi()
+  const { role } = useUi()
   const list = useCases()
+  const [picked, setPicked] = useState<string | null>(null)
+  const replyBox = useRef<HTMLTextAreaElement>(null)
   const ic = groupByInvoice(list.data ?? []).find((c) => c.invoice === invoice)
   // Same query keys as the complaint page, so live updates refresh both.
   const full = useQueries({
@@ -44,6 +51,12 @@ export function InvoiceCasePage() {
   const index = new Map(ic.complaints.map((c, i) => [c.id, i + 1]))
   const byId = new Map(cases.map((c) => [c.id, c]))
   const ordered = [...cases].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
+  const customerFrom = ordered[0]?.from ?? ''
+  const target = picked ?? defaultTarget(messages, customerFrom)
+  const replyTo = (id: string) => {
+    setPicked(id)
+    setTimeout(() => replyBox.current?.focus(), 0)
+  }
 
   return (
     <div>
@@ -81,16 +94,13 @@ export function InvoiceCasePage() {
           {full.some((q) => q.isLoading) && <Skeleton className="mt-3 h-40" />}
           <Conversation
             messages={messages}
-            customerFrom={ordered[0]?.from ?? ''}
+            customerFrom={customerFrom}
             label="Emails on this invoice"
             extras={(m) => {
               const x = m as InvoiceMessage
               return {
                 before: x.startsComplaint ? (
-                  <li
-                    className="flex items-center gap-2 py-1 text-xs text-muted"
-                    role="separator"
-                  >
+                  <li className="flex items-center gap-2 py-1 text-xs text-muted" role="separator">
                     <span className="h-px flex-1 bg-line" />
                     <RotateCcw className="size-3.5" aria-hidden />
                     {x.reopens
@@ -100,21 +110,43 @@ export function InvoiceCasePage() {
                   </li>
                 ) : undefined,
                 footer: (
-                  <Link
-                    to="/cases/$id"
-                    params={{ id: x.caseId }}
-                    className="hover:text-fg hover:underline"
-                  >
-                    Complaint {index.get(x.caseId)} · {byId.get(x.caseId)?.subject}
-                  </Link>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Link
+                      to="/cases/$id"
+                      params={{ id: x.caseId }}
+                      className="hover:text-fg hover:underline"
+                    >
+                      Complaint {index.get(x.caseId)} · {byId.get(x.caseId)?.subject}
+                    </Link>
+                    {x.direction === 'in' && (
+                      <button
+                        type="button"
+                        onClick={() => replyTo(x.id)}
+                        className="inline-flex items-center gap-1 font-medium text-fg hover:underline"
+                        aria-label={`Reply to ${x.from}`}
+                      >
+                        <CornerUpLeft className="size-3.5" aria-hidden /> Reply
+                      </button>
+                    )}
+                  </div>
                 ),
               }
             }}
           />
+          <ChatComposer
+            messages={messages}
+            cases={byId}
+            people={conversationPeople(messages, customerFrom)}
+            target={target}
+            onTarget={replyTo}
+            role={role}
+            actor={ROLE_LABELS[role]}
+            inputRef={replyBox}
+          />
         </section>
 
-        <aside aria-label="Complaints on this invoice" className="space-y-3">
-          <h2 className="text-base font-semibold">Complaints</h2>
+        <aside aria-label="Invoice related complaints" className="space-y-3">
+          <h2 className="text-base font-semibold">Invoice related complaints</h2>
           {ic.complaints.map((s, i) => {
             const c = byId.get(s.id)
             const p = c ? primaryProposal(c) : undefined

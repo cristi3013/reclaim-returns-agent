@@ -52,7 +52,7 @@ const InboundBody = z.object({
 // Who acts comes from the signed session token (req.principal); actor and role in a body are ignored.
 const ApproveBody = z.object({ actor: z.string().optional(), role: z.string().optional(), editedQuantity: z.number().optional(), comment: z.string().optional() })
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
-const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional(), kind: z.enum(['decision', 'message']).optional() })
+const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional(), kind: z.enum(['decision', 'message']).optional(), replyTo: z.string().optional() })
 const StatusBody = ApproveBody.pick({ actor: true, role: true }).extend({ to: z.enum(CASE_STATUSES), comment: z.string() })
 
 export interface AppOptions {
