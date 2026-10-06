@@ -14,7 +14,7 @@ import {
 import { useReplySuggestion, useSendReply, type SendReplyResult } from '@/api'
 import { Button } from '@/components/ui/button'
 
-/** The reply to the customer: a suggested answer to edit, then send by email in their thread. */
+/** The reply to the customer: written by a person, with a suggestion on request, then sent by email in their thread. */
 export function ReplyPanel(props: { c: Case; role: Role; actor: string }) {
   const { c } = props
   const kind: ReplyKind = decisionReplyDue(props.c) ? 'decision' : 'message'
@@ -61,17 +61,30 @@ function ReplyForm({
   actor: string
   kind: ReplyKind
 }) {
-  // The template from this case's own thread is there at once; the suggestion from every email replaces it.
-  const [text, setText] = useState(() => templateReply(c, customerHistory(c, [c]), kind))
+  // The box starts empty. On request, the template from this case's own thread is there at once, and the
+  // suggestion from every email replaces it.
+  const [text, setText] = useState('')
+  const [asked, setAsked] = useState(false)
   const [edited, setEdited] = useState(false)
   const [result, setResult] = useState<SendReplyResult | null>(null)
   const send = useSendReply()
-  const suggestion = useReplySuggestion(c.id, c.events.length)
-  const s = suggestion.data
+  const suggestion = useReplySuggestion(c.id, c.events.length, asked)
+  const s = asked ? suggestion.data : undefined
 
   useEffect(() => {
     if (s && !edited) setText(s.text)
   }, [s, edited])
+
+  const suggest = () => {
+    setEdited(false)
+    if (!asked) {
+      setText(templateReply(c, customerHistory(c, [c]), kind))
+      setAsked(true)
+    } else {
+      if (s) setText(s.text)
+      void suggestion.refetch()
+    }
+  }
 
   const byEmail =
     c.events.some((e) => e.kind === 'intake' && e.detail.channel === 'mailbox') &&
@@ -114,26 +127,24 @@ function ReplyForm({
       />
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
         <Sparkles className="size-3.5 shrink-0" aria-hidden />
-        <span>
-          {suggestion.isFetching
-            ? 'Reading every email with this customer…'
-            : s
-              ? `Suggested from ${s.emails} ${s.emails === 1 ? 'email' : 'emails'} with this customer${
-                  c.invoiceNumber ? ` about invoice ${c.invoiceNumber}` : ''
-                } · ${s.by === 'model' ? 'worded by the model, facts from the case' : 'standard wording'}`
-              : 'Suggested from this conversation · standard wording'}
-        </span>
+        {asked && (
+          <span>
+            {suggestion.isFetching
+              ? 'Reading every email with this customer…'
+              : s
+                ? `Suggested from ${s.emails} ${s.emails === 1 ? 'email' : 'emails'} with this customer${
+                    c.invoiceNumber ? ` about invoice ${c.invoiceNumber}` : ''
+                  } · ${s.by === 'model' ? 'worded by the model, facts from the case' : 'standard wording'}`
+                : 'Suggested from this conversation · standard wording'}
+          </span>
+        )}
         <button
           type="button"
           className="font-medium text-fg underline disabled:opacity-50"
-          disabled={suggestion.isFetching}
-          onClick={() => {
-            setEdited(false)
-            if (s) setText(s.text)
-            void suggestion.refetch()
-          }}
+          disabled={asked && suggestion.isFetching}
+          onClick={suggest}
         >
-          {edited ? 'Use the suggestion' : 'Suggest again'}
+          {!asked ? 'Suggest a reply' : edited ? 'Use the suggestion' : 'Suggest again'}
         </button>
         {s?.note && <span className="w-full text-warn">{s.note}</span>}
       </div>

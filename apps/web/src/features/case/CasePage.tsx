@@ -77,6 +77,10 @@ export function CasePage() {
   // Decide here as well as in the approvals queue: approve or reject, then the SAP result and the reply.
   const decidable = !noInvoice && !!primary && DECISION_STATUSES.includes(c.status)
   const sent = !!primary?.chosen
+  // Once decided, the chosen option is what matters; the other folds away.
+  const decided = two && !waiting && c.proposals.some((p) => p.chosen)
+  const shown = decided ? c.proposals.filter((p) => p.chosen) : c.proposals
+  const hidden = decided ? c.proposals.filter((p) => !p.chosen) : []
   const loaded = siblings.map((x) => x.data).filter((x): x is Case => !!x)
   const invoiceMessages = loaded.length > 1 ? invoiceConversation(loaded) : undefined
   return (
@@ -242,9 +246,9 @@ export function CasePage() {
                 <div
                   role={two && waiting ? 'radiogroup' : undefined}
                   aria-label={two && waiting ? 'Options' : undefined}
-                  className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}
+                  className={shown.length > 1 ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}
                 >
-                  {c.proposals.map((p) => (
+                  {shown.map((p) => (
                     <ProposalCard
                       key={p.id}
                       proposal={p}
@@ -256,6 +260,17 @@ export function CasePage() {
                   ))}
                 </div>
               )}
+              {hidden.map((p) => (
+                <details key={p.id} className="mt-3 rounded-lg border border-line bg-surface p-3">
+                  <summary className="cursor-pointer text-sm text-muted hover:text-fg">
+                    Option {p.option}, not chosen · {p.decision.ruleId} ·{' '}
+                    {p.decision.documentType === 'NONE' ? 'no document' : p.decision.documentType}
+                  </summary>
+                  <div className="mt-3">
+                    <ProposalCard proposal={p} />
+                  </div>
+                </details>
+              ))}
             </Step>
 
             {decidable && primary ? (

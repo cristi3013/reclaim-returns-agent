@@ -61,6 +61,8 @@ it('a complaint with no invoice waits for the customer, and the case page asks t
   expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull()
   expect(screen.getByText('More information needed')).toBeTruthy()
   const reply = screen.getByLabelText('Reply to the customer') as HTMLTextAreaElement
+  expect(reply.value).toBe('')
+  fireEvent.click(screen.getByRole('button', { name: 'Suggest a reply' }))
   expect(reply.value).toContain('reply with the correct invoice number')
 })
 

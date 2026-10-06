@@ -5,7 +5,7 @@ import { ApiProvider } from '@/api'
 import { MockApiClient } from '@/api/mock/MockApiClient'
 import { ReplyPanel } from '../ReplyPanel'
 
-it('a case under review has a message box, with a suggestion from every email about the invoice', async () => {
+it('a case under review has an empty message box, with a suggestion from every email about the invoice on request', async () => {
   const api = new MockApiClient({ fast: true })
   const eml = (id: string, text: string) =>
     `From: Quality <quality@cust-de-1.example>\nSubject: Invoice 90000355 ${id}\nMessage-ID: <${id}@cust-de-1.example>\n\n${text}`
@@ -29,6 +29,9 @@ it('a case under review has a message box, with a suggestion from every email ab
   )
   expect(screen.getByText('Message to the customer')).toBeTruthy()
   const box = screen.getByLabelText('Reply to the customer') as HTMLTextAreaElement
+  // Empty until a person asks for a suggestion.
+  expect(box.value).toBe('')
+  fireEvent.click(screen.getByRole('button', { name: 'Suggest a reply' }))
   expect(box.value).toMatch(/^Dear Quality,/)
   expect(box.value).toMatch(/reviewing it/)
   expect(box.value).not.toMatch(/credit/i)

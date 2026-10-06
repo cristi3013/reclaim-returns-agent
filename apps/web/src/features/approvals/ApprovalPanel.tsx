@@ -136,6 +136,8 @@ export function ApprovalActions({
 
   return (
     <>
+      {/* Who may decide matters only while it waits; once decided, the outcome below says it. */}
+      {c.status === 'awaiting_approval' && (
       <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
         {/* No document and no money: quantity and amount would only be two dashes. */}
         {(d.documentType !== 'NONE' || d.amount > 0) && (
@@ -157,6 +159,7 @@ export function ApprovalActions({
           {!allowed && ' · not enough authority for this value'}
         </dd>
       </dl>
+      )}
 
       {showPayload && p.sapPayload && (
         <div className="mt-3">
