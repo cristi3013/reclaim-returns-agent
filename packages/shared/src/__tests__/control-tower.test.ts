@@ -158,3 +158,17 @@ describe('Control Tower, the same order a week later', () => {
     expect(a.facts.join(' ')).not.toMatch(/severity high/)
   })
 })
+
+describe('Control Tower, a section that fails to read', () => {
+  it('runs on, reports the section as not read, and answers a country question without customers', () => {
+    const p = pack()
+    p.customers = { response: undefined as unknown as NonNullable<PackFiles['customers']>['response'], status: 503, error: 'getCustomerAddresses: the gateway is not reachable right now' } as PackFiles['customers']
+    const input = packToScanInput(p)
+    const s2 = runScan(input)
+    expect(s2.notRead).toEqual([{ section: 'customer addresses', error: 'getCustomerAddresses: the gateway is not reachable right now' }])
+    expect(s2.findings.length).toBeGreaterThan(300)
+    expect(buildMemo(s2)).toContain('customer addresses: getCustomerAddresses')
+    const a = answerQuestion('How much do Swiss customers owe us?', s2, input.customers, input.conformance, input.blockedOrders.rows)
+    expect(a.noData).toBe(true)
+  })
+})

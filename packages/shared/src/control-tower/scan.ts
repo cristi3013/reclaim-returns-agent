@@ -38,7 +38,7 @@ export function runScan(input: ScanInput, rules: ScanRules = DEFAULT_RULES, sour
   const currencyOf = (salesOrg: string) => (salesOrg === 'YSOR' ? 'RON' : 'EUR')
   const findings: Finding[] = []
   const rowCaps: string[] = []
-  const notRead: { section: string; error: string }[] = []
+  const notRead: { section: string; error: string }[] = [...(input.notRead ?? [])]
   const requestLog: string[] = []
   const take = <T>(section: string, l: ReadList<T>): T[] => {
     requestLog.push(...l.requests)

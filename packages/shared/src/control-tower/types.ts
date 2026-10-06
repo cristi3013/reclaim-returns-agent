@@ -89,6 +89,8 @@ export interface ScanInput {
   returns: ReadList<ReturnRow>
   customers: CustomerRow[]
   conformance: ConformanceRow[]
+  /** Sections without their own ReadList that failed to read (customers, conformance): reported, never guessed. */
+  notRead?: { section: string; error: string }[]
 }
 
 export const SEVERITIES = ['high', 'medium', 'info', 'watch'] as const
