@@ -23,6 +23,7 @@ import type { Gateway, LogRequestArgs, LogResult, WriteContext, WriteResult } fr
  * Plant → company code is NOT a gateway call; it is our own reference table.
  */
 export class RealGateway implements Gateway {
+  readonly live = true
   constructor(
     private base: string,
     private plantCompany: Record<string, string> = { YGLG: 'YDE1', YRO1: 'YRO1' },

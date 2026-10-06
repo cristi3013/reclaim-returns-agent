@@ -20,11 +20,11 @@ describe('TopBar', () => {
         </AuthProvider>
       </QueryClientProvider>,
     )
-    expect(await screen.findByText(/SAP Mock/)).toBeInTheDocument()
+    expect(await screen.findByText(/SAP DS4/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /demo controls/i }))
-    expect(await screen.findByLabelText('SAP')).toBeInTheDocument()
+    expect(await screen.findByLabelText('AI')).toBeInTheDocument()
     expect(screen.getByLabelText('AI')).toBeInTheDocument()
-    expect(screen.getByLabelText('Conflict')).toBeInTheDocument()
+    expect(screen.queryByLabelText('SAP')).not.toBeInTheDocument()
     expect(await screen.findByText('Dana Credit')).toBeInTheDocument()
     expect(screen.getByText('Credit manager')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()

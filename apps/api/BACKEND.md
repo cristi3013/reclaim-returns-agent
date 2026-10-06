@@ -89,6 +89,9 @@ Re-running a case that already has a SAP document is refused (409). Re-running k
 - A proposal is stamped with the SAP mode it was investigated in. Approving it in another mode is a 409: re-run the case first. Switching to real mode without `GATEWAY_URL` is refused.
 - After a successful create the response's `HeaderBillingBlockReason` is checked. If it is present and not `08`, the document is recorded, an error event says it was created without the block, and release is refused.
 
+
+> **Since 6 Oct 2026 there is no mock SAP mode.** The product always talks to DS4 through the gateway (`GATEWAY_URL` is required at startup). `MockGateway` exists only for the tests, which inject it; the demo-invoice guard applies whenever the gateway is live (`gateway.live`). The pre-removal state is kept on branch `backup/mock-option`.
+
 ## 6. The gateway contract (Alex's CAP service on BTP)
 
 The gateway is the only thing that talks to SAP DS4 (through Destination + Cloud Connector). Every function returns `{ "value": "<JSON string>" }`; `RealGateway.unwrap()` parses it.

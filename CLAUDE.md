@@ -15,7 +15,7 @@ Deloitte AI Agentic Enterprise Hackathon entry. Presentation Tuesday 6 Oct 2026,
 
 - `packages/shared/src/control-tower` — the O2C Control Tower (extra credit): read-only scan, KPIs, findings, memo, questions, tested against `mock-data/control-tower/mock-data/expected-results.json`.
 - `packages/shared` — the contract: enums, Zod schemas, policy table, `decide()` rules engine, `buildSapPayload()`, `narrate()`, route table, demo fixtures. Both apps import it. Change it with care: the frontend, the backend and the acceptance tests all depend on it.
-- `apps/web` — React + Vite frontend. Done. Runs on an in-browser mock (`VITE_API_MODE=mock`, default) or the real backend (`VITE_API_MODE=http`). Installable PWA; the approval journey (inbox, approvals, case) works at phone width, analytics and evaluation are desktop screens.
+- `apps/web` — React + Vite frontend. Done. Runs against the backend (`VITE_API_MODE=http`); the in-browser mock client (`VITE_API_MODE=mock`) is for tests. There is no mock SAP mode: the backend always uses the DS4 gateway; `backup/mock-option` keeps the old switch. Installable PWA; the approval journey (inbox, approvals, case) works at phone width, analytics and evaluation are desktop screens.
 - `apps/api` — Fastify backend. Skeleton done; see BACKEND.md for what remains.
 
 ## Commands

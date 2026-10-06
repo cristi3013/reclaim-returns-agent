@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { KpiTile } from '@/components/domain/KpiTile'
+import { Pagination, usePagination } from '@/components/domain/Pagination'
 import { Markdown } from './Markdown'
 import { formatRelative } from '@/lib/format'
 
@@ -158,6 +159,7 @@ function Findings({ d }: { d: Snapshot }) {
   const [route, setRoute] = useState<Route | ''>('')
   const [legacy, setLegacy] = useState(false)
   const rows = d.findings.filter((f) => f.severity !== 'watch' && (route ? f.routeTo === route : true) && f.legacy === legacy)
+  const pager = usePagination(rows, 25, `${route}|${legacy}|${d.asOf}`)
   return (
     <div className="mt-3">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
@@ -176,7 +178,7 @@ function Findings({ d }: { d: Snapshot }) {
             <tr>{['Document', 'Customer (country)', 'Value', 'Age', 'Severity', 'L4', 'Rule', 'Why', 'Route to', 'Owner of the data', ''].map((h) => <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>)}</tr>
           </thead>
           <tbody>
-            {rows.slice(0, 200).map((f) => (
+            {pager.pageRows.map((f) => (
               <tr key={f.id} className="border-t border-line align-top">
                 <td className="whitespace-nowrap px-3 py-2"><span className="text-xs text-muted">{KIND_LABEL[f.kind]}</span><br /><span className="font-mono">{f.documentType} {f.document}</span></td>
                 <td className="px-3 py-2">{f.customerName ?? f.customer} <span className="text-xs text-muted">({f.country ?? '–'})</span></td>
@@ -200,7 +202,7 @@ function Findings({ d }: { d: Snapshot }) {
           </tbody>
         </table>
       </div>
-      {rows.length > 200 && <p className="mt-1 text-xs text-muted">Showing 200 of {rows.length}; the memo and the exports hold all of them.</p>}
+      <Pagination page={pager.page} pages={pager.pages} pageSize={pager.pageSize} total={pager.total} onPage={pager.setPage} onPageSize={pager.setPageSize} noun="findings" />
     </div>
   )
 }

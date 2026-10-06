@@ -81,8 +81,6 @@ export interface ServiceDeps {
   readAttachment: (url: string) => Promise<{ mimeType: string; base64: string } | null>
   /** Called on demo reset so stateful mocks forget what they created. */
   onReset?: () => void
-  /** Whether a real gateway is configured. Without one, SAP mode cannot be switched to real. */
-  hasRealGateway: boolean
   /** Backend log line. */
   log?: (msg: string) => void
   /** Mailbox listener status for the UI, when one is configured. */
@@ -333,13 +331,10 @@ export class Service {
       if (approverRole && ROLE_RANK[input.role] < ROLE_RANK[approverRole]) {
         return { ok: false, status: 403, message: `This credit needs the ${approverRole.replace(/_/g, ' ')}. Your role cannot approve it.` }
       }
-      if (p.sapMode && p.sapMode !== this.store.settings.sapMode) {
-        return { ok: false, status: 409, message: `This proposal was built with SAP mode "${p.sapMode}" but the system is now in "${this.store.settings.sapMode}". Re-run the case so it is investigated against the current system.` }
-      }
-      if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
-        return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4. Switch SAP mode to Mock.` }
-      }
       const gw = this.deps.gateway(this.store.settings)
+      if (gw.live && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
+        return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and is never written to DS4. Use one of the team's own invoices.` }
+      }
       // Read again right before the write: the investigation may be hours old and someone else may have credited
       // the invoice since. A document that exists now sends the case back to the person with what was found.
       if (decision.documentType !== 'NONE' && c.invoiceNumber) {
@@ -571,8 +566,8 @@ export class Service {
         return { ok: false, status: 409, message: `A return is credited only after the warehouse has received the goods (step 5.1.3). ${why} The Returns desk confirms the receipt; then the credit can be released.` }
       }
     }
-    if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
-      return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4.` }
+    if (this.deps.gateway(this.store.settings).live && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
+      return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and is never written to DS4.` }
     }
     const t = Date.now()
     // Documents written before the stamp's live name was known carry it only inside the raw response.
@@ -640,7 +635,7 @@ export class Service {
       cases: cases.length,
       pending: cases.filter((c) => c.status === 'awaiting_approval').length,
       lastRunAt: this.store.lastRunAt,
-      sapMode: this.store.settings.sapMode,
+      sapSystem: this.deps.gateway(this.store.settings).live ? 'DS4' : 'mock gateway',
       aiMode: this.store.settings.aiMode,
       mailbox: this.deps.mailboxStatus?.() ?? null,
       ai: this.deps.ai(this.store.settings).name,
@@ -652,9 +647,6 @@ export class Service {
   }
 
   updateSettings(patch: Partial<Settings>): Outcome<Settings> {
-    if (patch.sapMode === 'real' && !this.deps.hasRealGateway) {
-      return { ok: false, status: 400, message: 'No SAP gateway is configured (GATEWAY_URL). The system stays in mock mode.' }
-    }
     this.store.settings = { ...this.store.settings, ...patch }
     this.deps.persistence?.saveSettings(this.store.settings, this.store.lastRunAt)
     this.deps.hub.emit({ type: 'status_changed' })

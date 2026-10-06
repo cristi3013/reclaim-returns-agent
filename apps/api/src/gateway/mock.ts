@@ -6,6 +6,7 @@ import type { Gateway, LogRequestArgs, LogResult, WriteContext, WriteResult } fr
  * `simulateConflict` makes every write fail with 412, the way SAP does when the ETag no longer matches.
  */
 export class MockGateway implements Gateway {
+  readonly live = false
   private nextDoc = 60000171
   private nextLog = 1
   /** Documents this gateway "created", keyed by invoice, so duplicate detection sees them. */

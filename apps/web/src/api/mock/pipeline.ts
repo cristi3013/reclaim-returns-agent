@@ -17,7 +17,6 @@ export interface PipelineHost {
   touch(id: string): void
   cases: Map<string, Case>
   aiMode: AiMode
-  sapMode: 'mock' | 'real'
   setLastRun(iso: string): void
 }
 
@@ -253,7 +252,6 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
       replyDraft: n.replyDraft,
       briefing: n.briefing,
       createdAt: new Date().toISOString(),
-      sapMode: h.sapMode,
     }
   })
   if (assisted) {

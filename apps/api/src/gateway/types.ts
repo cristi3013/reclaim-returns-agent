@@ -6,6 +6,8 @@ import type { ExistingDoc, InvoiceSnapshot } from '@reclaim/shared'
  * Nothing else in the backend may know how SAP is reached.
  */
 export interface Gateway {
+  /** True for the gateway in front of the real SAP system: the hackathon demo invoices are never written through it. */
+  readonly live: boolean
   /** Invoice header + items + ETag. null if not found. */
   getInvoice(invoiceNumber: string): Promise<InvoiceSnapshot | null>
   /** Returns and credit memo requests that already reference this invoice. */

@@ -188,7 +188,6 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
       replyDraft: n.replyDraft,
       briefing: n.briefing,
       createdAt: new Date().toISOString(),
-      sapMode: store.settings.sapMode,
     }
     c.proposals.push(p)
   }

@@ -10,7 +10,6 @@ import {
   REASON_CODE_IDS,
   ROLES,
   RULE_IDS,
-  SAP_MODES,
 } from './enums'
 
 /** What the extraction step reads out of the complaint email and its attachments. */
@@ -117,7 +116,8 @@ export const ProposalSchema = z.object({
   briefing: BriefingSchema,
   createdAt: z.string(),
   /** SAP mode the proposal was built in. A proposal built on mock data must not be approved against the real system. */
-  sapMode: z.enum(SAP_MODES).optional(),
+  /** Kept for cases stored before 6 Oct 2026, when the system still had a mock SAP mode. */
+  sapMode: z.string().optional(),
 })
 
 export const ApprovalSchema = z.object({
@@ -254,7 +254,8 @@ export const AgentStatusSchema = z.object({
   cases: z.number(),
   pending: z.number(),
   lastRunAt: z.string().nullable(),
-  sapMode: z.enum(SAP_MODES),
+  /** The SAP system behind the gateway: "DS4" in the product, "mock gateway" in tests. */
+  sapSystem: z.string(),
   aiMode: z.enum(AI_MODES),
   /** Which mailbox complaints arrive from, if one is configured. */
   mailbox: MailboxStatusSchema.nullable().optional(),
@@ -263,7 +264,6 @@ export const AgentStatusSchema = z.object({
 })
 
 export const SettingsSchema = z.object({
-  sapMode: z.enum(SAP_MODES),
   aiMode: z.enum(AI_MODES),
   simulateConflict: z.boolean(),
 })

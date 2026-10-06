@@ -194,25 +194,19 @@ describe('audit fixes', () => {
     expect(k.status).toBe('awaiting_approval')
   })
 
-  it('real mode is refused without a gateway, and a mock-built proposal cannot be approved in real mode', async () => {
-    await post('/api/cases/seed')
-    expect((await ctx.app.inject({ method: 'PUT', url: '/api/settings', payload: { sapMode: 'real' } })).statusCode).toBe(400)
-    expect((await get<{ sapMode: string }>('/api/settings')).sapMode).toBe('mock')
-    const gw = new MockGateway({ simulateConflict: () => false, delayMs: 0 })
+  it('the hackathon demo invoices are never written through the live gateway, whatever the proposal says', async () => {
+    const live: Gateway = Object.assign(new MockGateway({ simulateConflict: () => false, delayMs: 0 }), { live: true })
     await ctx.app.close()
-    ctx = buildApp({ verifier: headerVerifier(),  mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => gw, gatewayUrl: 'http://gateway.invalid' })
+    ctx = buildApp({ verifier: headerVerifier(), mockDelayMs: 0, noSideCars: true, initialSettings: { aiMode: 'rules_only' }, gateway: () => live })
     await ctx.app.ready()
     await post('/api/cases/seed')
-    await run('case-08')
-    const p = primaryProposal(await theCase('case-08'))!
-    expect(p.sapMode).toBe('mock')
-    expect((await ctx.app.inject({ method: 'PUT', url: '/api/settings', payload: { sapMode: 'real' } })).statusCode).toBe(200)
-    expect((await post(`/api/proposals/${p.id}/approve`, cm)).statusCode).toBe(409)
-    // Re-run in real mode: the proposal is now stamped real, and the demo-invoice guard refuses the write.
-    expect((await run('case-08')).statusCode).toBe(204)
-    const p2 = primaryProposal(await theCase('case-08'))!
-    expect(p2.sapMode).toBe('real')
-    expect((await post(`/api/proposals/${p2.id}/approve`, cm)).statusCode).toBe(400)
+    await run('case-03')
+    const p = primaryProposal(await theCase('case-03'))!
+    const res = await post(`/api/proposals/${p.id}/approve`, cm)
+    expect(res.statusCode).toBe(400)
+    expect(res.json().message).toMatch(/never written to DS4/)
+    expect((await theCase('case-03')).status).toBe('awaiting_approval')
+    expect((await get<{ sapSystem: string }>('/api/status')).sapSystem).toBe('DS4')
   })
 
   it('uses the invoice line that matches the email, and takes the customer from the invoice', async () => {

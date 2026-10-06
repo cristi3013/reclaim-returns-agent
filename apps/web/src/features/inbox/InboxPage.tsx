@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useCases, useSeed, useStatus } from '@/api'
 import { InboxToolbar } from './InboxToolbar'
 import { InboxTable } from './InboxTable'
+import { Pagination, usePagination } from '@/components/domain/Pagination'
 import { StatusFilters } from './StatusFilters'
 import { matchesQuery, matchesStatus, sortRows } from './view'
 import { useUi } from '@/store/ui'
@@ -35,6 +36,7 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
     sort,
   )
   const filtered = Boolean(query.trim() || status || intercompany)
+  const pager = usePagination(rows, 25, `${query}|${status}|${intercompany}|${sort.key}:${sort.dir}`)
   const clear = () => {
     setQuery('')
     setInboxStatus('')
@@ -106,10 +108,11 @@ export function InboxView({ onOpen, initialIntercompany = false }: { onOpen: (id
         />
       ) : (
         <>
-          <InboxTable rows={rows} onOpen={onOpen} sort={sort} onSort={setInboxSort} />
+          <InboxTable rows={pager.pageRows} onOpen={onOpen} sort={sort} onSort={setInboxSort} />
+          <Pagination page={pager.page} pages={pager.pages} pageSize={pager.pageSize} total={pager.total} onPage={pager.setPage} onPageSize={pager.setPageSize} noun="complaints" />
           {filtered && (
-            <p className="mt-2 text-xs text-muted">
-              Showing {rows.length} of {all.length} complaints ·{' '}
+            <p className="mt-1 text-xs text-muted">
+              {rows.length} of {all.length} complaints match ·{' '}
               <button type="button" className="underline hover:text-fg" onClick={clear}>
                 Clear filters
               </button>
