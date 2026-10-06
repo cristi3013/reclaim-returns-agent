@@ -229,11 +229,11 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   })
 
   // Control Tower (extra credit, agent 10): reads, computes, answers, routes. No write to SAP anywhere in it.
-  const tower = new ControlTower({ store, ai, ingest: (m) => service.ingestInbound(m), log })
+  const tower = new ControlTower({ store, ai, gateway: (s) => gateway(s, store), ingest: (m) => service.ingestInbound(m), log })
   app.get('/api/control-tower/snapshot', async () => tower.current())
   app.post('/api/control-tower/run', async (req) => tower.run(req.principal.name))
   app.post('/api/control-tower/ask', async (req) => tower.ask(z.object({ question: z.string().min(3) }).parse(req.body).question, req.principal.name))
-  app.get('/api/control-tower/memo', async (_req, reply) => reply.type('text/markdown; charset=utf-8').send(tower.memo()))
+  app.get('/api/control-tower/memo', async (_req, reply) => reply.type('text/markdown; charset=utf-8').send(await tower.memo()))
   app.get('/api/control-tower/notes', async () => tower.notes())
   app.post<{ Params: { id: string } }>('/api/control-tower/handover/:id', async (req, reply) => {
     const r = await tower.handover(req.params.id, req.principal.name)

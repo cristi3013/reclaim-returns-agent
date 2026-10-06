@@ -26,7 +26,7 @@ const money = (v: number | null, cur: string) => (v == null ? 'not valued' : `${
  * One run of the Control Tower over the SAP lists: KPIs per currency, one finding per leak with its L4 step,
  * severity, rule, route and owner, and the close verdict. Pure: same input, same output.
  */
-export function runScan(input: ScanInput, rules: ScanRules = DEFAULT_RULES): Snapshot {
+export function runScan(input: ScanInput, rules: ScanRules = DEFAULT_RULES, source = 'organisers\' pack (SAP DS4 answers of 1 Oct 2026)'): Snapshot {
   const today = input.asOf
   // The period being closed: in the first week of a month it is the month before (a run on 1 Oct closes September).
   const period = closingPeriod(today)
@@ -115,7 +115,7 @@ export function runScan(input: ScanInput, rules: ScanRules = DEFAULT_RULES): Sna
       rule: podOpen ? 'S4' : 'S3',
       why: podOpen
         ? `Goods issued ${age} days ago (${d.goodsIssueDate}), POD still open (status ${d.podStatus || podSet.get(d.number)?.podStatus || 'A'}): the invoice waits for the POD. ${money(v?.amount ?? null, cur)}${v?.hasError ? '; the billing due list reports an error' : ''}.`
-        : `Goods issued ${age} days ago (${d.goodsIssueDate}), POD ${d.podStatus === 'C' ? `confirmed ${d.podDate ?? ''}`.trim() : 'not required'}, still not billed. ${money(v?.amount ?? null, cur)}${v?.hasError ? '; the billing due list reports an error (merge: 4.1.1)' : ''}.`,
+        : `Goods issued ${age} days ago (${d.goodsIssueDate}), ${d.podStatus === 'C' ? `POD confirmed ${d.podDate ?? ''}`.trim() : d.podStatus ? 'POD not required' : 'no open POD'}, still not billed. ${money(v?.amount ?? null, cur)}${v?.hasError ? '; the billing due list reports an error (merge: 4.1.1)' : ''}.`,
       routeTo: podOpen ? 'pod' : 'billing',
       dataOwner: dataOwner(d.number, { legacy, customer: d.soldTo }),
       legacy,
@@ -230,7 +230,7 @@ export function runScan(input: ScanInput, rules: ScanRules = DEFAULT_RULES): Sna
 
   const order: Record<Severity, number> = { high: 0, medium: 1, info: 2, watch: 3 }
   findings.sort((a, b) => Number(a.legacy) - Number(b.legacy) || order[a.severity] - order[b.severity] || (b.value ?? -1) - (a.value ?? -1) || b.ageDays - a.ageDays)
-  return { asOf: today, period, verdict, verdictWhy, kpis, findings, rowCaps, notRead, requestLog }
+  return { asOf: today, source, period, verdict, verdictWhy, kpis, findings, rowCaps, notRead, requestLog }
 }
 
 /** `2026-10-01` → `2026-09`; `2026-10-15` → `2026-10`. */

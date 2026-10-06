@@ -121,6 +121,27 @@ export class RealGateway implements Gateway {
     }
   }
 
+  /**
+   * Control Tower reads (listUnbilledDeliveries, listBlockedOrders, …): GET only, the answer is the organisers' tool
+   * shape `{ underlyingRequests, capturedOn, response }`. Numbers go unquoted (Edm.Int32), strings quoted.
+   */
+  async readTool<T>(name: string, params: Record<string, string | number>): Promise<{ underlyingRequests?: string[]; capturedOn?: string; response: T }> {
+    const args = Object.entries(params)
+      .map(([k, v]) => `${k}=${typeof v === 'number' ? String(v) : `'${encodeURIComponent(String(v).replace(/'/g, "''"))}'`}`)
+      .join(',')
+    let res: Response
+    try {
+      res = await fetch(`${this.base}/${name}(${args})`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(READ_TIMEOUT_MS * 4) })
+    } catch (e) {
+      throw Object.assign(new Error(`${name}: gateway not reachable (${(e as Error).message})`), { status: 504 })
+    }
+    await this.throwIfUnavailable(res, name)
+    if (!res.ok) throw Object.assign(new Error(`${name}: ${(await res.text()).slice(0, 200)}`), { status: res.status })
+    const v = this.unwrap<{ underlyingRequests?: string[]; capturedOn?: string; response: T }>(await res.json())
+    if (!v || typeof v !== 'object' || !('response' in v)) throw Object.assign(new Error(`${name}: unexpected answer shape`), { status: 502 })
+    return v
+  }
+
   async getInvoice(invoiceNumber: string) {
     // A billing document number is at most 10 digits (VBELN): anything else cannot be in SAP.
     if (!/^\d{1,10}$/.test(invoiceNumber.trim())) return null

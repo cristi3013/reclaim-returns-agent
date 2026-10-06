@@ -1,8 +1,10 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { AGENTS, answerQuestion, buildMemo, packToScanInput, runScan, type Answer, type Finding, type PackFiles, type ReturnRow, type RoutingNote, type ScanInput, type Settings, type Snapshot } from '@reclaim/shared'
+import { AGENTS, answerQuestion, buildMemo, packToScanInput, parseQuestion, runScan, type Answer, type ConformanceRow, type Finding, type PackFiles, type ReturnRow, type RoutingNote, type ScanInput, type Settings, type Snapshot } from '@reclaim/shared'
 import type { Ai } from './ai/types'
+import type { Gateway } from './gateway/types'
+import { RealGateway } from './gateway/real'
 import type { Store } from './store'
 import type { InboundEmail } from './intake/mailbox'
 
@@ -30,6 +32,8 @@ export function loadPack(dir = PACK_DIR): PackFiles {
 export interface ControlTowerDeps {
   store: Store
   ai: (s: Settings) => Ai
+  /** The SAP gateway. When it is live (RealGateway), the lists are read from DS4; otherwise the pack is used (tests). */
+  gateway: (s: Settings) => Gateway
   /** Hands a finding routed to the Returns & Credit Note agent into our own inbox. */
   ingest: (mail: InboundEmail) => Promise<{ id: string } | null>
   pack?: () => PackFiles
@@ -61,27 +65,79 @@ export class ControlTower {
     return rows
   }
 
-  run(by = 'system'): Snapshot {
-    const pack = (this.deps.pack ?? loadPack)()
+  /** The customers the findings may name: the pack's list plus whoever appears in today's lists. */
+  private static KNOWN_PARTNERS = ['10012', '10020', '10021', '10044', '10057', '10059', '10100', '10101', '10110', '10172', '10220', '62', '46', '51', '7800000096']
+  private static WALKED_ORDERS = ['1876', '1937', '1832', '1510']
+
+  /** Reads the seven Control Tower functions of the gateway. A section that fails is captured as an error, not guessed. */
+  private async loadLive(gw: RealGateway): Promise<PackFiles> {
+    const today = new Date().toISOString().slice(0, 10)
+    const read = async <T>(name: string, params: Record<string, string | number>) => {
+      try {
+        return await gw.readTool<T>(name, params)
+      } catch (e) {
+        const err = e as Error & { status?: number }
+        return { response: undefined as unknown as T, status: err.status ?? 500, error: err.message, underlyingRequests: [`GET ${name}(${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(',')}) → failed`] }
+      }
+    }
+    const [unbilled, awaitingPod, blockedOrders, yde1, yro1, dueList, customers] = await Promise.all([
+      read<{ count: number; deliveries: unknown[] }>('listUnbilledDeliveries', { top: 500, soldToParty: '' }),
+      read<{ count: number; deliveries: unknown[] }>('listDeliveriesAwaitingPod', { top: 500, shipToParty: '' }),
+      read<{ count: number; orders: unknown[] }>('listBlockedOrders', { top: 500 }),
+      read<{ asOf?: string; overdueReceivables?: unknown }>('listOverdueReceivables', { companyCode: 'YDE1', keyDate: today }),
+      read<{ asOf?: string; overdueReceivables?: unknown }>('listOverdueReceivables', { companyCode: 'YRO1', keyDate: today }),
+      read<{ total: number; items: unknown[] }>('listBillingDueList', { soldToParty: '10044', top: 100 }),
+      read<{ addresses: unknown[]; names: unknown[]; norway: unknown[]; noAddressOnDS4?: string[] }>('getCustomerAddresses', { partners: ControlTower.KNOWN_PARTNERS.join(',') }),
+    ])
+    const conformance = await Promise.all(ControlTower.WALKED_ORDERS.map((o) => read<{ salesOrder: string; conforms: boolean; findings: unknown[]; deliveries: string[]; billingDocuments: string[] }>('checkOrderConformance', { salesOrder: o })))
+    return {
+      asOf: today,
+      cap: 500,
+      unbilled: unbilled as PackFiles['unbilled'],
+      awaitingPod: awaitingPod as PackFiles['awaitingPod'],
+      blockedOrders: blockedOrders as PackFiles['blockedOrders'],
+      leakage: { YDE1: yde1 as NonNullable<PackFiles['leakage']>[string], YRO1: yro1 as NonNullable<PackFiles['leakage']>[string] },
+      dueLists: [dueList as NonNullable<PackFiles['dueLists']>[number]],
+      customers: customers as PackFiles['customers'],
+      conformance: conformance.filter((c) => !(c as { error?: string }).error && c.response) as PackFiles['conformance'],
+    }
+  }
+
+  async run(by = 'system'): Promise<Snapshot> {
+    const gw = this.deps.gateway(this.deps.store.settings)
+    const live = gw instanceof RealGateway
+    const pack = live ? await this.loadLive(gw) : (this.deps.pack ?? loadPack)()
     pack.returns = this.ownReturns()
     this.input = packToScanInput(pack)
-    this.snapshot = runScan(this.input)
+    this.snapshot = runScan(this.input, undefined, live ? `SAP DS4, live through the gateway (${pack.asOf})` : "organisers' pack (SAP DS4 answers of 1 Oct 2026)")
     this.runs.push({ at: new Date().toISOString(), requests: this.snapshot.requestLog.length, findings: this.snapshot.findings.length, by })
     this.deps.log?.(`Control Tower run by ${by}: ${this.snapshot.findings.length} findings, verdict ${this.snapshot.verdict}, ${this.snapshot.requestLog.length} GET requests`)
     return this.snapshot
   }
 
-  current(): Snapshot {
+  async current(): Promise<Snapshot> {
     return this.snapshot ?? this.run()
   }
 
-  memo(): string {
-    return buildMemo(this.current())
+  async memo(): Promise<string> {
+    return buildMemo(await this.current())
   }
 
   async ask(question: string, by: string): Promise<Answer> {
-    const s = this.current()
+    const s = await this.current()
     const input = this.input!
+    // A question about an order that was not walked in the run: walk it now, live, before answering.
+    const asked = parseQuestion(question, input.customers)
+    const gw = this.deps.gateway(this.deps.store.settings)
+    if (asked.order && !input.conformance.some((c) => c.order === asked.order) && gw instanceof RealGateway) {
+      try {
+        const r = await gw.readTool<{ salesOrder: string; conforms: boolean; findings: ConformanceRow['findings']; deliveries: string[]; billingDocuments: string[] }>('checkOrderConformance', { salesOrder: asked.order })
+        input.conformance.push({ order: r.response.salesOrder, conforms: r.response.conforms, findings: r.response.findings, deliveries: r.response.deliveries, billingDocuments: r.response.billingDocuments })
+        s.requestLog.push(...(r.underlyingRequests ?? []))
+      } catch (e) {
+        this.deps.log?.(`Control Tower: conformance of ${asked.order} not read (${(e as Error).message})`)
+      }
+    }
     const base = answerQuestion(question, s, input.customers, input.conformance, input.blockedOrders.rows)
     let answer = base
     const ai = this.deps.ai(this.deps.store.settings)
@@ -99,8 +155,8 @@ export class ControlTower {
   }
 
   /** One note per fixing agent per day, listing its documents: information only, never an order to write. */
-  notes(): RoutingNote[] {
-    const s = this.current()
+  async notes(): Promise<RoutingNote[]> {
+    const s = await this.current()
     const date = s.asOf
     const groups = new Map<string, Finding[]>()
     for (const f of s.findings) {
@@ -119,10 +175,11 @@ export class ControlTower {
 
   /** A finding for the Returns & Credit Note agent becomes a case in our own inbox. Other agents get the note. */
   async handover(findingId: string, by: string): Promise<{ ok: true; caseId: string } | { ok: false; status: number; message: string }> {
-    const f = this.current().findings.find((x) => x.id === findingId)
+    const s = await this.current()
+    const f = s.findings.find((x) => x.id === findingId)
     if (!f) return { ok: false, status: 404, message: 'Finding not found in the current run.' }
     if (f.routeTo !== 'returns') return { ok: false, status: 400, message: `${AGENTS[f.routeTo]} is not part of this system; its routing note is on the Control Tower page.` }
-    const r = await this.deps.ingest({ from: `Control Tower <control-tower@reclaim.local>`, subject: `Control Tower ${this.current().asOf}: return ${f.document} without credit note (5.2.1)`, text: `Information only; nothing was changed in SAP.\n\n${f.why}\nCustomer ${f.customerName ?? f.customer}. Severity ${f.severity}, rule ${f.rule}. Data owner: ${f.dataOwner}.\n\nPlease check the return and create the credit note if the goods were received.`, receivedAt: new Date().toISOString(), attachments: [], messageId: `<ct-${findingId}-${Date.now()}@reclaim.local>`, sourceFile: null })
+    const r = await this.deps.ingest({ from: `Control Tower <control-tower@reclaim.local>`, subject: `Control Tower ${s.asOf}: return ${f.document} without credit note (5.2.1)`, text: `Information only; nothing was changed in SAP.\n\n${f.why}\nCustomer ${f.customerName ?? f.customer}. Severity ${f.severity}, rule ${f.rule}. Data owner: ${f.dataOwner}.\n\nPlease check the return and create the credit note if the goods were received.`, receivedAt: new Date().toISOString(), attachments: [], messageId: `<ct-${findingId}-${Date.now()}@reclaim.local>`, sourceFile: null })
     if (!r) return { ok: false, status: 409, message: 'This finding was already handed over.' }
     this.deps.log?.(`Control Tower hand-over by ${by}: ${f.document} → case ${r.id}`)
     return { ok: true, caseId: r.id }
