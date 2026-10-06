@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 import { AppShell } from './layout/AppShell'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { InboxPage } from '@/features/inbox/InboxPage'
+import { EmailPage } from '@/features/inbox/EmailPage'
 import { CasePage } from '@/features/case/CasePage'
 import { InvoiceCasesPage } from '@/features/invoice-cases/InvoiceCasesPage'
 import { InvoiceCasePage } from '@/features/invoice-cases/InvoiceCasePage'
@@ -20,6 +21,8 @@ const inbox = createRoute({
   component: InboxPage,
   validateSearch: (s: Record<string, unknown>): { filter?: 'intercompany' } => (s.filter === 'intercompany' ? { filter: 'intercompany' } : {}),
 })
+/** One email from the Inbox, with the way to its case. */
+const email = createRoute({ getParentRoute: () => rootRoute, path: '/inbox/$id', component: EmailPage })
 const caseRoute = createRoute({ getParentRoute: () => rootRoute, path: '/cases/$id', component: CasePage })
 /** One case per invoice: all complaints and emails about it. */
 const invoiceCases = createRoute({ getParentRoute: () => rootRoute, path: '/invoices', component: InvoiceCasesPage })
@@ -37,7 +40,7 @@ const controlTower = createRoute({ getParentRoute: () => rootRoute, path: '/cont
 const evaluation = createRoute({ getParentRoute: () => rootRoute, path: '/evaluation', component: EvaluationPage })
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([dashboard, inbox, caseRoute, invoiceCases, invoiceCase, approvals, analytics, reports, controlTower, evaluation]),
+  routeTree: rootRoute.addChildren([dashboard, inbox, email, caseRoute, invoiceCases, invoiceCase, approvals, analytics, reports, controlTower, evaluation]),
 })
 
 declare module '@tanstack/react-router' {

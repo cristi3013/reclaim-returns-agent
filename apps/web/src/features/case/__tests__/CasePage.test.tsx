@@ -52,9 +52,12 @@ it('a complaint with no invoice waits for the customer, and the case page asks t
     </QueryClientProvider>,
   )
 
-  expect(await screen.findByText('No invoice to look up')).toBeTruthy()
-  // Nothing to approve: the reply asking for the invoice is ready to send.
-  expect(screen.queryByRole('button', { name: 'Approve reply' })).toBeNull()
+  // No invoice: only the emails and the reply, no proposal, no SAP lookup, nothing to approve.
+  expect(await screen.findByText(/No invoice number yet: there is nothing to approve/)).toBeTruthy()
+  expect(screen.getByRole('list', { name: 'Emails in this case' })).toBeTruthy()
+  expect(screen.queryByRole('heading', { name: 'Proposal' })).toBeNull()
+  expect(screen.queryByText('No invoice to look up')).toBeNull()
+  expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull()
   expect(screen.getByText('More information needed')).toBeTruthy()
   const reply = screen.getByLabelText('Reply to the customer') as HTMLTextAreaElement
   expect(reply.value).toContain('reply with the correct invoice number')

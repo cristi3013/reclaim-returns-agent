@@ -38,6 +38,7 @@ import {
   type Role,
   type SapDocument,
   type Settings,
+  NO_INVOICE,
 } from '@reclaim/shared'
 import type { Gateway } from './gateway/types'
 import { versionStampOf } from './gateway/real'
@@ -337,6 +338,7 @@ export class Service {
   async approve(proposalId: string, input: ApproveInput): Promise<Outcome<SapDocument | null>> {
     const { c, p } = this.store.locateProposal(proposalId)
     if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) return { ok: false, status: 409, message: 'This case is not awaiting approval.' }
+    if (!c.invoiceNumber) return { ok: false, status: 409, message: NO_INVOICE }
     this.writing.add(c.id)
     try {
       // 1. Work out the decision that would be approved, without touching the proposal.
@@ -584,6 +586,7 @@ export class Service {
   reject(proposalId: string, input: RejectInput) {
     const { c, p } = this.store.locateProposal(proposalId)
     if (c.status !== 'awaiting_approval' || this.writing.has(c.id)) throw Object.assign(new Error('This case is not awaiting approval.'), { status: 409 })
+    if (!c.invoiceNumber) throw Object.assign(new Error(NO_INVOICE), { status: 409 })
     const required = p.decision.approverRole ?? 'customer_service_lead'
     if (ROLE_RANK[input.role] < ROLE_RANK[required]) throw Object.assign(new Error(`Rejecting this claim needs the ${required.replace(/_/g, ' ')}. Your role cannot decide it.`), { status: 403 })
     if (input.comment.trim().length < 3) throw Object.assign(new Error('A reason is required to reject: it goes to the customer and into the audit trail.'), { status: 400 })

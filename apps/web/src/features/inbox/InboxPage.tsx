@@ -17,7 +17,7 @@ import { formatRelative } from '@/lib/format'
 export function InboxPage() {
   const nav = useNavigate()
   const search = useSearch({ strict: false }) as { filter?: 'intercompany' }
-  return <InboxView onOpen={(id) => nav({ to: '/cases/$id', params: { id } })} initialIntercompany={search.filter === 'intercompany'} />
+  return <InboxView onOpen={(id) => nav({ to: '/inbox/$id', params: { id } })} initialIntercompany={search.filter === 'intercompany'} />
 }
 
 /** Hooks, toolbar and table without a router dependency, so it can be tested on its own. */

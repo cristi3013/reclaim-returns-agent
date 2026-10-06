@@ -2,13 +2,15 @@ import { Link, useParams } from '@tanstack/react-router'
 import { ChevronRight, FileText, Play } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCase, useChoose, useRunCase, useStatus } from '@/api'
-import { ROLE_LABELS, primaryProposal } from '@reclaim/shared'
+import { ROLE_LABELS, conversation, primaryProposal } from '@reclaim/shared'
 import { useUi } from '@/store/ui'
 import { StatusMenu } from '@/components/domain/StatusMenu'
 import { exportCaseAuditPack } from '@/features/reports/export'
 import { ComplaintPanel } from './ComplaintPanel'
 import { SapFindingsPanel } from './SapFindingsPanel'
 import { ProposalCard } from './ProposalCard'
+import { Conversation } from '@/components/domain/Conversation'
+import { Attachments } from '@/components/domain/Attachments'
 import { ReplyPanel } from './ReplyPanel'
 import { ApprovalActions } from '@/features/approvals/ApprovalPanel'
 import { StatusChip } from '@/components/domain/StatusChip'
@@ -37,8 +39,10 @@ export function CasePage() {
   const locked = c.sapDocuments.length > 0
   const canChoose = two && c.status === 'awaiting_approval' && !c.proposals.some((p) => p.chosen)
   const primary = primaryProposal(c)
+  // No invoice number, nothing to decide: the case is only its emails until the customer names one.
+  const noInvoice = !c.invoiceNumber
   // Decide here as well as in the approvals queue: approve or reject, then the SAP result and the reply.
-  const decidable = !!primary && !canChoose && DECISION_STATUSES.includes(c.status)
+  const decidable = !noInvoice && !!primary && !canChoose && DECISION_STATUSES.includes(c.status)
   const waiting = c.status === 'awaiting_approval'
   return (
     <div>
@@ -140,39 +144,60 @@ export function CasePage() {
         </section>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <ComplaintPanel c={c} />
-        <SapFindingsPanel c={c} />
-      </div>
+      {noInvoice ? (
+        <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
+          <h2 className="text-base font-semibold text-fg">
+            Conversation · {conversation(c).length} email{conversation(c).length === 1 ? '' : 's'}
+          </h2>
+          <p className="mt-1 rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">
+            No invoice number yet: there is nothing to approve or reject. Ask the customer for it;
+            when they answer, investigate again.
+          </p>
+          <Attachments list={c.attachments} compact />
+          <Conversation
+            messages={conversation(c)}
+            customerFrom={c.from}
+            label="Emails in this case"
+          />
+          <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />
+        </section>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <ComplaintPanel c={c} />
+            <SapFindingsPanel c={c} />
+          </div>
 
-      <section className="mt-4">
-        <h2 className="mb-2 text-base font-semibold text-fg">
-          {two ? 'Proposal · two options, a person chooses' : 'Proposal'}
-        </h2>
-        {c.proposals.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-line p-8 text-center text-muted">
-            {running
-              ? 'The agent is reading the complaint and looking up SAP…'
-              : 'No proposal yet. Run the agent.'}
-          </div>
-        ) : (
-          <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
-            {c.proposals.map((p) => (
-              <ProposalCard
-                key={p.id}
-                proposal={p}
-                canChoose={canChoose}
-                onChoose={(pid) =>
-                  choose.mutate(pid, {
-                    onSuccess: () => toast.success('Option chosen; ready for approval'),
-                  })
-                }
-              />
-            ))}
-          </div>
-        )}
-        {!decidable && <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />}
-      </section>
+          <section className="mt-4">
+            <h2 className="mb-2 text-base font-semibold text-fg">
+              {two ? 'Proposal · two options, a person chooses' : 'Proposal'}
+            </h2>
+            {c.proposals.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-line p-8 text-center text-muted">
+                {running
+                  ? 'The agent is reading the complaint and looking up SAP…'
+                  : 'No proposal yet. Run the agent.'}
+              </div>
+            ) : (
+              <div className={two ? 'grid grid-cols-1 gap-4 md:grid-cols-2' : ''}>
+                {c.proposals.map((p) => (
+                  <ProposalCard
+                    key={p.id}
+                    proposal={p}
+                    canChoose={canChoose}
+                    onChoose={(pid) =>
+                      choose.mutate(pid, {
+                        onSuccess: () => toast.success('Option chosen; ready for approval'),
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+            {!decidable && <ReplyPanel c={c} role={role} actor={ROLE_LABELS[role]} />}
+          </section>
+        </>
+      )}
 
       <Tabs defaultValue="timeline" className="mt-6">
         <TabsList>

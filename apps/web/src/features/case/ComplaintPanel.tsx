@@ -1,37 +1,18 @@
 import { COMPLAINT_LABELS, conversation, type Case } from '@reclaim/shared'
-import { formatDateTime } from '@/lib/format'
 import { Conversation } from '@/components/domain/Conversation'
 import { Attachments } from '@/components/domain/Attachments'
 
 export function ComplaintPanel({ c }: { c: Case }) {
   const f = c.facts
   const messages = conversation(c)
-  const thread = messages.length > 1
   return (
     <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
       <h2 className="text-base font-semibold text-fg">
-        {thread ? `Conversation · ${messages.length} emails` : 'Complaint'}
+        Conversation · {messages.length} email{messages.length === 1 ? '' : 's'}
       </h2>
-      {thread ? (
-        <>
-          <div className="mt-1 text-sm font-medium">{c.subject}</div>
-          <Attachments list={c.attachments} compact />
-          <Conversation messages={messages} customerFrom={c.from} label="Emails in this case" />
-        </>
-      ) : (
-        <>
-          <div className="mt-2 text-sm">
-            <div className="font-medium">{c.subject}</div>
-            <div className="text-muted">
-              {c.from} · {formatDateTime(c.receivedAt)}
-            </div>
-          </div>
-          <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed">
-            {c.bodyText}
-          </pre>
-          <Attachments list={c.attachments} />
-        </>
-      )}
+      <div className="mt-1 text-sm font-medium">{c.subject}</div>
+      <Attachments list={c.attachments} compact />
+      <Conversation messages={messages} customerFrom={c.from} label="Emails in this case" />
       {c.anomalies.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1">
           {c.anomalies.map((a) => (

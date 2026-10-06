@@ -263,3 +263,7 @@ export function currentReply(events: CaseEvent[]): CaseEvent | undefined {
   })
   return events.slice(reopened + 1).find((e) => e.kind === 'status' && e.detail.replySent === true)
 }
+
+/** Without an invoice there is no money decision: approve and reject are refused until the customer names one. */
+export const NO_INVOICE =
+  'No invoice number on this case: nothing can be approved or rejected until the customer gives one.'
