@@ -76,7 +76,7 @@ export function CasePage() {
             onClick={() =>
               exportCaseAuditPack(c, {
                 generatedBy: ROLE_LABELS[role],
-                sapMode: status.data?.sapMode,
+                sapMode: status.data?.sapSystem ?? 'DS4',
               }).then(
                 () => toast.success('Audit pack downloaded'),
                 (e) =>

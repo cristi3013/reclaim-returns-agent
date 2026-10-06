@@ -47,8 +47,8 @@ export function ReportsPage() {
   const [busy, setBusy] = useState<ExportFormat | null>(null)
 
   const report = useMemo(
-    () => (q.data ? buildReport(q.data, { from: from || null, to: to || null, generatedBy: ROLE_LABELS[role], sapMode: status.data?.sapMode ?? 'unknown' }) : null),
-    [q.data, from, to, role, status.data?.sapMode],
+    () => (q.data ? buildReport(q.data, { from: from || null, to: to || null, generatedBy: ROLE_LABELS[role], sapMode: status.data?.sapSystem ?? 'DS4' }) : null),
+    [q.data, from, to, role, status.data?.sapSystem],
   )
 
   const preset = (days: number | null) => {

@@ -15,7 +15,7 @@ export class Store {
   evalResults: EvalResult[] | null = null
 
   constructor(initial: Partial<Settings> = {}) {
-    this.settings = { sapMode: 'mock', aiMode: 'assisted', simulateConflict: false, ...initial }
+    this.settings = { aiMode: 'assisted', simulateConflict: false, ...initial }
   }
 
   get(id: string): Case {
@@ -56,7 +56,7 @@ export class Store {
     for (const id of removed) this.cases.delete(id)
     this.lastRunAt = null
     this.evalResults = null
-    if (!keepSettings) this.settings = { sapMode: 'mock', aiMode: 'assisted', simulateConflict: false }
+    if (!keepSettings) this.settings = { aiMode: 'assisted', simulateConflict: false }
     else this.settings = s
     return removed
   }

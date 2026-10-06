@@ -2,7 +2,7 @@ import { CaseSchema, type Case, type EvalResult, type Settings } from '@reclaim/
 
 const KEY = 'reclaim.mock.v1'
 
-const defaultSettings = (): Settings => ({ sapMode: 'mock', aiMode: 'assisted', simulateConflict: false })
+const defaultSettings = (): Settings => ({ aiMode: 'assisted', simulateConflict: false })
 
 /** In-memory state of the mock backend, mirrored to localStorage so a refresh mid-demo loses nothing. */
 export class MockStore {

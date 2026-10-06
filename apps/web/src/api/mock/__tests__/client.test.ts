@@ -30,8 +30,7 @@ describe('MockApiClient basics', () => {
 
   it('refuses the DS4 switch with an explanation', async () => {
     const c = new MockApiClient({ fast: true })
-    await expect(c.updateSettings({ sapMode: 'real' })).rejects.toMatchObject({ status: 400 })
-    expect((await c.getSettings()).sapMode).toBe('mock')
+    expect((await c.getStatus()).sapSystem).toBe('mock gateway')
   })
 
   it('reset clears everything', async () => {

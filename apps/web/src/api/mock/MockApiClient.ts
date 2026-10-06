@@ -8,7 +8,6 @@ import {
   FIXTURES,
   findThreadCase,
   capQuantity,
-  DEMO_INVOICES,
   primaryProposal,
   MANUAL_STATUSES,
   STATUS_LABELS,
@@ -86,7 +85,6 @@ export class MockApiClient implements ApiClient {
       touch: (id: string) => this.touch(id),
       cases: this.store.cases,
       aiMode: this.store.settings.aiMode,
-      sapMode: this.store.settings.sapMode,
       setLastRun: (iso: string) => {
         this.store.lastRunAt = iso
       },
@@ -227,12 +225,6 @@ export class MockApiClient implements ApiClient {
       if (approverRole && ROLE_RANK[input.role] < ROLE_RANK[approverRole]) {
         return { ok: false, status: 403, message: `This credit needs the ${approverRole.replace(/_/g, ' ')}. Your role cannot approve it.` }
       }
-      if (p.sapMode && p.sapMode !== this.store.settings.sapMode) {
-        return { ok: false, status: 409, message: `This proposal was built with SAP mode "${p.sapMode}" but the system is now in "${this.store.settings.sapMode}". Re-run the case.` }
-      }
-      if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
-        return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4. Switch SAP mode to Mock.` }
-      }
       // 3. Save.
       if (edited) {
         p.decision = { ...p.decision, quantity: qty, amount, approverRole }
@@ -368,9 +360,6 @@ export class MockApiClient implements ApiClient {
         return { ok: false, status: 409, message: 'A return is credited only after the warehouse has received the goods (step 5.1.3). The Returns desk confirms the receipt; then the credit can be released.' }
       }
       await this.delay(500)
-      if (this.store.settings.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')) {
-        return { ok: false, status: 400, message: `Invoice ${c.invoiceNumber} is hackathon demo data and must never be written to the real DS4.` }
-      }
       if (this.store.settings.simulateConflict) {
         ev(c, 'error', 'SAP refused the release: 412 Precondition Failed', { status: 412, message: CONFLICT_MESSAGE }, step, 500)
         this.touch(c.id)
@@ -518,7 +507,7 @@ export class MockApiClient implements ApiClient {
       cases: cases.length,
       pending: cases.filter((c) => c.status === 'awaiting_approval').length,
       lastRunAt: this.store.lastRunAt,
-      sapMode: this.store.settings.sapMode,
+      sapSystem: 'mock gateway',
       aiMode: this.store.settings.aiMode,
     }
   }
@@ -528,12 +517,6 @@ export class MockApiClient implements ApiClient {
   }
 
   async updateSettings(patch: Partial<Settings>): Promise<Settings> {
-    if (patch.sapMode === 'real') {
-      throw Object.assign(
-        new Error('This is the in-browser mock: it has no SAP connection. Run the backend (apps/api) with GATEWAY_URL and start the frontend with VITE_API_MODE=http to use DS4.'),
-        { status: 400 },
-      )
-    }
     this.store.settings = { ...this.store.settings, ...patch }
     this.store.save()
     this.emit({ type: 'status_changed' })

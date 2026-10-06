@@ -81,7 +81,8 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
   const rulesOnly = new RulesOnlyAi()
   let claude: ResilientAi | null = null
 
-  const gateway = opts.gateway ?? ((s: Settings) => (s.sapMode === 'real' && real ? real : mock))
+  // The product talks to DS4 through the gateway (GATEWAY_URL, required by server.ts). Tests inject a gateway or get the mock.
+  const gateway = opts.gateway ?? (() => real ?? mock)
   const ai =
     opts.ai ??
     ((s: Settings) => {
@@ -97,7 +98,6 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     mailboxStatus: () => pollerRef?.status() ?? null,
     gateway: (s) => gateway(s, store),
     ai,
-    hasRealGateway: !!real || !!opts.gateway,
     onReset: () => mock.reset(),
     persistence: persistence ?? undefined,
     mailer,

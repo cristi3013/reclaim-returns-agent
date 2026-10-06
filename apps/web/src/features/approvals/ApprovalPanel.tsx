@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { approverFor, caseOutcome, DEMO_INVOICES, REASON_CODES, ROLE_LABELS, type Case, type Proposal, type Role } from '@reclaim/shared'
-import { useApprove, useConfirmGoodsReceipt, useReject, useRelease, useReturnStatus, useSettings, type ApproveResult, type ReleaseResult } from '@/api'
+import { useApprove, useConfirmGoodsReceipt, useReject, useRelease, useReturnStatus, type ApproveResult, type ReleaseResult } from '@/api'
 import { QuantityEditor } from './QuantityEditor'
 import { ReplyPanel } from '@/features/case/ReplyPanel'
 import { PayloadView } from '@/components/domain/PayloadView'
@@ -86,7 +86,6 @@ export function ApprovalActions({
   const reject = useReject()
   const release = useRelease()
   const confirmReceipt = useConfirmGoodsReceipt()
-  const { data: settings } = useSettings()
   const [edit, setEdit] = useState<{ quantity: number; valid: boolean } | null>(null)
   const [comment, setComment] = useState('')
   const [result, setResult] = useState<ApproveResult | null>(null)
@@ -98,7 +97,8 @@ export function ApprovalActions({
   const effectiveAmount = edit && edit.valid ? Math.round(edit.quantity * unitPrice * 100) / 100 : d.amount
   const effectiveApprover = d.documentType === 'NONE' ? d.approverRole : approverFor(effectiveAmount, d.ruleId)
   const allowed = !effectiveApprover || RANK[role] >= RANK[effectiveApprover]
-  const demoBlocked = settings?.sapMode === 'real' && DEMO_INVOICES.includes(c.invoiceNumber ?? '')
+  // The hackathon's shared demo invoices are read from DS4 but never written: approval is refused on both sides.
+  const demoBlocked = DEMO_INVOICES.includes(c.invoiceNumber ?? '')
   const canApprove = c.status === 'awaiting_approval' && allowed && !demoBlocked && !approve.isPending && (!edit || edit.valid)
   const doc = c.sapDocuments[c.sapDocuments.length - 1]
   const warehouse = useReturnStatus(doc && doc.type === 'YRE' && !doc.released && c.status === 'written_to_sap' ? doc.id : null)

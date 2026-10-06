@@ -47,8 +47,6 @@ export type L4Step = (typeof L4_STEP_IDS)[number]
 export const AI_MODES = ['assisted', 'rules_only'] as const
 export type AiMode = (typeof AI_MODES)[number]
 
-export const SAP_MODES = ['mock', 'real'] as const
-export type SapMode = (typeof SAP_MODES)[number]
 
 export const EVENT_KINDS = [
   'intake',

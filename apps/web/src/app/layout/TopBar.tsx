@@ -40,37 +40,11 @@ export function TopBar() {
     }
   }, [menu, confirmReset])
 
-  const sap = s?.sapMode === 'real' ? 'DS4' : 'Mock'
   const ai = s?.aiMode === 'rules_only' ? 'Rules only' : 'AI assisted'
 
   // Demo switches: one button that shows the current state, the switches behind it.
   const demoControls = (
     <div className="grid gap-4">
-      <Setting
-        title="SAP system"
-        hint="Mock is safe for rehearsals. DS4 writes to the real test system."
-      >
-        <ModeSwitch
-          showLabel={false}
-          label="SAP"
-          value={s?.sapMode ?? 'mock'}
-          options={[
-            { value: 'mock', label: 'Mock' },
-            { value: 'real', label: 'DS4' },
-          ]}
-          onChange={(v) =>
-            upd.mutate(
-              { sapMode: v as 'mock' | 'real' },
-              {
-                onError: (e) =>
-                  toast.error(e instanceof Error ? e.message : 'Could not switch SAP mode', {
-                    duration: 8000,
-                  }),
-              },
-            )
-          }
-        />
-      </Setting>
       <Setting
         title="Reading the emails"
         hint="Rules only skips the language model; the decisions stay the same."
@@ -92,22 +66,6 @@ export function TopBar() {
               },
             )
           }
-        />
-      </Setting>
-      <Setting
-        title="Simulate a SAP conflict"
-        hint="412 makes the next SAP write fail as if someone changed the record."
-      >
-        <ModeSwitch
-          showLabel={false}
-          label="Conflict"
-          tone="warn"
-          value={s?.simulateConflict ? 'on' : 'off'}
-          options={[
-            { value: 'off', label: 'OK' },
-            { value: 'on', label: '412' },
-          ]}
-          onChange={(v) => upd.mutate({ simulateConflict: v === 'on' })}
         />
       </Setting>
       <div className="border-t border-line pt-3">
@@ -162,11 +120,8 @@ export function TopBar() {
             {!mobile && (
               <>
                 <span>
-                  <span className="text-fg">SAP {sap}</span> · {ai}
+                  <span className="text-fg">SAP DS4</span> · {ai}
                 </span>
-                {s?.simulateConflict && (
-                  <span className="rounded bg-warn-soft px-1.5 font-medium text-warn">412 on</span>
-                )}
                 <ChevronDown className="size-3.5" />
               </>
             )}

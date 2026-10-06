@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useAnalytics, useCases, useSettings, useStatus } from '@/api'
+import { useAnalytics, useCases, useStatus } from '@/api'
 import { useUi } from '@/store/ui'
 import { useSignedInUser } from '@/auth'
 import { KpiTile } from '@/components/domain/KpiTile'
@@ -25,7 +25,6 @@ export function DashboardPage() {
   const cases = useCases()
   const analytics = useAnalytics()
   const { data: agent } = useStatus()
-  const { data: settings } = useSettings()
   const { role } = useUi()
   const user = useSignedInUser()
   const all = cases.data ?? []
@@ -57,7 +56,7 @@ export function DashboardPage() {
               {agent.mailbox.lastMessageAt && <span className="hidden sm:inline"> · last email {formatRelative(agent.mailbox.lastMessageAt)}</span>}
             </li>
           )}
-          {settings && <li className="rounded-full border border-line bg-surface px-2.5 py-1">SAP {settings.sapMode === 'real' ? 'DS4' : 'mock'}</li>}
+          <li className="rounded-full border border-line bg-surface px-2.5 py-1">SAP {agent?.sapSystem ?? 'DS4'}</li>
           {agent && <li className="rounded-full border border-line bg-surface px-2.5 py-1">{agent.ai}</li>}
         </ul>
         }

@@ -49,7 +49,7 @@ describe('TopBar on a phone', () => {
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
     expect(screen.queryByLabelText('SAP')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /demo controls/i }))
-    expect(await screen.findByLabelText('SAP')).toBeInTheDocument()
+    expect(await screen.findByLabelText('AI')).toBeInTheDocument()
     expect(screen.getByLabelText('AI')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /reset demo/i })).toBeInTheDocument()
   })
