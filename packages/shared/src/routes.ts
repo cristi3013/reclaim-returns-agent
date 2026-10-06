@@ -21,6 +21,8 @@ export const API_ROUTES = {
   controlTowerNotes: { method: 'GET', path: '/api/control-tower/notes' },
   controlTowerHandover: { method: 'POST', path: '/api/control-tower/handover/:id' },
   analytics: { method: 'GET', path: '/api/analytics/summary' },
+  rootCauses: { method: 'GET', path: '/api/insights/root-causes' },
+  rootCausesGenerate: { method: 'POST', path: '/api/insights/root-causes' },
   runEval: { method: 'POST', path: '/api/eval/run' },
   latestEval: { method: 'GET', path: '/api/eval/latest' },
   status: { method: 'GET', path: '/api/status' },

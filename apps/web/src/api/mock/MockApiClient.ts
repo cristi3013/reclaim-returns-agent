@@ -29,6 +29,10 @@ import {
   packToScanInput,
   runScan,
   AGENTS,
+  COMPLAINT_ARCHIVE,
+  localRootCauses,
+  recordFromCase,
+  type RootCauseBriefing,
 } from '@reclaim/shared'
 import {
   CONFLICT_MESSAGE,
@@ -43,6 +47,7 @@ import {
   type SendReplyResult,
 } from '../client'
 import { MockStore } from './store'
+import { splitEml } from './eml'
 import { ev, uid } from './events'
 import { runPipeline } from './pipeline'
 
@@ -123,14 +128,14 @@ export class MockApiClient implements ApiClient {
       const text = await readText(f)
       const fx = FIXTURES.find((x) => x.emailFile === f.name)
       const now = new Date().toISOString()
-      const [head = '', ...rest] = text.split(/\r?\n\r?\n/)
+      const { head, body, attachments } = splitEml(text)
       const header = (name: string) => new RegExp(`^${name}:\\s*(.+)$`, 'mi').exec(head)?.[1]?.trim() ?? null
       const mail = {
         from: header('From') ?? 'unknown sender',
         subject: header('Subject') ?? f.name,
-        text: rest.join('\n\n').trim(),
+        text: body,
         receivedAt: now,
-        attachments: [],
+        attachments,
         messageId: header('Message-ID'),
         inReplyTo: header('In-Reply-To'),
         references: header('References')?.split(/\s+/) ?? [],
@@ -155,7 +160,7 @@ export class MockApiClient implements ApiClient {
             from: mail.from,
             subject: mail.subject,
             bodyText: mail.text,
-            attachments: [],
+            attachments,
             status: 'received',
             customer: '10021',
             customerName: 'Cust DE 1',
@@ -172,7 +177,7 @@ export class MockApiClient implements ApiClient {
             createdAt: now,
             updatedAt: now,
           }
-      if (!fx) ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: 0, messageId: mail.messageId, channel: 'file' }, '5.1.1')
+      if (!fx) ev(c, 'intake', 'Complaint received', { from: c.from, subject: c.subject, attachments: c.attachments.length, messageId: mail.messageId, channel: 'file' }, '5.1.1')
       this.store.cases.set(id, c)
       out.push(toSummary(c))
     }
@@ -453,6 +458,18 @@ export class MockApiClient implements ApiClient {
     return computeAnalytics([...this.store.cases.values()], this.store.evalResults)
   }
 
+  // ---- Root causes: local grouping and template wording; the real backend adds embeddings and the model.
+  private rootCauses: RootCauseBriefing | null = null
+  async getRootCauses() {
+    return this.rootCauses
+  }
+  async generateRootCauses() {
+    await new Promise((r) => setTimeout(r, 900))
+    const live = [...this.store.cases.values()].filter((c) => c.facts).map(recordFromCase)
+    this.rootCauses = localRootCauses([...COMPLAINT_ARCHIVE, ...live])
+    return this.rootCauses
+  }
+
   async runEval(): Promise<EvalResult[]> {
     const results: EvalResult[] = []
     for (const [id, e] of Object.entries(EXPECTED)) {
@@ -525,6 +542,7 @@ export class MockApiClient implements ApiClient {
 
   async reset() {
     this.store.clear()
+    this.rootCauses = null
     this.emit({ type: 'status_changed' })
   }
 

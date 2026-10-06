@@ -9,6 +9,7 @@ import {
   SnapshotSchema,
   AnswerSchema,
   RoutingNoteSchema,
+  RootCauseBriefingSchema,
   SapDocumentSchema,
   SettingsSchema,
   type Settings,
@@ -153,6 +154,12 @@ export class HttpApiClient implements ApiClient {
   }
   getAnalytics() {
     return this.call('analytics', {}, undefined, AnalyticsSchema)
+  }
+  async getRootCauses() {
+    return (await this.call('rootCauses', {}, undefined, z.object({ briefing: RootCauseBriefingSchema.nullable() }))).briefing
+  }
+  generateRootCauses() {
+    return this.call('rootCausesGenerate', {}, {}, RootCauseBriefingSchema)
   }
   runEval() {
     return this.call('runEval', {}, undefined, z.array(EvalResultSchema))

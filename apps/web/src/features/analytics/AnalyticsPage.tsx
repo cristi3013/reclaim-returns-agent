@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CasesOverTime, DecisionsByRule, Outcomes, ValueFunnel } from './charts'
 import { ValueCalculator } from './ValueCalculator'
 import { ModelUsage } from './ModelUsage'
+import { RootCausesPanel } from './RootCausesPanel'
 import { formatDateTime, formatMoney, formatPercent } from '@/lib/format'
 import { COMPLAINT_LABELS, ROLE_LABELS, STATUS_LABELS, type CaseStatus, type ComplaintType } from '@reclaim/shared'
 import { Download, FileDown } from 'lucide-react'
@@ -48,6 +49,7 @@ export function AnalyticsPage() {
         </Button>
         </>}
       />
+      <RootCausesPanel />
       {q.isLoading || !d ? (
         q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : <Skeleton className="h-96" />
       ) : (

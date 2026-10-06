@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ThreadMessage } from '@reclaim/shared'
+import { Attachments } from './Attachments'
 import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -31,22 +32,5 @@ export function MessageBubble({ m, footer }: { m: ThreadMessage; footer?: ReactN
         )}
       </div>
     </li>
-  )
-}
-
-export function Attachments({ list }: { list: ThreadMessage['attachments'] }) {
-  return list.map((a) =>
-    a.mimeType.startsWith('image/') ? (
-      <figure key={a.name} className="mt-3">
-        <img src={a.url} alt={a.name} className="max-h-56 rounded border border-line" />
-        <figcaption className="mt-1 text-xs text-muted">
-          {a.name} · read by the model as evidence
-        </figcaption>
-      </figure>
-    ) : (
-      <div key={a.name} className="mt-2 text-xs">
-        {a.name}
-      </div>
-    ),
   )
 }

@@ -30,7 +30,7 @@ apps/api/src/
   store.ts        in-memory Map<id, Case> + settings. Swap for Supabase here.
   events.ts       ev() audit events with L4 step ids; EventHub for SSE
   gateway/        Gateway interface; MockGateway (captured DS4 data); RealGateway (Alex's CAP service on BTP)
-  ai/             Ai interface; RulesOnlyAi (no model); ClaudeAi (extract facts from email+photo, narrate)
+  ai/             Ai interface; RulesOnlyAi (no model); ClaudeAi (extract facts from email, photos and PDFs, narrate)
 apps/api/test/acceptance.test.ts   the 8 demo cases over HTTP must match expected-results.json
 apps/web/src/api/mock/              the frontend's in-browser mock of this backend: same behaviour, useful as a second reference
 docs/Returns-Agent-Architecture.md  the full architecture (functional + technical)
@@ -65,7 +65,7 @@ Both switches can be changed at runtime from the UI top bar (`PUT /api/settings`
 ## 4. The flow of one case (what `pipeline.ts` does)
 
 1. **Intake.** Case created from an `.eml` (seed or upload). Status `received`.
-2. **Extract** (`ai.extractFacts`). Email text + photo → `Facts`: invoice number or null, material, claimed quantity, complaint type, claimed price, wants replacement, goods returnable, evidence, language. ClaudeAi uses structured output with the shared `FactsSchema`; RulesOnlyAi uses regex. Event kind `model` or `rule`, L4 `5.1.1`.
+2. **Extract** (`ai.extractFacts`). Email text + attachments → `Facts`. Photos (PNG, JPEG, WebP, GIF) go to the model as image blocks, PDFs (e.g. a signed delivery note) as document blocks; other files are kept with the case but not sent, and so are files over 20 MB (`MODEL_READABLE_TYPES` in `src/ai/types.ts`). The type recorded at intake wins over the file extension. Verified live on Bedrock: from an email saying only "not everything arrived", the model read invoice, material and the missing 2 KG from the delivery-note PDF. Fields: invoice number or null, material, claimed quantity, complaint type, claimed price, wants replacement, goods returnable, evidence, language. ClaudeAi uses structured output with the shared `FactsSchema`; RulesOnlyAi uses regex. Event kind `model` or `rule`, L4 `5.1.1`.
 3. **Investigate** (gateway reads, each one an audit event, L4 `5.1.1`):
    `getInvoice` (or `findInvoices` when no number and a material is known) → `checkExistingCredits` → `getAgreedPrice` (price complaints only) → `plantCompanyCode` (reference table, for intercompany).
 4. **Decide** (`decide()` from shared, no model). One decision, or two for damaged goods (R1 return vs R3 credit-only, with a recommendation). Quantity capped at invoiced, amount = qty × invoice unit price (or the price difference for R4), approver from the threshold table, intercompany flag if plant company ≠ invoicing company. L4 `5.1.1`, `5.2.1`, `5.2.2`.
@@ -149,7 +149,7 @@ SAP facts that bite (from the hackathon guide): writes need a CSRF token fetched
 
 Two calls, both with `client.messages.parse` and `zodOutputFormat` from `@anthropic-ai/sdk/helpers/zod`, model `claude-opus-5-5`:
 
-- **extractFacts**: system prompt describes each field; the email (and photo as an image block) is the user message; output format is the shared `FactsSchema`. Effort `medium`. A refusal or unparsable output throws 502 and the run fails cleanly (status back to `received`, error event).
+- **extractFacts**: system prompt describes each field; the email (photos as image blocks, PDFs as document blocks) is the user message; output format is the shared `FactsSchema`. Effort `medium`. A refusal or unparsable output throws 502 and the run fails cleanly (status back to `received`, error event).
 - **narrate**: gets the rule text, the SAP facts, the extracted facts and the decision; returns explanation, reply, briefing. Effort `low`, system prompt cached. On refusal it falls back to the template narrative.
 
 The acceptance test runs rules-only by default. With `ANTHROPIC_API_KEY` set and `AI_MODE=assisted`, it runs with the model and the decisions must still match: that is the proof that the model never decides.
@@ -172,7 +172,7 @@ Every `/api/*` request carries a Supabase session token (`Authorization: Bearer 
 
 Three channels, all ending in `service.ingestInbound()` and, unless `INBOUND_AUTORUN=false`, an automatic run:
 
-1. **Mailbox (IMAP, push).** Set `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` (Gmail: enable IMAP, two-step verification, app password). `src/intake/mailbox.ts` keeps one connection open in IDLE mode: the server notifies it the moment a message arrives, it fetches the unseen messages, parses them with mailparser, saves image attachments under `apps/api/uploads` (served at `/uploads/…`, linked with `PUBLIC_URL`) and marks them seen. It reconnects with backoff if the connection drops and runs a safety sweep every `IMAP_POLL_MS` (min 60 s). Duplicate message ids are ignored. This is the demo path: send the complaint from a phone, watch it appear within seconds.
+1. **Mailbox (IMAP, push).** Set `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` (Gmail: enable IMAP, two-step verification, app password). `src/intake/mailbox.ts` keeps one connection open in IDLE mode: the server notifies it the moment a message arrives, it fetches the unseen messages, parses them with mailparser, saves the attachments under `apps/api/uploads` (local disk: on Railway they do not survive a redeploy without a volume) (served at `/uploads/…`, linked with `PUBLIC_URL`) and marks them seen. It reconnects with backoff if the connection drops and runs a safety sweep every `IMAP_POLL_MS` (min 60 s). Duplicate message ids are ignored. This is the demo path: send the complaint from a phone, watch it appear within seconds.
 2. **Webhook.** `POST /api/inbound` with JSON `{from, subject, text, receivedAt?, messageId?, attachments?}` or a raw email as `message/rfc822`. Returns 201 with the case summary, or `{duplicate: true}`. Works from Postman or any email-to-webhook service.
 3. **Upload / seed.** `POST /api/cases/ingest` (multipart `.eml` files, parsed with mailparser) and `POST /api/cases/seed` for the eight demo cases.
 
@@ -214,3 +214,15 @@ Questions (`answerQuestion`) are parsed by code (country, customer, order, topic
 
 Routes: `GET /api/control-tower/snapshot`, `POST /run`, `POST /ask {question}`, `GET /memo` (markdown), `GET /notes`, `POST /handover/:findingId`. Tests: `packages/shared/src/__tests__/control-tower.test.ts` checks the scan and the seven questions against the organisers' `expected-results.json`; the acceptance test covers the routes.
 
+
+## 14. Root causes (Insights, read-only)
+
+Why money leaks through complaints, and what to fix upstream. `POST /api/insights/root-causes` builds a briefing over every investigated case plus `COMPLAINT_ARCHIVE` (34 closed complaints, sample data, in `packages/shared/src/fixtures/archive.ts`); `GET` returns the last one (null before the first; the demo reset clears it). Read-only: it never changes a case and never calls SAP (`src/insights/root-causes.ts`).
+
+1. **Group by meaning.** Assisted mode: each complaint (core text without greeting, signature, invoice number or customer name, plus the model's photo evidence) is embedded with Cohere Embed Multilingual v3 on Bedrock (`EMBEDDING_MODEL`, `src/insights/embeddings.ts`), so a German and a Romanian complaint about the same lids land together. Vectors are cached in Supabase pgvector (`complaint_embeddings`, keyed by id, model and text hash; run the block at the end of `schema.sql`), or in memory without it. Vectors are mean-centred, then grouped by average-linkage clustering (threshold 0.15; at least three complaints per group). Rules-only mode, or when Bedrock fails: local TF-IDF (threshold 0.3), said so in the briefing.
+2. **Code computes every figure** (`packages/shared/src/root-causes.ts`): credit value, share of all credit, desk hours (45 min per complaint), last 30 days against the 30-day average of the 60 before, trend, plants, materials, customers, open cases.
+3. **The model names cause, action and owner** (`ClaudeAi.explainRootCauses`, purpose `insights`) from the computed facts and quotes. Every run of digits in its wording must appear in the prompt (`isGrounded`); otherwise that group gets template wording and a note. The figures are identical with or without the model (tested).
+
+The web shows it as **Root causes** at the top of Insights: one line per problem (top three), details in a side panel, and a one-page PDF (`rootCausesPdf` in `apps/web/src/features/reports/export.ts`).
+
+Tests: `packages/shared/src/__tests__/root-causes.test.ts` (the four hidden patterns, the figures, the grounding check), `apps/api/test/root-causes.test.ts` (routes, fake model with an invented figure, read-only), `apps/web/src/features/analytics/__tests__/RootCausesPanel.test.tsx`.

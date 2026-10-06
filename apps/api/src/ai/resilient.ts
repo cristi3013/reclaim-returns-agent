@@ -65,4 +65,9 @@ export class ResilientAi implements Ai {
     const run = (ai: Ai) => (ai.phrase ? ai.phrase(question, answer) : Promise.resolve({ text: answer.text }))
     return this.withFallback(run)
   }
+
+  explainRootCauses(prompt: string) {
+    const run = (ai: Ai) => (ai.explainRootCauses ? ai.explainRootCauses(prompt) : Promise.resolve({ narrations: [] }))
+    return this.withFallback(run)
+  }
 }

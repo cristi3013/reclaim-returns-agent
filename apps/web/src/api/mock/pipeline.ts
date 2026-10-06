@@ -103,7 +103,7 @@ export async function runPipeline(h: PipelineHost, id: string): Promise<void> {
     c,
     assisted ? 'model' : 'rule',
     assisted
-      ? `Facts extracted from the email${c.attachments.length ? ' and the photo' : ''}`
+      ? `Facts extracted from the email${c.attachments.length > 1 ? ` and ${c.attachments.length} attachments` : c.attachments[0]?.mimeType === 'application/pdf' ? ' and the PDF' : c.attachments.length ? ' and the photo' : ''}`
       : 'Facts extracted by pattern rules',
     { facts, source: assisted ? 'claude (structured output)' : fx ? 'pattern rules, demo facts for the fixture email' : 'pattern rules' },
     '5.1.1',

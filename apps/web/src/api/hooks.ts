@@ -37,6 +37,17 @@ export const useAnalytics = () => {
   return useQuery({ queryKey: ['analytics'], queryFn: () => api.getAnalytics() })
 }
 
+export const useRootCauses = () => {
+  const api = useApi()
+  return useQuery({ queryKey: ['root-causes'], queryFn: () => api.getRootCauses() })
+}
+
+export const useGenerateRootCauses = () => {
+  const api = useApi()
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: () => api.generateRootCauses(), onSuccess: (b) => qc.setQueryData(['root-causes'], b) })
+}
+
 export const useEval = () => {
   const api = useApi()
   return useQuery({ queryKey: ['eval'], queryFn: () => api.getLatestEval() })

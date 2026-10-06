@@ -47,3 +47,16 @@ alter table public.cases      enable row level security;
 alter table public.settings   enable row level security;
 alter table public.eval_runs  enable row level security;
 alter table public.sap_writes enable row level security;
+
+-- Root causes: one embedding per complaint and model (Cohere Embed Multilingual v3, 1024 dimensions), so a
+-- briefing only embeds complaints it has not seen. text_hash detects an edited complaint.
+create extension if not exists vector;
+create table if not exists public.complaint_embeddings (
+  id          text not null,
+  model       text not null,
+  text_hash   text not null,
+  embedding   vector(1024) not null,
+  updated_at  timestamptz not null default now(),
+  primary key (id, model)
+);
+alter table public.complaint_embeddings enable row level security;

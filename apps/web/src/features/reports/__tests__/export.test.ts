@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import ExcelJS from 'exceljs'
-import { buildReport, primaryProposal } from '@reclaim/shared'
+import { buildReport, COMPLAINT_ARCHIVE, localRootCauses, primaryProposal } from '@reclaim/shared'
 import { MockApiClient } from '@/api/mock/MockApiClient'
-import { caseAuditPdf, readableDetail, reportBlob } from '../export'
+import { caseAuditPdf, readableDetail, rootCausesPdf, reportBlob } from '../export'
 
 /** jsdom's Blob has no arrayBuffer(); FileReader works. */
 const bytes = (b: Blob) =>
@@ -54,6 +54,10 @@ describe('report exports', () => {
     await c.seedCases()
     await c.runCase('case-01')
     expect(await pdfHead(await caseAuditPdf(await c.getCase('case-01'), { generatedBy: 'Credit manager', sapMode: 'mock' }))).toBe('%PDF-')
+  })
+
+  it('the root causes report is a PDF', async () => {
+    expect(await pdfHead(await rootCausesPdf(localRootCauses(COMPLAINT_ARCHIVE, new Date('2026-10-06T08:00:00Z'))))).toBe('%PDF-')
   })
 
   it('event detail reads as key: value lines, not raw JSON', () => {

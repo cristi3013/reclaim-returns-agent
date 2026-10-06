@@ -1,6 +1,13 @@
 import { buildSapPayload, decide, preferItem, rankCandidates, type CaseStatus, type Findings, type Proposal } from '@reclaim/shared'
 import type { Gateway } from './gateway/types'
-import type { Ai } from './ai/types'
+import { MODEL_MAX_ATTACHMENT_BYTES, MODEL_READABLE_TYPES, type Ai } from './ai/types'
+
+/** " and the photo", " and the PDF", " and 3 attachments": what the model read besides the email. */
+function attachmentWords(read: { mimeType: string }[]): string {
+  if (!read.length) return ''
+  if (read.length > 1) return ` and ${read.length} attachments`
+  return read[0]!.mimeType === 'application/pdf' ? ' and the PDF' : ' and the photo'
+}
 import type { Store } from './store'
 import { ev, uid } from './events'
 
@@ -49,7 +56,14 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
 
   // 1 · extract
   const t0 = Date.now()
-  const attachments = (await Promise.all(c.attachments.map((a) => deps.readAttachment(a.url)))).filter((x): x is { mimeType: string; base64: string } => !!x)
+  // The type recorded at intake wins over a guess from the file name; only what the model can read is sent.
+  const read = await Promise.all(
+    c.attachments.map(async (a) => {
+      const x = await deps.readAttachment(a.url)
+      return x && { mimeType: MODEL_READABLE_TYPES.includes(a.mimeType) ? a.mimeType : x.mimeType, base64: x.base64 }
+    }),
+  )
+  const attachments = read.filter((x): x is { mimeType: string; base64: string } => !!x && MODEL_READABLE_TYPES.includes(x.mimeType) && x.base64.length * 0.75 <= MODEL_MAX_ATTACHMENT_BYTES)
   const extracted = (await ai.extractFacts(c, attachments)) as Awaited<ReturnType<Ai['extractFacts']>> & { fallback?: string }
   const facts = extracted.facts
   if (extracted.fallback) ev(c, 'error', `Model unavailable; facts read by pattern rules instead (${extracted.fallback})`, { fallback: extracted.fallback }, '5.1.1', null)
@@ -59,7 +73,7 @@ export async function runPipeline(deps: PipelineDeps, id: string): Promise<void>
   ev(
     c,
     assisted ? 'model' : 'rule',
-    assisted ? `Facts extracted from the email${attachments.length ? ' and the photo' : ''}` : 'Facts extracted by pattern rules',
+    assisted ? `Facts extracted from the email${attachmentWords(attachments)}` : 'Facts extracted by pattern rules',
     { facts, source: ai.name, usage: extracted.usage },
     '5.1.1',
     Date.now() - t0,

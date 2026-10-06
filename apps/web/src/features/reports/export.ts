@@ -1,5 +1,5 @@
-import { COMPLAINT_LABELS, L4_STEPS, primaryProposal, reportFileName, reportToXml, ROLE_LABELS, RULES, STATUS_LABELS, type Case, type Report, type ReportCell, type ReportTable } from '@reclaim/shared'
-import { formatDateTime } from '@/lib/format'
+import { COMPLAINT_LABELS, L4_STEPS, primaryProposal, reportFileName, reportToXml, ROLE_LABELS, RULES, STATUS_LABELS, type Case, type Report, type ReportCell, type ReportTable, type RootCauseBriefing } from '@reclaim/shared'
+import { formatDate, formatDateTime } from '@/lib/format'
 
 /**
  * Writes the shared report model to Excel, PDF and XML in the browser. exceljs and jspdf are loaded
@@ -362,4 +362,72 @@ export async function caseAuditPdf(c: Case, opts: CasePackOptions): Promise<Blob
 
 export async function exportCaseAuditPack(c: Case, opts: CasePackOptions) {
   downloadBlob(await caseAuditPdf(c, opts), `reclaim-audit-pack-${c.id}.pdf`)
+}
+
+const TREND_WORDS = { rising: 'getting worse', stable: 'steady', falling: 'easing' } as const
+const amount = (v: number, cur: string) => `${v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`
+
+/** Root causes as a report a manager can forward: the headline, then per problem what it costs, why, and who fixes it. */
+export async function rootCausesPdf(b: RootCauseBriefing): Promise<Blob> {
+  const { doc, autoTable } = await pdfLibs('portrait')
+  const margin = 40
+  const w = doc.internal.pageSize.getWidth()
+  const h = doc.internal.pageSize.getHeight()
+  const avail = w - margin * 2
+  const cur = b.totals.currency
+  const n = b.clusters.length
+
+  doc.setFillColor(...TEAL).rect(0, 0, w, 74, 'F')
+  doc.setTextColor(255, 255, 255).setFont('helvetica', 'bold').setFontSize(18).text('Root causes report', margin, 34)
+  doc.setFont('helvetica', 'normal').setFontSize(11).text(pdfText(`Complaints from ${formatDate(b.period.from)} to ${formatDate(b.period.to)}`), margin, 54)
+  doc.setFontSize(8).text(pdfText(`Generated ${formatDateTime(b.generatedAt)} UTC`), w - margin, 34, { align: 'right' })
+
+  let y = 104
+  const lines = (text: string, size: number, style: 'normal' | 'bold' | 'italic', gap = size + 3, color: [number, number, number] = [0, 0, 0]) => {
+    doc.setFont('helvetica', style).setFontSize(size).setTextColor(...color)
+    for (const line of doc.splitTextToSize(pdfText(text), avail) as string[]) {
+      if (y > h - 50) {
+        doc.addPage()
+        y = 50
+      }
+      doc.text(line, margin, y)
+      y += gap
+    }
+    doc.setTextColor(0, 0, 0)
+  }
+
+  const share = b.totals.value ? Math.round((b.totals.clusteredValue / b.totals.value) * 100) : 0
+  lines(n ? `${n} ${n === 1 ? 'problem' : 'problems'} caused ${amount(b.totals.clusteredValue, cur)} of credit notes, ${share}% of all credit given.` : 'No problem came back three times or more.', 14, 'bold', 18)
+  const worded = b.clusters.some((c) => c.wordedBy === 'model') ? `the wording is by ${b.generatedBy} and is checked to contain no number that is not in the data` : 'the wording is standard text'
+  lines(`From ${b.totals.complaints} complaints. Every figure is computed from the data; ${worded}.`, 9, 'italic', 12, MUTED)
+  if (b.note) lines(b.note, 9, 'italic', 12, MUTED)
+
+  b.clusters.forEach((c, i) => {
+    y = heading(doc, `${i + 1}. ${c.title}`, y + 18, margin) + 4
+    lines(`${amount(c.value, c.currency)} · ${c.complaints} complaints · ${c.deskHours} h desk time · ${TREND_WORDS[c.trend]} (${c.last30Days} in the last 30 days)${c.openCaseIds.length ? ` · open now: ${c.openCaseIds.join(', ')}` : ''}`, 9, 'bold', 12)
+    y += 2
+    lines(`Why: ${c.rootCause}`, 9, 'normal', 12)
+    lines(`What to do (${c.owner}): ${c.action}`, 9, 'normal', 12)
+  })
+
+  if (n) {
+    y = heading(doc, 'Summary', y + 18, margin)
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin, bottom: 40 },
+      head: [['Problem', 'Complaints', 'Credit', 'Trend', 'Who fixes it']],
+      body: b.clusters.map((c) => [pdfText(c.title), String(c.complaints), amount(c.value, c.currency), TREND_WORDS[c.trend], pdfText(c.owner)]),
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fillColor: TEAL, textColor: 255 },
+      alternateRowStyles: { fillColor: ZEBRA },
+      columnStyles: { 0: { cellWidth: avail * 0.36 }, 1: { halign: 'right' }, 2: { halign: 'right' } },
+    })
+  }
+
+  footer(doc, `Reclaim · root causes · ${b.totals.live} complaints from this desk, ${b.totals.archive} from the archive (sample data)`, margin)
+  return doc.output('blob')
+}
+
+export async function exportRootCauses(b: RootCauseBriefing) {
+  downloadBlob(await rootCausesPdf(b), `reclaim-root-causes-${b.generatedAt.slice(0, 10)}.pdf`)
 }

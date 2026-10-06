@@ -9,6 +9,7 @@ import type {
   Snapshot,
   Answer,
   RoutingNote,
+  RootCauseBriefing,
   Role,
   SapDocument,
   Settings,
@@ -92,6 +93,9 @@ export interface ApiClient {
   getControlTowerNotes(): Promise<RoutingNote[]>
   handoverFinding(findingId: string): Promise<{ ok: true; caseId: string } | { ok: false; status: number; message: string }>
   getAnalytics(): Promise<Analytics>
+  /** Root causes: the last briefing (null before the first), and a new one. Read-only. */
+  getRootCauses(): Promise<RootCauseBriefing | null>
+  generateRootCauses(): Promise<RootCauseBriefing>
   runEval(): Promise<EvalResult[]>
   getLatestEval(): Promise<EvalResult[] | null>
   getStatus(): Promise<AgentStatus>
