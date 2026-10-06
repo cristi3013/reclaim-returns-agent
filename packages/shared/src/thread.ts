@@ -86,7 +86,9 @@ export function stripQuoted(text: string): string {
 }
 
 const isCustomerReply = (e: CaseEvent) => e.kind === 'intake' && e.detail.followUp === true
-const isOurReply = (e: CaseEvent) => e.kind === 'status' && e.detail.replySent === true
+/** Our emails: the decision reply (`replySent`) and the messages sent in between (`messageSent`). */
+const isOurReply = (e: CaseEvent) =>
+  e.kind === 'status' && (e.detail.replySent === true || e.detail.messageSent === true)
 
 /**
  * Events a re-run keeps: what happened outside the agent (emails, decisions, SAP writes, errors). The emails we sent
@@ -94,7 +96,7 @@ const isOurReply = (e: CaseEvent) => e.kind === 'status' && e.detail.replySent =
  */
 export function keptOnRerun(e: CaseEvent): boolean {
   if (['intake', 'approval', 'sap_write', 'sap_release', 'error'].includes(e.kind)) return true
-  return e.kind === 'status' && (e.detail.replySent === true || e.detail.reopened === true)
+  return e.kind === 'status' && (isOurReply(e) || e.detail.reopened === true)
 }
 
 /** Message-IDs known for this case: the complaint, every customer reply and every reply we sent. */

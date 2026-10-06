@@ -66,6 +66,11 @@ export class ResilientAi implements Ai {
     return this.withFallback(run)
   }
 
+  /** No rules-only wording here: an empty text tells the caller to use the template. */
+  suggestReply(prompt: string) {
+    return this.withFallback((ai) => (ai.suggestReply ? ai.suggestReply(prompt) : Promise.resolve({ text: '' })))
+  }
+
   explainRootCauses(prompt: string) {
     const run = (ai: Ai) => (ai.explainRootCauses ? ai.explainRootCauses(prompt) : Promise.resolve({ narrations: [] }))
     return this.withFallback(run)

@@ -8,11 +8,19 @@ import {
   caseOutcome,
   computeAnalytics,
   currentReply,
+  customerHistory,
+  decisionReplyDue,
   EXPECTED,
   FIXTURES,
   findThreadCase,
   latestCustomerMessageId,
   primaryProposal,
+  replyGrounded,
+  replyPrompt,
+  REPLY_STATUSES,
+  templateReply,
+  type ReplyKind,
+  type ReplySuggestion,
   RULES,
   MANUAL_STATUSES,
   STATUS_LABELS,
@@ -72,9 +80,9 @@ export interface SendReplyInput {
   role: Role
   /** The reply as the person edited it. Default: the proposal's draft. */
   text?: string
+  /** 'decision' (default): the one reply after a person decided. 'message': any other email in the thread. */
+  kind?: ReplyKind
 }
-/** Statuses where a person has decided and the customer can be told. */
-const REPLY_STATUSES = ['written_to_sap', 'closed', 'needs_customer_input', 'handed_over', 'duplicate'] as const
 export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; message: string }
 
 export interface ServiceDeps {
@@ -461,6 +469,7 @@ export class Service {
     if (intake?.detail.channel !== 'mailbox' || !c.from.includes('@')) {
       return { ok: false, status: 400, message: 'This complaint did not arrive by email, so there is no address to reply to. Copy the reply instead.' }
     }
+    if (input.kind === 'message') return this.sendMessage(c, mailer, input)
     if (!(REPLY_STATUSES as readonly string[]).includes(c.status)) {
       return { ok: false, status: 409, message: 'A person has not decided this case yet. Approve it first, then send the reply.' }
     }
@@ -494,6 +503,57 @@ export class Service {
       return { ok: false, status: 502, message: `Sending the reply failed (${message}). Nothing was sent; copy the reply instead or try again.` }
     } finally {
       this.sending.delete(c.id)
+    }
+  }
+
+  /**
+   * A message to the customer in the thread, at any status and as often as needed: a question, an acknowledgement,
+   * a follow-up. It is not the decision reply: no SAP reference is added, and the decision reply stays due.
+   */
+  private async sendMessage(c: Case, mailer: Mailer, input: SendReplyInput): Promise<Outcome<{ to: string; messageId: string }>> {
+    const text = (input.text ?? '').trim()
+    if (!text) return { ok: false, status: 400, message: 'The message is empty.' }
+    if (this.sending.has(c.id)) return { ok: false, status: 409, message: 'An email to this customer is being sent.' }
+    const subject = /^re:/i.test(c.subject) ? c.subject : `Re: ${c.subject}`
+    const inReplyTo = latestCustomerMessageId(c)
+    const references = threadMessageIds(c)
+    this.sending.add(c.id)
+    const t = Date.now()
+    try {
+      const r = await mailer.send({ to: c.from, subject, text, inReplyTo, references })
+      ev(c, 'status', `Message sent to ${c.from} by ${input.actor}`, { messageSent: true, to: c.from, from: mailer.from, subject, text, messageId: r.messageId, inReplyTo, actor: input.actor, role: input.role }, null, Date.now() - t)
+      this.touch(c.id)
+      return { ok: true, value: { to: c.from, messageId: r.messageId } }
+    } catch (e) {
+      const message = (e as Error).message
+      ev(c, 'error', `Sending a message to ${c.from} failed; nothing was sent`, { message, actor: input.actor }, null, Date.now() - t)
+      this.touch(c.id)
+      return { ok: false, status: 502, message: `Sending the message failed (${message}). Nothing was sent; try again.` }
+    } finally {
+      this.sending.delete(c.id)
+    }
+  }
+
+  /**
+   * The suggested next email to the customer, from every email with them about the invoice. The facts come from
+   * code; the model only words them, and wording with a number that is in none of the emails or facts is not used.
+   */
+  async suggestReply(caseId: string): Promise<ReplySuggestion> {
+    const c = this.store.get(caseId)
+    const kind: ReplyKind = decisionReplyDue(c) ? 'decision' : 'message'
+    const history = customerHistory(c, [...this.store.cases.values()])
+    const template = templateReply(c, history, kind)
+    const ai = this.deps.ai(this.store.settings)
+    if (!ai.suggestReply) return { text: template, kind, by: 'template', emails: history.length, note: null }
+    try {
+      const r = await ai.suggestReply(replyPrompt(c, history, kind))
+      if (!r.text) return { text: template, kind, by: 'template', emails: history.length, note: r.fallback ?? null }
+      if (!replyGrounded(r.text, c, history)) {
+        return { text: template, kind, by: 'template', emails: history.length, note: 'The model wrote a number that is in none of the emails or facts; the standard wording is shown instead.' }
+      }
+      return { text: r.text, kind, by: 'model', emails: history.length, note: null }
+    } catch (e) {
+      return { text: template, kind, by: 'template', emails: history.length, note: `The model is not available (${(e as Error).message.slice(0, 100)}).` }
     }
   }
 

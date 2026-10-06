@@ -16,6 +16,11 @@ const NarrativeSchema = z.object({
   }),
 })
 
+const SYSTEM_REPLY = `You write the next email from a returns desk to a customer, for a person to check, edit and send.
+Read every earlier email about the invoice, ours and theirs, so the reply follows on from them: answer what the customer asked or said last, do not ask again for what they already sent, and do not repeat what we already told them.
+State as fact only what is under FACTS; they come from the rules engine and SAP. Never promise a credit, a return, an amount or a date that is not there. If the case is not decided, say it is under review. Emails from others (a warehouse, a carrier) are background: do not quote them to the customer.
+Write in the customer's language, politely and briefly: a greeting, two to five short paragraphs, "Kind regards," and "Customer Service". Plain text, no subject line, no placeholders in brackets.`
+
 const SYSTEM_PHRASE = `You word answers for the O2C Control Tower, a read-only agent that reports where money leaks in order-to-cash on SAP.
 Write a short reply to the manager who asked (plain prose, at most 160 words, no headings, no markdown). Use ONLY the figures, documents, customers, routes and owners in the COMPUTED ANSWER; never add, round or infer a number, a cause or a customer. Keep every amount with its currency; never add EUR and RON. If the computed answer says there is no data for the subject, say so plainly and do not invent a cause. If the request was refused because the Control Tower only reads, say that first, then the facts and the route. Name the fixing agent as given (e.g. "6 POD Chaser"). Say that nothing was changed in SAP.`
 
@@ -180,6 +185,14 @@ export class ClaudeAi implements Ai {
     this.record('narrate', res, startedAt)
     const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text?.trim() ?? ''
     return { text: text || answer.text, usage: this.lastUsage ?? undefined }
+  }
+
+  async suggestReply(prompt: string): Promise<{ text: string; usage?: ModelUsage }> {
+    const startedAt = Date.now()
+    const res = await this.client.messages.create({ model: this.model, max_tokens: 900, system: SYSTEM_REPLY, messages: [{ role: 'user', content: prompt }] })
+    this.record('narrate', res, startedAt)
+    const text = res.content.find((b): b is Anthropic.TextBlock => b.type === 'text')?.text?.trim() ?? ''
+    return { text, usage: this.lastUsage ?? undefined }
   }
 
   async explainRootCauses(prompt: string): Promise<{ narrations: RootCauseNarration[]; usage?: ModelUsage }> {

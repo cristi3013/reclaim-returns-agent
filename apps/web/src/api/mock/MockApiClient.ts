@@ -33,6 +33,10 @@ import {
   localRootCauses,
   recordFromCase,
   type RootCauseBriefing,
+  customerHistory,
+  decisionReplyDue,
+  templateReply,
+  type ReplySuggestion,
 } from '@reclaim/shared'
 import {
   CONFLICT_MESSAGE,
@@ -312,6 +316,13 @@ export class MockApiClient implements ApiClient {
     } finally {
       this.writing.delete(c.id)
     }
+  }
+
+  async replySuggestion(id: string): Promise<ReplySuggestion> {
+    const c = await this.getCase(id)
+    const kind = decisionReplyDue(c) ? 'decision' : 'message'
+    const history = customerHistory(c, [...this.store.cases.values()])
+    return { text: templateReply(c, history, kind), kind, by: 'template', emails: history.length, note: null }
   }
 
   async sendReply(): Promise<SendReplyResult> {

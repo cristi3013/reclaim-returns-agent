@@ -52,7 +52,7 @@ const InboundBody = z.object({
 // Who acts comes from the signed session token (req.principal); actor and role in a body are ignored.
 const ApproveBody = z.object({ actor: z.string().optional(), role: z.string().optional(), editedQuantity: z.number().optional(), comment: z.string().optional() })
 const RejectBody = ApproveBody.pick({ actor: true, role: true }).extend({ comment: z.string() })
-const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional() })
+const ReplyBody = ApproveBody.pick({ actor: true, role: true }).extend({ text: z.string().optional(), kind: z.enum(['decision', 'message']).optional() })
 const StatusBody = ApproveBody.pick({ actor: true, role: true }).extend({ to: z.enum(CASE_STATUSES), comment: z.string() })
 
 export interface AppOptions {
@@ -208,6 +208,7 @@ export function buildApp(opts: AppOptions = {}): { app: FastifyInstance; service
     return r.value
   })
 
+  app.get<{ Params: { id: string } }>('/api/cases/:id/reply-suggestion', async (req) => service.suggestReply(req.params.id))
   app.post<{ Params: { id: string } }>('/api/cases/:id/status', async (req, reply) => {
     const r = service.changeStatus(req.params.id, { ...StatusBody.parse(req.body), ...who(req) })
     if (!r.ok) return reply.status(r.status).send({ message: r.message, status: r.status })
