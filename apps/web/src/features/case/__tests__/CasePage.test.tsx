@@ -13,6 +13,7 @@ import { ApiProvider } from '@/api'
 import { MockApiClient } from '@/api/mock/MockApiClient'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useUi } from '@/store/ui'
+import { conversation } from '@reclaim/shared'
 import { CasePage } from '../CasePage'
 
 it('a complaint with no invoice waits for the customer, and the case page asks them for it', async () => {
@@ -157,4 +158,52 @@ it('two options: both are shown, the person picks one, then sends it to approval
   const c = await api.getCase('case-01')
   expect(c.proposals.find((p) => p.chosen)?.option).toBe('A')
   expect(c.status).toBe('awaiting_approval')
+})
+
+it('one case per invoice: a later email shows the switcher and every email on the invoice', async () => {
+  localStorage.clear()
+  useUi.getState().setRole('credit_manager')
+  const api = new MockApiClient({ fast: true })
+  await api.seedCases()
+  await api.runCase('case-01')
+  await api.runCase('case-06')
+
+  const root = createRootRoute({
+    component: () => (
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
+    ),
+  })
+  const caseRoute = createRoute({
+    getParentRoute: () => root,
+    path: '/cases/$id',
+    component: CasePage,
+  })
+  const others = ['/', '/approvals', '/invoices', '/invoices/$invoice'].map((path) =>
+    createRoute({ getParentRoute: () => root, path }),
+  )
+  const router = createRouter({
+    routeTree: root.addChildren([caseRoute, ...others]),
+    history: createMemoryHistory({ initialEntries: ['/cases/case-06'] }),
+  })
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ApiProvider client={api}>
+        <RouterProvider router={router} />
+      </ApiProvider>
+    </QueryClientProvider>,
+  )
+
+  const nav = await screen.findByRole('navigation', { name: 'Complaints on this invoice' })
+  expect(nav.querySelectorAll('a')).toHaveLength(2)
+  expect(nav.querySelector('[aria-current="page"]')?.textContent).toMatch(/^2 ·/)
+  const a = await api.getCase('case-01')
+  const b = await api.getCase('case-06')
+  expect(await screen.findByText(/New complaint on this invoice|case reopened/)).toBeTruthy()
+  expect(
+    screen.getByRole('heading', {
+      name: `Conversation · ${conversation(a).length + conversation(b).length} emails`,
+    }),
+  ).toBeTruthy()
 })

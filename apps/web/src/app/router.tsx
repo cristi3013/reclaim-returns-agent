@@ -24,7 +24,7 @@ const inbox = createRoute({
 /** One email from the Inbox, with the way to its case. */
 const email = createRoute({ getParentRoute: () => rootRoute, path: '/inbox/$id', component: EmailPage })
 const caseRoute = createRoute({ getParentRoute: () => rootRoute, path: '/cases/$id', component: CasePage })
-/** One case per invoice: all complaints and emails about it. */
+/** One case per invoice; an invoice link opens its case page. */
 const invoiceCases = createRoute({ getParentRoute: () => rootRoute, path: '/invoices', component: InvoiceCasesPage })
 const invoiceCase = createRoute({ getParentRoute: () => rootRoute, path: '/invoices/$invoice', component: InvoiceCasePage })
 /** `?case=<id>` opens the approvals page on that case (links from the dashboard). */

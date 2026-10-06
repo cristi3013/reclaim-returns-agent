@@ -1,9 +1,22 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { useState } from 'react'
+import { useQueries } from '@tanstack/react-query'
 import { Check, ChevronRight, FileText, Play, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCase, useCases, useChoose, useRunCase, useStatus } from '@/api'
-import { ROLE_LABELS, caseStatusByComplaint, conversation, primaryProposal } from '@reclaim/shared'
+import { useApi, useCase, useCases, useChoose, useRunCase, useStatus } from '@/api'
+import {
+  COMPLAINT_LABELS,
+  ROLE_LABELS,
+  caseStatusByComplaint,
+  conversation,
+  groupByInvoice,
+  invoiceConversation,
+  primaryProposal,
+  type Case,
+} from '@reclaim/shared'
+import { DocTypeBadge } from '@/components/domain/DocTypeBadge'
+import { formatDateTime } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { CHIP } from '@/features/invoice-cases/status'
 import { useUi } from '@/store/ui'
 import { StatusMenu } from '@/components/domain/StatusMenu'
@@ -35,7 +48,18 @@ export function CasePage() {
   const status = useStatus()
   const { role } = useUi()
   const [pick, setPick] = useState<string>()
+  const api = useApi()
   const c = q.data
+  // One case per invoice: the other complaints on it, for the switcher and the whole conversation.
+  const ic = c?.invoiceNumber
+    ? groupByInvoice(list.data ?? []).find((x) => x.invoice === c.invoiceNumber)
+    : undefined
+  const siblings = useQueries({
+    queries: (ic && ic.complaints.length > 1 ? ic.complaints : []).map((s) => ({
+      queryKey: ['case', s.id],
+      queryFn: () => api.getCase(s.id),
+    })),
+  })
   if (q.isLoading) return <Skeleton className="h-96" />
   if (q.error || !c)
     return <ErrorState error={q.error ?? 'Case not found'} onRetry={() => q.refetch()} />
@@ -52,6 +76,8 @@ export function CasePage() {
   // Decide here as well as in the approvals queue: approve or reject, then the SAP result and the reply.
   const decidable = !noInvoice && !!primary && DECISION_STATUSES.includes(c.status)
   const sent = !!primary?.chosen
+  const loaded = siblings.map((x) => x.data).filter((x): x is Case => !!x)
+  const invoiceMessages = loaded.length > 1 ? invoiceConversation(loaded) : undefined
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start gap-4">
@@ -139,6 +165,35 @@ export function CasePage() {
         </div>
       </div>
 
+      {ic && ic.complaints.length > 1 && (
+        <nav
+          aria-label="Complaints on this invoice"
+          className="-mt-3 mb-4 flex flex-wrap items-center gap-2 text-xs"
+        >
+          <span className="font-semibold text-muted">Complaints on this invoice</span>
+          {ic.complaints.map((s, i) => (
+            <Link
+              key={s.id}
+              to="/cases/$id"
+              params={{ id: s.id }}
+              aria-current={s.id === c.id ? 'page' : undefined}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 hover:bg-surface-2',
+                s.id === c.id
+                  ? 'border-fg bg-surface-2 font-medium text-fg'
+                  : 'border-line text-muted',
+              )}
+            >
+              <span>
+                {i + 1} · {COMPLAINT_LABELS[s.complaintType]}
+              </span>
+              {s.ruleId && <DocTypeBadge type={s.documentType} compact />}
+              <span>{formatDateTime(s.receivedAt)}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
+
       {decidable && primary && (
         <section
           aria-labelledby="decision-title"
@@ -223,7 +278,7 @@ export function CasePage() {
         // The conversation and the proposal get the room; SAP and what the agent read sit beside them.
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
-            <ComplaintPanel c={c} />
+            <ComplaintPanel c={c} invoiceMessages={invoiceMessages} />
             <section className="mt-4">
               <h2 className="mb-2 text-base font-semibold text-fg">
                 {two ? 'Proposal · two options, a person chooses' : 'Proposal'}

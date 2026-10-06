@@ -1,9 +1,17 @@
-import { COMPLAINT_LABELS, conversation, type Case } from '@reclaim/shared'
+import { RotateCcw } from 'lucide-react'
+import { COMPLAINT_LABELS, conversation, type Case, type InvoiceMessage } from '@reclaim/shared'
 import { Conversation } from '@/components/domain/Conversation'
 import { Attachments } from '@/components/domain/Attachments'
 
-export function ComplaintPanel({ c }: { c: Case }) {
-  const messages = conversation(c)
+/** The conversation: this complaint's emails, or every email on the invoice when it has more complaints. */
+export function ComplaintPanel({
+  c,
+  invoiceMessages,
+}: {
+  c: Case
+  invoiceMessages?: InvoiceMessage[]
+}) {
+  const messages = invoiceMessages ?? conversation(c)
   return (
     <section className="rounded-lg border border-line bg-surface p-4 shadow-card">
       <h2 className="text-base font-semibold text-fg">
@@ -11,7 +19,28 @@ export function ComplaintPanel({ c }: { c: Case }) {
       </h2>
       <div className="mt-1 text-sm font-medium">{c.subject}</div>
       <Attachments list={c.attachments} compact />
-      <Conversation messages={messages} customerFrom={c.from} label="Emails in this case" />
+      <Conversation
+        messages={messages}
+        customerFrom={c.from}
+        label="Emails in this case"
+        extras={(m) => {
+          const x = m as InvoiceMessage
+          return x.startsComplaint
+            ? {
+                before: (
+                  <li className="flex items-center gap-2 py-1 text-xs text-muted" role="separator">
+                    <span className="h-px flex-1 bg-line" />
+                    <RotateCcw className="size-3.5" aria-hidden />
+                    {x.reopens
+                      ? 'New email on this invoice · case reopened'
+                      : 'New complaint on this invoice'}
+                    <span className="h-px flex-1 bg-line" />
+                  </li>
+                ),
+              }
+            : {}
+        }}
+      />
     </section>
   )
 }

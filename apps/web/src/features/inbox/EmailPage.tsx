@@ -1,7 +1,7 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { ArrowRight, ChevronRight } from 'lucide-react'
-import { conversation } from '@reclaim/shared'
-import { useCase } from '@/api'
+import { caseHome, conversation } from '@reclaim/shared'
+import { useCase, useCases } from '@/api'
 import { Attachments } from '@/components/domain/Attachments'
 import { ErrorState } from '@/components/domain/ErrorState'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { formatDateTime } from '@/lib/format'
 export function EmailPage() {
   const { id } = useParams({ from: '/inbox/$id' })
   const q = useCase(id)
+  const list = useCases()
   const c = q.data
   if (q.isLoading) return <Skeleton className="h-96" />
   if (q.error || !c)
@@ -29,7 +30,8 @@ export function EmailPage() {
       <div className="mb-4 flex flex-wrap items-start gap-4">
         <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight">{c.subject}</h1>
         <Button asChild>
-          <Link to="/cases/$id" params={{ id: c.id }}>
+          {/* The same case as from Cases: every email on the invoice opens its main complaint. */}
+          <Link to="/cases/$id" params={{ id: caseHome(list.data ?? [], c.id) }}>
             Go to case <ArrowRight className="size-4" />
           </Link>
         </Button>

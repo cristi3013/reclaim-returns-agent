@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { groupByInvoice } from '@reclaim/shared'
+import { groupByInvoice, mainComplaint, type InvoiceCase } from '@reclaim/shared'
 import { useCases } from '@/api'
 import { PageHeader } from '@/components/domain/PageHeader'
 import { StatusChip } from '@/components/domain/StatusChip'
@@ -19,7 +19,9 @@ export function InvoiceCasesPage() {
   const rows = q.data ?? []
   const cases = groupByInvoice(rows)
   const noInvoice = rows.filter((r) => !r.invoiceNumber).length
-  const open = (invoice: string) => navigate({ to: '/invoices/$invoice', params: { invoice } })
+  // The same case page as Inbox → Go to case: the invoice's main complaint.
+  const open = (c: InvoiceCase) =>
+    navigate({ to: '/cases/$id', params: { id: mainComplaint(c.complaints).id } })
   const now = Date.now()
   return (
     <div>
@@ -64,9 +66,9 @@ export function InvoiceCasesPage() {
               {cases.map((c) => (
                 <tr
                   key={c.invoice}
-                  onClick={() => open(c.invoice)}
+                  onClick={() => open(c)}
                   tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && open(c.invoice)}
+                  onKeyDown={(e) => e.key === 'Enter' && open(c)}
                   className="cursor-pointer border-t border-line outline-none hover:bg-surface-2 focus:bg-surface-2"
                 >
                   <td className="px-3 py-2 font-mono font-medium">{c.invoice}</td>

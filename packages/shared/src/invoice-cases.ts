@@ -112,3 +112,26 @@ export function caseStatusByComplaint(rows: CaseSummary[]): Map<string, InvoiceC
   for (const r of rows) if (!out.has(r.id)) out.set(r.id, 'pending')
   return out
 }
+
+/**
+ * The complaint a case opens on, whichever way you come to it: the newest one waiting for approval, else the
+ * newest one still open, else the newest that is not a duplicate. Oldest-first input, as in an InvoiceCase.
+ */
+export function mainComplaint<T extends Pick<CaseSummary, 'id' | 'status'>>(complaints: T[]): T {
+  const newest = [...complaints].reverse()
+  return (
+    newest.find((c) => c.status === 'awaiting_approval') ??
+    newest.find((c) => !DONE.includes(c.status)) ??
+    newest.find((c) => c.status !== 'duplicate') ??
+    newest[0]!
+  )
+}
+
+/** Where a complaint's case opens: the main complaint of its invoice, or itself when it has no invoice yet. */
+export function caseHome(rows: CaseSummary[], id: string): string {
+  const r = rows.find((x) => x.id === id)
+  const ic = r?.invoiceNumber
+    ? groupByInvoice(rows).find((x) => x.invoice === r.invoiceNumber)
+    : null
+  return ic ? mainComplaint(ic.complaints).id : id
+}
