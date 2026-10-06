@@ -9,7 +9,6 @@ import { ErrorState } from '@/components/domain/ErrorState'
 import { KpiTile } from '@/components/domain/KpiTile'
 import { Pagination, usePagination } from '@/components/domain/Pagination'
 import { Markdown } from './Markdown'
-import { formatRelative } from '@/lib/format'
 
 const money = (m: Record<string, number>) => (Object.keys(m).length ? Object.entries(m).map(([c, v]) => `${v.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace(/,/g, ' ')} ${c}`).join(' + ') : 'not valued')
 const amt = (v: number | null, c: string) => (v == null ? 'not valued' : `${v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,/g, ' ')} ${c}`)
@@ -44,7 +43,7 @@ export function ControlTowerPage() {
           <p className="text-sm text-muted">Where money leaks out of order-to-cash, and which agent fixes each leak. Read-only: nothing here changes SAP.</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {d && <span className="text-xs text-muted">Snapshot as of {d.asOf} · {d.requestLog.length} GET requests</span>}
+          {d && <span className="text-xs text-muted">{d.source} · {d.requestLog.length} GET requests</span>}
           <Button size="sm" onClick={() => run.mutate(undefined, { onSuccess: () => toast.success('Snapshot refreshed from SAP reads') })} disabled={run.isPending}>
             {run.isPending ? 'Reading…' : 'Run the snapshot'}
           </Button>
@@ -243,7 +242,7 @@ function Notes() {
 function Log({ d }: { d: Snapshot }) {
   return (
     <div className="mt-3 rounded-lg border border-line bg-surface p-4">
-      <p className="text-xs text-muted">Every SAP request of this run. GET only: the Control Tower has no write call. Captured {formatRelative(new Date().toISOString())} from the organisers' DS4 answers of {d.asOf}.</p>
+      <p className="text-xs text-muted">Every SAP request of this run. GET only: the Control Tower has no write call. Source: {d.source}.</p>
       <ol className="mt-2 list-decimal space-y-0.5 pl-6 font-mono text-[11px]">{d.requestLog.map((r, i) => <li key={i} className="break-all">{r}</li>)}</ol>
     </div>
   )

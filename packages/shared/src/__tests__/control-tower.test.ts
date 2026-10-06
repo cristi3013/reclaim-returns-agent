@@ -143,3 +143,37 @@ describe('Control Tower questions against the oracle', () => {
     expect(a.facts[1]).toMatch(/178 deliveries \(144 of this period; 59 within grace, 31 past 14 days: 30 wait for POD, 1 billing\); 34 legacy/)
   })
 })
+
+describe('Control Tower, the same order a week later', () => {
+  it('04 order 1876 on 6 Oct: past the grace, a POD finding of medium severity for the POD Chaser, not a billing leak', () => {
+    // The gateway's walk now reports this deviation under 3.4.1 (POD), as the live tool does since 6 Oct.
+    const p6 = { ...pack(), asOf: '2026-10-06' }
+    p6.conformance = p6.conformance!.map((c) => (c.response.salesOrder === '1876' ? { ...c, response: { ...c.response, findings: [{ severity: 'high', l4: '3.4.1', step: 'Proof of Delivery: Confirm POD (VLPOD)', finding: 'Goods issued, proof of delivery still open (80608983): billing waits for POD.', routeTo: 'pod' }] } } : c))
+    const later = packToScanInput(p6)
+    const s6 = runScan(later)
+    expect(s6.findings.filter((x) => x.document === '1876')).toHaveLength(0)
+    expect(s6.kpis.conformance.deviationsByL4['3.4.1']).toBe(1)
+    const f = s6.findings.find((x) => x.document === '80608983')!
+    expect(f).toMatchObject({ kind: 'pod_pending', l4: '3.4.1', severity: 'medium', ageDays: 6, routeTo: 'pod' })
+    const a = answerQuestion('Order 1876 is flagged as delivered, not billed. Is this revenue leakage? Who should fix it?', s6, later.customers, later.conformance, later.blockedOrders.rows)
+    expect(a.routeTo).toBe('pod')
+    expect(a.text).toMatch(/POD finding \(3\.4\.1\) of severity medium, high after 14 days, routed to 6 POD Chaser/)
+    expect(a.text).toMatch(/not a billing leak/)
+    expect(a.text).not.toMatch(/4\.1\.1.*high/)
+    expect(a.facts.join(' ')).not.toMatch(/severity high/)
+  })
+})
+
+describe('Control Tower, a section that fails to read', () => {
+  it('runs on, reports the section as not read, and answers a country question without customers', () => {
+    const p = pack()
+    p.customers = { response: undefined as unknown as NonNullable<PackFiles['customers']>['response'], status: 503, error: 'getCustomerAddresses: the gateway is not reachable right now' } as PackFiles['customers']
+    const input = packToScanInput(p)
+    const s2 = runScan(input)
+    expect(s2.notRead).toEqual([{ section: 'customer addresses', error: 'getCustomerAddresses: the gateway is not reachable right now' }])
+    expect(s2.findings.length).toBeGreaterThan(300)
+    expect(buildMemo(s2)).toContain('customer addresses: getCustomerAddresses')
+    const a = answerQuestion('How much do Swiss customers owe us?', s2, input.customers, input.conformance, input.blockedOrders.rows)
+    expect(a.noData).toBe(true)
+  })
+})

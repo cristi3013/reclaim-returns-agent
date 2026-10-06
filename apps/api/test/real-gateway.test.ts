@@ -142,3 +142,16 @@ describe('RealGateway', () => {
     expect(calls[1]?.body).toEqual({ ID: 'abc', status: 'APPROVED', approvedBy: 'Demo', approverRole: 'credit-manager' })
   })
 })
+
+describe('RealGateway Control Tower reads', () => {
+  it('sends Int32 parameters unquoted and strings quoted, and returns the tool shape', async () => {
+    stub(() => ({ underlyingRequests: ['GET /sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrder?...'], capturedOn: '2026-10-06', response: { count: 1, orders: [] } }))
+    const r = await gw().readTool<{ count: number }>('listBlockedOrders', { top: 500 })
+    expect(calls[0]?.url).toBe(`${BASE}/listBlockedOrders(top=500)`)
+    expect(r.response.count).toBe(1)
+    await gw().readTool('listOverdueReceivables', { companyCode: 'YDE1', keyDate: '2026-10-06' })
+    expect(calls[1]?.url).toBe(`${BASE}/listOverdueReceivables(companyCode='YDE1',keyDate='2026-10-06')`)
+    stub(() => 'not the tool shape')
+    await expect(gw().readTool('listBlockedOrders', { top: 1 })).rejects.toMatchObject({ status: 502 })
+  })
+})

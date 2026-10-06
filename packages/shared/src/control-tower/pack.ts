@@ -105,15 +105,21 @@ export function packToScanInput(p: PackFiles): ScanInput {
     for (const it of c.response?.items ?? []) dueRows.push({ delivery: it.ReferenceSDDocument.replace(/^0+/, ''), netAmount: num(it.NetAmount), currency: it.TransactionCurrency, hasError: !!it.HasError, soldTo: it.SoldToParty })
   }
   const dueList: ReadList<DueListRow> = { rows: dueRows, cap: null, error: null, requests: dueReq }
-  const names = new Map((p.customers?.response.names ?? []).map((n) => [n.BusinessPartner, n.BusinessPartnerFullName]))
-  const customers: CustomerRow[] = (p.customers?.response.addresses ?? []).map((a) => ({ id: a.BusinessPartner, name: names.get(a.BusinessPartner) ?? a.BusinessPartner, country: a.Country || null, city: a.CityName || null }))
+  const notRead: { section: string; error: string }[] = []
+  const cust = p.customers?.response
+  if (p.customers && (p.customers.error || !cust || (p.customers.status ?? 200) >= 400)) notRead.push({ section: 'customer addresses', error: p.customers.error ?? `HTTP ${p.customers.status ?? '?'}` })
+  const names = new Map((cust?.names ?? []).map((n) => [n.BusinessPartner, n.BusinessPartnerFullName]))
+  const customers: CustomerRow[] = (cust?.addresses ?? []).map((a) => ({ id: a.BusinessPartner, name: names.get(a.BusinessPartner) ?? a.BusinessPartner, country: a.Country || null, city: a.CityName || null }))
   for (const [id, name] of names) if (!customers.some((c) => c.id === id)) customers.push({ id, name, country: null, city: null })
-  for (const id of p.customers?.response.noAddressOnDS4 ?? []) if (!customers.some((c) => c.id === id)) customers.push({ id, name: '(no address on DS4)', country: null, city: null })
-  const conformance: ConformanceRow[] = (p.conformance ?? []).map((c) => ({ order: c.response.salesOrder, conforms: c.response.conforms, findings: c.response.findings, deliveries: c.response.deliveries, billingDocuments: c.response.billingDocuments }))
+  for (const id of cust?.noAddressOnDS4 ?? []) if (!customers.some((c) => c.id === id)) customers.push({ id, name: '(no address on DS4)', country: null, city: null })
+  const conformance: ConformanceRow[] = (p.conformance ?? [])
+    .filter((c) => c.response && !c.error)
+    .map((c) => ({ order: c.response.salesOrder, conforms: c.response.conforms, findings: c.response.findings ?? [], deliveries: c.response.deliveries ?? [], billingDocuments: c.response.billingDocuments ?? [] }))
+  for (const c of p.conformance ?? []) if (!c.response || c.error) notRead.push({ section: `conformance of order ${String(c.arguments?.salesOrder ?? '?')}`, error: c.error ?? `HTTP ${c.status ?? '?'}` })
   const conformanceRequests = (p.conformance ?? []).flatMap((c) => c.underlyingRequests ?? [])
   const returns: ReadList<ReturnRow> = { rows: p.returns ?? [], cap: null, error: null, requests: [] }
   const customersRequests = p.customers?.underlyingRequests ?? []
   // Requests of sections without their own ReadList are logged through the due list entry.
   dueList.requests.push(...conformanceRequests, ...customersRequests)
-  return { asOf, unbilled, awaitingPod, blockedOrders, overdue, dueList, returns, customers, conformance }
+  return { asOf, unbilled, awaitingPod, blockedOrders, overdue, dueList, returns, customers, conformance, notRead }
 }

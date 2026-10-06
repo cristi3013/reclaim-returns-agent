@@ -67,7 +67,8 @@ export function answerQuestion(question: string, s: Snapshot, customers: Custome
 
   if (q.topic === 'conformance' && q.order) {
     const c = conformance.find((x) => x.order === q.order)
-    const f = s.findings.find((x) => x.documentType === 'order' && x.document === q.order) ?? s.findings.find((x) => c?.deliveries.includes(x.document))
+    // The delivery's own finding first (our severity and route); an order-level deviation only when there is no delivery.
+    const f = s.findings.find((x) => c?.deliveries.includes(x.document)) ?? s.findings.find((x) => x.documentType === 'order' && x.document === q.order)
     if (!c) return { ...base, headline: `Order ${q.order} was not walked in this run.`, facts: [], findings: [], routeTo: 'person', noData: true, refused: false, text: `Order ${q.order} is not among the orders walked in this run, so I cannot show its document chain. Ask for a conformance check of that order.` }
     const chain = `order ${c.order}${c.deliveries.length ? ` → delivery ${c.deliveries.join(', ')}` : ' (no delivery yet)'}${c.billingDocuments.length ? ` → invoice ${c.billingDocuments.join(', ')}` : c.deliveries.length ? ' → no invoice' : ''}`
     if (c.conforms) return { ...base, headline: `Yes: ${chain}. No deviation.`, facts: [`Chain: ${chain}.`, c.billingDocuments.length ? 'Delivered and invoiced: it follows the reference process end to end.' : 'Not delivered yet: nothing deviates.'], findings: [], routeTo: 'none', noData: false, refused: false, text: `Yes. ${chain}: no deviation from the reference process.` }
@@ -75,7 +76,21 @@ export function answerQuestion(question: string, s: Snapshot, customers: Custome
     if (f && f.severity === 'watch') {
       return { ...base, headline: `Not a leak yet: ${chain}; goods left ${f.ageDays} day(s) ago, inside the ${3}-day grace period.`, facts: [`Chain: ${chain}.`, `Delivery ${f.document}: goods issue ${f.ageDays} day(s) ago, ${f.kind === 'pod_pending' ? 'POD-relevant and the POD is still open: the invoice waits for it' : 'not billed yet'}.`, `The conformance check flags ${dev.l4} without a grace period; rules S3/S4/S8 give 3 days.`, f.kind === 'pod_pending' ? `If the POD is still open after the grace period it becomes a POD finding (3.4.1) for ${AGENTS.pod}, not a billing finding.` : `If it is still unbilled after the grace period it becomes a billing finding (4.1.1) for ${AGENTS.billing}.`, `Data owner: ${f.dataOwner}.`], findings: [f], routeTo: 'none', noData: false, refused: false, text: `Not a leak yet. ${chain}. The goods left ${f.ageDays} day(s) ago and ${f.kind === 'pod_pending' ? 'the invoice waits for the POD' : 'the invoice is not created yet'}; that is inside the 3-day grace period, so no revenue is leaking today and the ${f.value != null ? fmt(f.value, f.currency) : 'order value'} must not be reported as lost. ${f.kind === 'pod_pending' ? `If the POD is still open after the grace period, it becomes a POD finding (3.4.1) for ${AGENTS.pod}` : `If it is still unbilled after the grace period, it becomes a billing finding (4.1.1) for ${AGENTS.billing}`}. Data owner: ${f.dataOwner}.` }
     }
-    return { ...base, headline: `${chain}: deviation at ${dev.l4}, ${dev.finding}`, facts: [`Chain: ${chain}.`, `${dev.l4}: ${dev.finding} (severity ${dev.severity}).`], findings: f ? [f] : [], routeTo: f?.routeTo ?? ((dev.routeTo in AGENTS ? dev.routeTo : 'person') as Route), noData: false, refused: false, text: `${chain}. Deviation at ${dev.l4}: ${dev.finding}${f ? ` Severity ${f.severity}, ${f.ageDays} days, route to ${AGENTS[f.routeTo]}, data owner ${f.dataOwner}.` : ''}` }
+    if (f) {
+      // Past the grace period: our finding decides the words, not the conformance tool's generic text.
+      const pod = f.kind === 'pod_pending'
+      const sev = `${f.severity}${f.severity === 'medium' ? ', high after 14 days' : ''}`
+      const facts = [
+        `Chain: ${chain}.`,
+        pod
+          ? `Delivery ${f.document}: goods issued ${f.ageDays} days ago, POD-relevant and the POD is still open, so the invoice waits for the POD. This is a POD finding (3.4.1), not a billing leak: the cause is the missing proof of delivery.`
+          : `Delivery ${f.document}: goods issued ${f.ageDays} days ago, ${f.why}`,
+        `Severity ${sev}; rule ${f.rule}; ${f.value == null ? 'value not on the billing due list' : `value ${f.value.toFixed(2)} ${f.currency}`}; route to ${AGENTS[f.routeTo]}; data owner ${f.dataOwner}.`,
+        `The conformance check reports it at ${dev.l4} (${dev.finding}); the Control Tower applies the 3-day grace and counts the delivery once.`,
+      ]
+      return { ...base, headline: `${pod ? 'A POD finding, not a billing leak' : 'A billing leak'}: ${chain}; ${f.ageDays} days, ${f.severity}, ${AGENTS[f.routeTo]}.`, facts, findings: [f], routeTo: f.routeTo, noData: false, refused: false, text: `${chain}. The goods left ${f.ageDays} days ago and ${pod ? 'the invoice waits for the proof of delivery, which is still open' : 'the invoice is still not created'}; past the 3-day grace, so this is a ${pod ? 'POD finding (3.4.1)' : 'billing finding (4.1.1)'} of severity ${sev}, routed to ${AGENTS[f.routeTo]}. ${pod ? 'It is not a billing leak: billing cannot invoice before the POD. ' : ''}${f.value == null ? 'The order value is not reported as lost revenue; the delivery is not valued on the billing due list.' : `Value ${f.value.toFixed(2)} ${f.currency}.`} Data owner: ${f.dataOwner}. Nothing was changed in SAP.` }
+    }
+    return { ...base, headline: `${chain}: deviation at ${dev.l4}, ${dev.finding}`, facts: [`Chain: ${chain}.`, `${dev.l4}: ${dev.finding} (severity ${dev.severity}).`], findings: [], routeTo: (dev.routeTo in AGENTS ? dev.routeTo : 'person') as Route, noData: false, refused: false, text: `${chain}. Deviation at ${dev.l4}: ${dev.finding}` }
   }
 
   if (q.country && !customers.some((c) => c.country === q.country)) {

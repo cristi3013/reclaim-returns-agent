@@ -6,7 +6,7 @@ Read this first. It is the same context the frontend was built with, condensed. 
 
 A customer of a chemicals distributor emails a complaint ("two drums leaked, invoice 90000353"). Reclaim reads the email, finds the invoice and its history in SAP, applies the written returns policy (nine rules, R1 to R9), and proposes either a **customer return (YRE)**, a **credit memo request (YCR)**, or no document, with the right reason code and billing block 08. A named person approves in the UI. Only then does the backend write to SAP, with the record's version stamp (ETag) so a conflicting change is refused (412), never overwritten.
 
-**The model reads and explains. Code decides about money. A person approves every SAP change.** That sentence is the product. Everything below protects it.
+**The model reads and explains. Deterministic rules set every amount. A person approves every SAP change.** That sentence is the product. Everything below protects it.
 
 ## 2. Where things are
 

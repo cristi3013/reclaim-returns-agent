@@ -89,6 +89,8 @@ export interface ScanInput {
   returns: ReadList<ReturnRow>
   customers: CustomerRow[]
   conformance: ConformanceRow[]
+  /** Sections without their own ReadList that failed to read (customers, conformance): reported, never guessed. */
+  notRead?: { section: string; error: string }[]
 }
 
 export const SEVERITIES = ['high', 'medium', 'info', 'watch'] as const
@@ -146,6 +148,8 @@ export type Kpis = z.infer<typeof KpisSchema>
 
 export const SnapshotSchema = z.object({
   asOf: z.string(),
+  /** Where the lists came from: "SAP DS4, live" or the organisers' pack of 1 Oct 2026. */
+  source: z.string(),
   period: z.string(),
   verdict: z.enum(['ready', 'at risk', 'not ready']),
   verdictWhy: z.string(),

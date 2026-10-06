@@ -2,7 +2,7 @@
 
 Deloitte AI Agentic Enterprise Hackathon entry. Presentation Tuesday 6 Oct 2026, 13:00.
 
-**The model reads and explains. Code decides about money. A person approves every SAP change.**
+**The model reads and explains. Deterministic rules set every amount. A person approves every SAP change.**
 
 ## Start here
 
